@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useFieldArray } from "react-hook-form";
 import * as z from "zod";
-import { format } from "date-fns";
+import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isSameMonth, isSameDay, differenceInCalendarDays, isBefore } from "date-fns";
 import { pl } from "date-fns/locale";
 import { v4 as uuidv4 } from "uuid";
 import {
@@ -25,7 +25,9 @@ import {
   Copy,
   Menu,
   LayoutDashboard,
-  ClipboardPaste, // New icon for paste
+  ClipboardPaste,
+  ChevronLeft, // For calendar navigation
+  ChevronRight, // For calendar navigation
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -159,8 +161,7 @@ export default function CreateTrainingPlanPage() {
 
   const [copiedDayConfig, setCopiedDayConfig] = React.useState<Omit<PlanDayFormValues, 'dayName'> | null>(null);
   const [isPastingModeActive, setIsPastingModeActive] = React.useState(false);
-
-
+  
   const form = useForm<PlanFormValues>({
     resolver: zodResolver(planFormSchema),
     defaultValues: {
@@ -179,6 +180,18 @@ export default function CreateTrainingPlanPage() {
       })),
     },
   });
+  
+  const watchedStartDate = form.watch("startDate");
+  const [calendarViewMonth, setCalendarViewMonth] = React.useState(watchedStartDate || new Date());
+
+  React.useEffect(() => {
+    if (watchedStartDate && !isSameMonth(watchedStartDate, calendarViewMonth)) {
+      setCalendarViewMonth(startOfMonth(watchedStartDate));
+    } else if (!watchedStartDate && !isSameMonth(new Date(), calendarViewMonth)) {
+        setCalendarViewMonth(startOfMonth(new Date()));
+    }
+  }, [watchedStartDate, calendarViewMonth]);
+
 
   const { fields, update } = useFieldArray({
     control: form.control,
@@ -213,7 +226,7 @@ export default function CreateTrainingPlanPage() {
   };
 
   const handleQuickWorkoutCreated = (newWorkoutData: QuickCreateWorkoutFormData) => {
-    const newWorkout: SelectableWorkout = {
+     const newWorkout: SelectableWorkout = {
       id: uuidv4(),
       name: newWorkoutData.name,
       type: newWorkoutData.workoutType || "Mieszany",
@@ -292,7 +305,6 @@ export default function CreateTrainingPlanPage() {
 
   const handleCopyDay = (sourceDayIndex: number) => {
     const dayToCopy = { ...form.getValues(`days.${sourceDayIndex}`) };
-    // We don't want to copy the dayName itself, just its config
     const { dayName, ...configToCopy } = dayToCopy; 
     setCopiedDayConfig(configToCopy as Omit<PlanDayFormValues, 'dayName'>);
     setIsPastingModeActive(true);
@@ -343,6 +355,28 @@ export default function CreateTrainingPlanPage() {
     router.push("/plans");
     setIsLoading(false);
   }
+  
+  // Calendar logic
+  const firstDayCurrentMonth = startOfMonth(calendarViewMonth);
+  const lastDayCurrentMonth = endOfMonth(calendarViewMonth);
+  const daysInMonth = eachDayOfInterval({ start: firstDayCurrentMonth, end: lastDayCurrentMonth });
+
+  // Ensure week starts on Monday (getDay returns 0 for Sunday, 1 for Monday, ..., 6 for Saturday)
+  // We want the grid to start with Monday.
+  let startingDayOfWeek = getDay(firstDayCurrentMonth); // 0=Sun, 1=Mon, ...
+  if (startingDayOfWeek === 0) startingDayOfWeek = 7; // Make Sunday 7 to shift it to the end of the week if 1=Mon
+  const daysBeforeMonth = Array.from({ length: startingDayOfWeek - 1 }); // -1 because Monday is 1
+
+  const getDayAssignment = (date: Date) => {
+    const planStartDate = form.watch("startDate");
+    if (!planStartDate || isBefore(date, startOfDay(planStartDate))) {
+      return null;
+    }
+    const diff = differenceInCalendarDays(date, startOfDay(planStartDate));
+    const dayIndexInCycle = diff % 7;
+    return form.watch(`days.${dayIndexInCycle}`);
+  };
+
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -441,7 +475,10 @@ export default function CreateTrainingPlanPage() {
                               <Calendar
                                 mode="single"
                                 selected={field.value}
-                                onSelect={field.onChange}
+                                onSelect={(date) => {
+                                    field.onChange(date);
+                                    if(date) setCalendarViewMonth(startOfMonth(date));
+                                }}
                                 disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) || isLoading}
                                 initialFocus
                                 locale={pl}
@@ -578,6 +615,9 @@ export default function CreateTrainingPlanPage() {
                               <DropdownMenuItem onClick={() => handleOpenWorkoutSelectionDialog(index)}>
                                 <PlusCircle className="mr-2 h-4 w-4"/> Wybierz Istniejący Trening
                               </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleOpenQuickCreateDialog(index)}>
+                                <Edit3 className="mr-2 h-4 w-4"/> Szybkie Stwórz Nowy Trening
+                              </DropdownMenuItem>
                               <DropdownMenuSub>
                                   <DropdownMenuSubTrigger>
                                       <LayoutDashboard className="mr-2 h-4 w-4"/> Przypisz Szablon Dnia
@@ -591,9 +631,6 @@ export default function CreateTrainingPlanPage() {
                                       {MOCK_DAY_TEMPLATES.length === 0 && <DropdownMenuItem disabled>Brak zdefiniowanych szablonów</DropdownMenuItem>}
                                   </DropdownMenuSubContent>
                               </DropdownMenuSub>
-                              <DropdownMenuItem onClick={() => handleOpenQuickCreateDialog(index)}>
-                                <Edit3 className="mr-2 h-4 w-4"/> Szybkie Stwórz Nowy Trening
-                              </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               {!day.isRestDay && (
                                   <DropdownMenuItem onClick={() => handleMarkAsRestDay(index)}>
@@ -622,15 +659,86 @@ export default function CreateTrainingPlanPage() {
                <Card>
                 <CardHeader>
                     <CardTitle>Wizualizacja Kalendarza Planu</CardTitle>
+                     <CardDescription>
+                        {form.watch("startDate") ? "Zobacz, jak Twój 7-dniowy cykl przekłada się na kalendarz." : "Wybierz datę rozpoczęcia planu, aby zobaczyć wizualizację w kalendarzu."}
+                    </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <Alert>
-                        <CalendarDays className="h-4 w-4"/>
-                        <AlertTitle>Funkcja w budowie!</AlertTitle>
-                        <AlertDescription>
-                        Widok kalendarza dla tego planu będzie dostępny tutaj w przyszłości. Pozwoli on na wizualne zarządzanie dniami treningowymi i odpoczynku.
-                        </AlertDescription>
-                    </Alert>
+                    {form.watch("startDate") ? (
+                        <>
+                            <div className="flex items-center justify-between mb-4">
+                                <Button variant="outline" size="icon" onClick={() => setCalendarViewMonth(subMonths(calendarViewMonth, 1))}>
+                                    <ChevronLeft className="h-4 w-4" />
+                                </Button>
+                                <h3 className="text-lg font-semibold">
+                                    {format(calendarViewMonth, "LLLL yyyy", { locale: pl })}
+                                </h3>
+                                <Button variant="outline" size="icon" onClick={() => setCalendarViewMonth(addMonths(calendarViewMonth, 1))}>
+                                    <ChevronRight className="h-4 w-4" />
+                                </Button>
+                            </div>
+                            <div className="grid grid-cols-7 gap-px border-l border-t bg-border">
+                                {["Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd"].map(dayLabel => (
+                                    <div key={dayLabel} className="py-2 text-center text-xs font-medium text-muted-foreground bg-card border-b border-r">{dayLabel}</div>
+                                ))}
+                                {daysBeforeMonth.map((_, i) => (
+                                     <div key={`empty-start-${i}`} className="bg-muted/30 border-b border-r min-h-[80px]"></div>
+                                ))}
+                                {daysInMonth.map(day => {
+                                    const assignment = getDayAssignment(day);
+                                    const isDayBeforeStartDate = isBefore(day, startOfDay(form.watch("startDate")!));
+                                    let content = null;
+                                    let bgColor = "bg-card hover:bg-muted/50";
+                                    let textColor = "text-foreground";
+
+                                    if (assignment && !isDayBeforeStartDate) {
+                                        if (assignment.isRestDay) {
+                                            content = <><Coffee size={14} className="mr-1 inline-block"/> Odpoczynek</>;
+                                            bgColor = "bg-green-500/10 hover:bg-green-500/20";
+                                            textColor = "text-green-700 dark:text-green-400";
+                                        } else if (assignment.templateName) {
+                                            content = <><LayoutDashboard size={14} className="mr-1 inline-block"/> {assignment.templateName}</>;
+                                            bgColor = "bg-purple-500/10 hover:bg-purple-500/20";
+                                            textColor = "text-purple-700 dark:text-purple-400";
+                                        } else if (assignment.assignedWorkoutName) {
+                                            content = assignment.assignedWorkoutName;
+                                            bgColor = "bg-primary/10 hover:bg-primary/20";
+                                            textColor = "text-primary";
+                                        }
+                                    }
+                                    
+                                    return (
+                                        <div 
+                                            key={day.toString()} 
+                                            className={cn(
+                                                "p-2 border-b border-r min-h-[80px] text-xs relative transition-colors",
+                                                isSameMonth(day, calendarViewMonth) ? bgColor : "bg-muted/30",
+                                                isDayBeforeStartDate && isSameMonth(day, calendarViewMonth) ? "opacity-60 bg-muted/50" : "",
+                                                !isSameMonth(day, calendarViewMonth) ? "text-muted-foreground/50" : textColor
+                                            )}
+                                        >
+                                            <span className={cn("font-medium", isSameDay(day, new Date()) && "text-primary font-bold underline")}>
+                                                {format(day, "d")}
+                                            </span>
+                                            {content && <div className="mt-1 text-xs break-words">{content}</div>}
+                                        </div>
+                                    );
+                                })}
+                                {/* Fill remaining cells for grid structure if needed */}
+                                {Array.from({ length: (7 - (daysBeforeMonth.length + daysInMonth.length) % 7) % 7 }).map((_, i) => (
+                                   <div key={`empty-end-${i}`} className="bg-muted/30 border-b border-r min-h-[80px]"></div>
+                                ))}
+                            </div>
+                        </>
+                    ) : (
+                        <Alert>
+                            <CalendarDays className="h-4 w-4"/>
+                            <AlertTitle>Wizualizacja Niedostępna</AlertTitle>
+                            <AlertDescription>
+                                Aby zobaczyć wizualizację planu w kalendarzu, wybierz najpierw "Datę Rozpoczęcia Planu" w sekcji powyżej.
+                            </AlertDescription>
+                        </Alert>
+                    )}
                 </CardContent>
                </Card>
 
@@ -665,3 +773,5 @@ export default function CreateTrainingPlanPage() {
     </div>
   );
 }
+
+    
