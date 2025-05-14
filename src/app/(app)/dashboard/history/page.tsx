@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { format, parseISO, isValid, startOfDay, endOfDay, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
+import { format, parseISO, isValid, startOfDay, endOfDay, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterval, getDay, isSameDay, isSameMonth } from "date-fns";
 import { pl } from "date-fns/locale";
 import {
   ArrowLeft,
@@ -46,7 +46,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import type { RecordedSet, ExerciseInWorkout } from "../workout/active/[workoutId]/page";
-import { db, collection, getDocs, query as firestoreQuery, where, orderBy, Timestamp } from "@/lib/firebase"; // Firebase imports
 import { useToast } from "@/hooks/use-toast";
 
 
@@ -72,12 +71,80 @@ export interface HistoricalWorkoutSession {
   difficulty?: DifficultyRating;
   generalNotes?: string;
   calculatedTotalVolume: number;
-  userId?: string; // Added for Firestore queries
+  userId?: string;
 }
+
+const MOCK_HISTORY_SESSIONS: HistoricalWorkoutSession[] = [
+  {
+    id: "hist1",
+    workoutId: "wk1",
+    workoutName: "Poranny Trening Siłowy",
+    workoutType: "Siłowy",
+    startTime: "2024-07-25T08:00:00.000Z",
+    endTime: "2024-07-25T09:00:00.000Z",
+    totalTimeSeconds: 3600,
+    recordedSets: {
+      ex1: [{ setNumber: 1, weight: "60", reps: "10", notes: "Good form" }, { setNumber: 2, weight: "65", reps: "8" }],
+      ex2: [{ setNumber: 1, weight: "100", reps: "5" }],
+    },
+    exercises: [
+      { id: "ex1", name: "Wyciskanie sztangi na ławce płaskiej", defaultSets: 3, defaultReps: "8-10", defaultRest: 90 },
+      { id: "ex2", name: "Przysiady ze sztangą", defaultSets: 4, defaultReps: "10-12", defaultRest: 120 },
+    ],
+    difficulty: DifficultyRating.Sredni,
+    generalNotes: "Feeling strong today!",
+    calculatedTotalVolume: (60*10) + (65*8) + (100*5),
+    userId: "testUser123"
+  },
+  {
+    id: "hist2",
+    workoutId: "wk2",
+    workoutName: "Szybkie Cardio HIIT",
+    workoutType: "Cardio",
+    startTime: "2024-07-27T17:30:00.000Z",
+    endTime: "2024-07-27T18:00:00.000Z",
+    totalTimeSeconds: 1800,
+    recordedSets: {
+      ex6: [{ setNumber: 1, weight: "N/A", reps: "30 min" }],
+    },
+    exercises: [{ id: "ex6", name: "Bieg na bieżni (30 min)", defaultSets: 1, defaultReps: "30 min", defaultRest: 0 }],
+    difficulty: DifficultyRating.Trudny,
+    generalNotes: "Tough session, pushed hard.",
+    calculatedTotalVolume: 0,
+    userId: "testUser123"
+  },
+  {
+    id: "hist3",
+    workoutId: "wk1",
+    workoutName: "Poranny Trening Siłowy", // Same name, different date
+    startTime: "2024-07-29T08:15:00.000Z", 
+    endTime: "2024-07-29T09:20:00.000Z",
+    totalTimeSeconds: 3900,
+    recordedSets: {
+      ex1: [{ setNumber: 1, weight: "65", reps: "10" }, { setNumber: 2, weight: "70", reps: "8"}, { setNumber: 3, weight: "70", reps: "7"}],
+      ex2: [{ setNumber: 1, weight: "100", reps: "6" }, { setNumber: 2, weight: "105", reps: "5"}],
+      ex4: [{ setNumber: 1, weight: "BW", reps: "8" }, { setNumber: 2, weight: "BW", reps: "7"}],
+    },
+    exercises: [
+      { id: "ex1", name: "Wyciskanie sztangi na ławce płaskiej", defaultSets: 3, defaultReps: "8-10", defaultRest: 90 },
+      { id: "ex2", name: "Przysiady ze sztangą", defaultSets: 3, defaultReps: "5-8", defaultRest: 120 },
+      { id: "ex4", name: "Podciąganie na drążku", defaultSets: 3, defaultReps: "Max", defaultRest: 75 },
+    ],
+    difficulty: DifficultyRating.Sredni,
+    workoutType: "Siłowy",
+    calculatedTotalVolume: (65*10) + (70*8) + (70*7) + (100*6) + (105*5), 
+    userId: "testUser123"
+  },
+  { id: "hist4", workoutId: "wk2", workoutName: "Cardio Popołudniowe", workoutType: "Cardio", startTime: "2024-07-10T16:00:00.000Z", endTime: "2024-07-10T16:45:00.000Z", totalTimeSeconds: 2700, recordedSets: {}, exercises: [], calculatedTotalVolume: 0, difficulty: DifficultyRating.Latwy, userId: "testUser123" },
+  { id: "hist5", workoutId: "wk1", workoutName: "Trening Siłowy - Nogi", workoutType: "Siłowy", startTime: "2024-07-10T09:00:00.000Z", endTime: "2024-07-10T10:15:00.000Z", totalTimeSeconds: 4500, recordedSets: {}, exercises: [], calculatedTotalVolume: 12000, difficulty: DifficultyRating.Trudny, userId: "testUser123" },
+  { id: "hist6", workoutId: "wk3", workoutName: "Joga Poranna", workoutType: "Rozciąganie", startTime: "2024-07-18T07:00:00.000Z", endTime: "2024-07-18T07:30:00.000Z", totalTimeSeconds: 1800, recordedSets: {}, exercises: [], calculatedTotalVolume: 0, difficulty: DifficultyRating.BardzoLatwy, userId: "testUser123" },
+  { id: "hist7", workoutId: "wk4", workoutName: "Trening Mieszany - Całe Ciało", workoutType: "Mieszany", startTime: "2024-08-05T18:00:00.000Z", endTime: "2024-08-05T19:00:00.000Z", totalTimeSeconds: 3600, recordedSets: {}, exercises: [], calculatedTotalVolume: 8000, difficulty: DifficultyRating.Sredni, userId: "testUser123" },
+  { id: "hist8", workoutId: "wk1", workoutName: "Siłówka Wieczorna", workoutType: "Siłowy", startTime: "2024-08-15T20:00:00.000Z", endTime: "2024-08-15T21:15:00.000Z", totalTimeSeconds: 4500, recordedSets: {}, exercises: [], calculatedTotalVolume: 15000, difficulty: DifficultyRating.Trudny, userId: "testUser123" },
+];
+
 
 const WORKOUT_TYPES = ["Wszystkie", "Siłowy", "Cardio", "Mieszany", "Rozciąganie", "Inny"];
 const ITEMS_PER_PAGE = 5;
-const LOGGED_IN_USER_ID = "testUser123"; // Mock logged-in user ID for Firestore
 
 const WORKOUT_TYPE_COLORS: Record<string, string> = {
   "Siłowy": "bg-blue-500",
@@ -110,33 +177,13 @@ export default function WorkoutHistoryPage() {
   const [calendarViewMonth, setCalendarViewMonth] = React.useState(new Date());
 
   React.useEffect(() => {
-    const fetchHistory = async () => {
-      setIsLoading(true);
-      try {
-        const historyCollectionRef = collection(db, "users", LOGGED_IN_USER_ID, "workoutHistory");
-        // Add orderBy for consistent ordering, e.g., by startTime descending
-        const q = firestoreQuery(historyCollectionRef, orderBy("startTime", "desc"));
-        const querySnapshot = await getDocs(q);
-        const sessions = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          // Ensure dates are strings if they are Timestamps. Firestore Timestamps have toDate() method.
-          startTime: doc.data().startTime?.toDate ? doc.data().startTime.toDate().toISOString() : doc.data().startTime,
-          endTime: doc.data().endTime?.toDate ? doc.data().endTime.toDate().toISOString() : doc.data().endTime,
-        })) as HistoricalWorkoutSession[];
-        setAllSessions(sessions);
-      } catch (error) {
-        console.error("Error fetching workout history from Firestore:", error);
-        toast({
-          title: "Błąd ładowania historii",
-          description: "Nie udało się pobrać historii treningów. Spróbuj ponownie później.",
-          variant: "destructive",
-        });
-      }
+    setIsLoading(true);
+    // Simulate fetching data
+    setTimeout(() => {
+      setAllSessions(MOCK_HISTORY_SESSIONS);
       setIsLoading(false);
-    };
-    fetchHistory();
-  }, [toast]);
+    }, 500); // Simulate network delay
+  }, []);
 
 
   const filteredSessions = React.useMemo(() => {
@@ -155,7 +202,7 @@ export default function WorkoutHistoryPage() {
         matchesDate = false;
       }
       return matchesSearch && matchesType && matchesDate;
-    });
+    }).sort((a,b) => parseISO(b.startTime).getTime() - parseISO(a.startTime).getTime());
   }, [allSessions, searchTerm, selectedType, filterStartDate, filterEndDate]);
 
   const totalPages = Math.ceil(filteredSessions.length / ITEMS_PER_PAGE);
@@ -218,14 +265,14 @@ export default function WorkoutHistoryPage() {
     filteredSessions.forEach(session => {
         session.exercises.forEach(exercise => {
             const sets = session.recordedSets[exercise.id] || [];
-            if (sets.length === 0) { // Add session row even if no sets for an exercise (e.g. cardio without explicit sets)
+            if (sets.length === 0) { 
                  const row = [
                     session.id, session.workoutName, session.workoutType, 
                     format(parseISO(session.startTime), "yyyy-MM-dd HH:mm:ss"), 
                     format(parseISO(session.endTime), "yyyy-MM-dd HH:mm:ss"),
                     session.totalTimeSeconds.toString(), session.calculatedTotalVolume.toString(),
                     session.difficulty || "", session.generalNotes || "",
-                    exercise.name, "", "", "", "", "" // Empty set details
+                    exercise.name, "", "", "", "", "" 
                 ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(";");
                 csvContent += row + "\r\n";
             } else {
@@ -243,14 +290,14 @@ export default function WorkoutHistoryPage() {
                 });
             }
         });
-         if (session.exercises.length === 0) { // If session has no exercises at all
+         if (session.exercises.length === 0) { 
              const row = [
                 session.id, session.workoutName, session.workoutType, 
                 format(parseISO(session.startTime), "yyyy-MM-dd HH:mm:ss"), 
                 format(parseISO(session.endTime), "yyyy-MM-dd HH:mm:ss"),
                 session.totalTimeSeconds.toString(), session.calculatedTotalVolume.toString(),
                 session.difficulty || "", session.generalNotes || "",
-                "", "", "", "", "", "" // Empty exercise and set details
+                "", "", "", "", "", "" 
             ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(";");
             csvContent += row + "\r\n";
         }
@@ -279,6 +326,10 @@ export default function WorkoutHistoryPage() {
     const map = new Map<string, string[]>();
     allSessions.forEach(session => {
       try {
+        if (!session.startTime || !isValid(parseISO(session.startTime))) {
+            console.warn("Invalid startTime for session for calendar:", session.id, session.startTime);
+            return; // Skip this session if startTime is invalid
+        }
         const dateStr = format(parseISO(session.startTime), "yyyy-MM-dd");
         const types = map.get(dateStr) || [];
         if (!types.includes(session.workoutType)) {
@@ -286,7 +337,7 @@ export default function WorkoutHistoryPage() {
         }
         map.set(dateStr, types);
       } catch (e) {
-        console.error("Invalid date in session for calendar:", session.id, session.startTime);
+        console.error("Error processing session for calendar:", session.id, session.startTime, e);
       }
     });
     return map;
@@ -363,7 +414,7 @@ export default function WorkoutHistoryPage() {
                                     {format(day, "d")}
                                 </span>
                                 <div className="absolute bottom-1 left-1 right-1 flex justify-center space-x-1">
-                                    {workoutTypesOnDay.slice(0,3).map((type, index) => ( // Show max 3 dots
+                                    {workoutTypesOnDay.slice(0,3).map((type, index) => ( 
                                         <div key={index} title={type} className={`h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full ${WORKOUT_TYPE_COLORS[type] || WORKOUT_TYPE_COLORS.default}`}></div>
                                     ))}
                                 </div>
@@ -495,7 +546,7 @@ export default function WorkoutHistoryPage() {
                       )}
                     </CardContent>
                     <CardFooter className="gap-2">
-                       <Button asChild variant="ghost" size="sm" className="flex-1 justify-start text-primary hover:text-primary/90 disabled:text-muted-foreground" disabled>
+                       <Button asChild variant="ghost" size="sm" className="flex-1 justify-start text-primary hover:text-primary/90 disabled:text-muted-foreground">
                         <Link href={`/dashboard/workout/active/${session.workoutId}?repeatSessionId=${session.id}`}>
                             <RotateCcw className="mr-2 h-4 w-4"/> Powtórz
                         </Link>
@@ -548,3 +599,5 @@ export default function WorkoutHistoryPage() {
     </div>
   );
 }
+
+    

@@ -75,7 +75,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { db, collection, addDoc, Timestamp } from "@/lib/firebase"; // Firebase imports
+// Removed Firebase imports: db, collection, addDoc, Timestamp
 
 interface WorkoutSummaryData {
   workoutId: string;
@@ -114,7 +114,7 @@ interface PBSuggestion {
   status: 'suggested' | 'accepted' | 'rejected';
 }
 
-const LOGGED_IN_USER_ID = "testUser123"; // Mock logged-in user ID
+// const LOGGED_IN_USER_ID = "testUser123"; // Mock logged-in user ID - Not needed for mock server
 
 export default function WorkoutSummaryPage() {
   const router = useRouter();
@@ -236,71 +236,42 @@ export default function WorkoutSummaryPage() {
     setIsSaving(true);
     const acceptedPbs = pbSuggestions.filter(s => s.status === 'accepted').map(s => ({ exercise: s.exerciseName, value: s.achievedValue }));
     
-    // Determine workout type (simplified)
-    let workoutType = "Mieszany"; // Default
-    const exerciseCategories = new Set(summaryData.exercises.map(ex => {
-        // This assumes MOCK_EXERCISES_DATABASE is available or you have a way to get category
-        // For now, I'll use a placeholder logic if it's not directly in ExerciseInWorkout
-        return "Nieznany"; // Replace with actual category lookup if possible
-    }));
-    if (exerciseCategories.size === 1) {
-        const singleCategory = Array.from(exerciseCategories)[0];
-        if (["Siłowy", "Cardio", "Rozciąganie"].includes(singleCategory)) {
-            workoutType = singleCategory;
-        }
-    }
-
-
-    const workoutHistoryEntry = {
-      userId: LOGGED_IN_USER_ID,
-      workoutId: summaryData.workoutId,
-      workoutName: summaryData.workoutName,
-      workoutType: workoutType, // You might need to derive this or pass it from active workout
-      startTime: Timestamp.fromDate(parseISO(summaryData.startTime)),
-      endTime: Timestamp.fromDate(parseISO(summaryData.endTime)),
-      totalTimeSeconds: summaryData.totalTimeSeconds,
-      recordedSets: summaryData.recordedSets,
-      exercises: summaryData.exercises.map(ex => ({ id: ex.id, name: ex.name, defaultSets: ex.defaultSets, defaultReps: ex.defaultReps, defaultRest: ex.defaultRest })),
-      exerciseNotes: summaryData.exerciseNotes || {},
+    const fullSummaryToSave = {
+      ...summaryData,
+      difficulty,
+      generalNotes,
+      exerciseNotes: summaryData.exerciseNotes,
       calculatedTotalVolume: calculateTotalVolume(),
-      difficulty: difficulty || null,
-      generalNotes: generalNotes || null,
-      // acceptedPbs: acceptedPbs, // You might want to store PBs separately or in a different structure
-      // sharedToCommunity: shareToCommunity,
-      // communityPostComment: shareToCommunity ? communityPostComment : null,
+      acceptedPbs,
+      sharedToCommunity: shareToCommunity,
+      communityPostComment: shareToCommunity ? communityPostComment : undefined,
     };
+    console.log("Saving workout summary (mock):", fullSummaryToSave);
 
-    console.log("Saving workout summary to Firestore:", workoutHistoryEntry);
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1500));
 
+    // Store last workout date in localStorage (client-side functionality)
     try {
-      const historyCollectionRef = collection(db, "users", LOGGED_IN_USER_ID, "workoutHistory");
-      await addDoc(historyCollectionRef, workoutHistoryEntry);
-      
       localStorage.setItem('workoutWiseLastWorkoutDate', new Date().toISOString());
-
-      let toastMessage = "Twój trening został pomyślnie zapisany w Firestore.";
-      if (shareToCommunity) {
-          toastMessage += " Został również udostępniony w Społeczności (symulacja)!";
-      }
-
-      toast({
-        title: "Trening Zapisany!",
-        description: toastMessage,
-        variant: "default"
-      });
-      localStorage.removeItem('workoutSummaryData');
-      router.push("/dashboard/history"); // Go to history page to see the new entry
-    } catch (error) {
-        console.error("Error saving workout summary to Firestore:", error);
-        toast({
-            title: "Błąd Zapisu",
-            description: "Nie udało się zapisać treningu do Firestore. Sprawdź konsolę.",
-            variant: "destructive",
-        });
-    } finally {
-        setIsSaving(false);
-        setShowShareConfirmDialog(false);
+    } catch (e) {
+      console.error("Failed to save last workout date to localStorage", e);
     }
+
+    let toastMessage = "Twój trening został pomyślnie zapisany (symulacja).";
+    if (shareToCommunity) {
+        toastMessage += " Został również udostępniony w Społeczności (symulacja)!";
+    }
+
+    toast({
+      title: "Trening Zapisany!",
+      description: toastMessage,
+      variant: "default"
+    });
+    localStorage.removeItem('workoutSummaryData'); // Remove temp data
+    router.push("/dashboard/history"); 
+    setIsSaving(false);
+    setShowShareConfirmDialog(false);
   };
 
 
@@ -680,3 +651,5 @@ export default function WorkoutSummaryPage() {
     </div>
   );
 }
+
+    
