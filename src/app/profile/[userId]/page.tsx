@@ -1,0 +1,436 @@
+
+"use client";
+
+import * as React from "react";
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
+import Image from "next/image";
+import {
+  ArrowLeft,
+  Edit3,
+  UserCircle2,
+  ShieldCheck,
+  Users,
+  ClipboardList,
+  BarChart3,
+  PlusCircle,
+  Eye,
+  Settings2,
+  BookOpen, // For shared plans
+  MessageSquare, // For activity posts
+  Dumbbell, // For shared workouts activity
+  Award, // For achieved PBs activity
+  Trash2, // For remove friend
+} from "lucide-react";
+import { format, parseISO, formatDistanceToNow } from "date-fns";
+import { pl } from "date-fns/locale";
+
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
+import { EditProfilePictureDialog } from "@/components/profile/edit-profile-picture-dialog";
+import { ProfilePrivacySettingsDialog } from "@/components/profile/profile-privacy-settings-dialog";
+import { Separator } from "@/components/ui/separator"; // Added Separator
+import { ScrollArea } from "@/components/ui/scroll-area"; // Added ScrollArea
+
+// Mock data structures
+interface MockActivityItem {
+  id: string;
+  type: "new_post" | "shared_workout" | "achieved_pb";
+  content: string;
+  timestamp: string; // ISO string
+  link?: string;
+  workoutName?: string;
+  pbValue?: string;
+}
+
+interface MockFriend {
+  id: string;
+  name: string;
+  username: string;
+  avatarUrl: string;
+}
+
+interface MockSharedPlan {
+  id: string;
+  name: string;
+  goal: string;
+  description?: string;
+  icon?: React.ElementType;
+}
+
+interface MockUserProfile {
+  id: string;
+  fullName: string;
+  username: string;
+  email: string; // For pre-filling edit form, not usually public
+  avatarUrl: string;
+  bio?: string;
+  fitnessLevel: "Początkujący" | "Średniozaawansowany" | "Zaawansowany";
+  joinDate: string; // ISO string
+  stats?: {
+    completedWorkouts: number;
+    followers: number;
+    following: number;
+  };
+  activities?: MockActivityItem[];
+  friends?: MockFriend[];
+  sharedPlans?: MockSharedPlan[];
+}
+
+// Mock user data
+const MOCK_USER_PROFILES: MockUserProfile[] = [
+  {
+    id: "current_user_id", // Simulate logged-in user
+    fullName: "Jan Kowalski",
+    username: "jankowalski_fit",
+    email: "jan.kowalski@example.com",
+    avatarUrl: "https://placehold.co/200x200.png?text=JK",
+    bio: "Entuzjasta fitnessu i zdrowego stylu życia. Dążę do ciągłego rozwoju i przekraczania własnych granic. Lubię dzielić się swoimi postępami i motywować innych!",
+    fitnessLevel: "Średniozaawansowany",
+    joinDate: "2023-05-15T10:00:00.000Z",
+    stats: { completedWorkouts: 125, followers: 256, following: 180 },
+    activities: [
+      { id: "act1", type: "shared_workout", content: "Ukończyłem dzisiaj mocny trening nóg!", workoutName: "Trening Nóg #3", timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), link: "/history/hist1" },
+      { id: "act2", type: "new_post", content: "Nowy tydzień, nowe cele! Kto ze mną? 💪 #motywacja", timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 * 1).toISOString() },
+      { id: "act3", type: "achieved_pb", content: "Nowy rekord w wyciskaniu!", workoutName: "Wyciskanie sztangi na ławce płaskiej", pbValue: "105kg x 3", timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3).toISOString(), link: "/personal-bests" },
+    ],
+    friends: [
+      { id: "user2", name: "Anna Fit", username: "annafit_active", avatarUrl: "https://placehold.co/100x100.png?text=AF" },
+      { id: "user3", name: "Piotr Trener", username: "piotr_coach", avatarUrl: "https://placehold.co/100x100.png?text=PT" },
+    ],
+    sharedPlans: [
+      { id: "plan1", name: "Mój Plan Siłowy na Masę", goal: "Budowa masy mięśniowej", description: "Sprawdzony plan na 8 tygodni, skupiony na progresji siłowej.", icon: Dumbbell },
+      { id: "plan2", name: "Przygotowanie do Półmaratonu", goal: "Poprawa wytrzymałości", description: "12-tygodniowy plan biegowy dla średniozaawansowanych.", icon: BookOpen },
+    ]
+  },
+  {
+    id: "user2",
+    fullName: "Anna Fit",
+    username: "annafit_active",
+    email: "anna.fit@example.com",
+    avatarUrl: "https://placehold.co/200x200.png?text=AF",
+    bio: "Miłośniczka jogi, biegania i zdrowego odżywiania. Codziennie staram się być lepszą wersją siebie.",
+    fitnessLevel: "Zaawansowany",
+    joinDate: "2022-11-01T14:30:00.000Z",
+    stats: { completedWorkouts: 350, followers: 1024, following: 300 },
+    activities: [
+      { id: "act_anna1", type: "new_post", content: "Poranna joga na plaży - najlepszy start dnia! 🧘‍♀️☀️", timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString() },
+    ],
+    friends: [ { id: "current_user_id", name: "Jan Kowalski", username: "jankowalski_fit", avatarUrl: "https://placehold.co/100x100.png?text=JK" }],
+    sharedPlans: [ { id: "plan_joga", name: "Joga dla Początkujących", goal: "Poprawa elastyczności", description: "Delikatny plan wprowadzający do świata jogi."} ]
+  },
+];
+
+const LOGGED_IN_USER_ID = "current_user_id"; // Simulate this
+
+export default function UserProfilePage() {
+  const router = useRouter();
+  const params = useParams();
+  const { toast } = useToast();
+  const userId = params.userId as string;
+
+  const [profileData, setProfileData] = React.useState<MockUserProfile | null>(null);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [isFollowing, setIsFollowing] = React.useState(false); // For "Follow" button simulation
+
+  const [isEditAvatarOpen, setIsEditAvatarOpen] = React.useState(false);
+  const [isPrivacySettingsOpen, setIsPrivacySettingsOpen] = React.useState(false);
+  const [currentAvatarUrl, setCurrentAvatarUrl] = React.useState<string | undefined>(undefined);
+
+  React.useEffect(() => {
+    setIsLoading(true);
+    const foundProfile = MOCK_USER_PROFILES.find((p) => p.id === userId);
+    if (foundProfile) {
+      setProfileData(foundProfile);
+      setCurrentAvatarUrl(foundProfile.avatarUrl);
+      // Simulate checking if already following (for demo purposes)
+      if (userId !== LOGGED_IN_USER_ID && Math.random() > 0.5) {
+        setIsFollowing(true);
+      }
+    } else {
+      setProfileData(null);
+    }
+    setIsLoading(false);
+  }, [userId]);
+
+  const handleFollowToggle = () => {
+    setIsFollowing(!isFollowing);
+    toast({
+      title: isFollowing ? "Przestałeś obserwować" : "Zacząłeś obserwować",
+      description: `Symulacja (od)obserwowania użytkownika ${profileData?.fullName || profileData?.username}.`,
+    });
+  };
+
+  const handleAvatarChange = (newAvatarUrl: string) => {
+    // In a real app, this would involve uploading the image and getting the URL from the backend
+    setCurrentAvatarUrl(newAvatarUrl); // Update UI immediately
+    setProfileData(prev => prev ? {...prev, avatarUrl: newAvatarUrl} : null); // Update main profile data if needed
+    toast({ title: "Zdjęcie profilowe zaktualizowane (symulacja)!" });
+  };
+
+  const handleRemoveFriend = (friendId: string, friendName: string) => {
+    // Simulate removing a friend
+    setProfileData(prev => {
+        if (!prev || !prev.friends) return prev;
+        return {
+            ...prev,
+            friends: prev.friends.filter(f => f.id !== friendId)
+        };
+    });
+    toast({ title: "Znajomy usunięty (symulacja)", description: `Usunięto ${friendName} z listy znajomych.`});
+  };
+
+  const getActivityIcon = (type: MockActivityItem['type']) => {
+    switch(type) {
+        case 'new_post': return <MessageSquare className="h-5 w-5 text-blue-500"/>;
+        case 'shared_workout': return <Dumbbell className="h-5 w-5 text-green-500"/>;
+        case 'achieved_pb': return <Award className="h-5 w-5 text-yellow-500"/>;
+        default: return <ClipboardList className="h-5 w-5 text-muted-foreground"/>;
+    }
+  }
+
+
+  if (isLoading) {
+    return <div className="flex justify-center items-center min-h-screen"><UserCircle2 className="h-16 w-16 animate-pulse text-primary" /></div>;
+  }
+
+  if (!profileData) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-4">
+        <UserCircle2 className="h-24 w-24 text-destructive mb-4" />
+        <h1 className="text-2xl font-bold mb-2">Nie znaleziono profilu</h1>
+        <p className="text-muted-foreground mb-6">
+          Przykro nam, ale profil o podanym ID nie istnieje lub nie jest dostępny.
+        </p>
+        <Button asChild variant="outline">
+          <Link href="/community/discover">
+            <ArrowLeft className="mr-2 h-4 w-4" /> Wróć do Odkrywania
+          </Link>
+        </Button>
+      </div>
+    );
+  }
+
+  const isOwnProfile = userId === LOGGED_IN_USER_ID;
+
+  return (
+    <div className="flex min-h-screen flex-col bg-background text-foreground">
+      <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" asChild>
+              <Link href="/community">
+                <ArrowLeft className="h-5 w-5" />
+                <span className="sr-only">Powrót do Społeczności</span>
+              </Link>
+            </Button>
+            <UserCircle2 className="h-8 w-8 text-primary" />
+            <h1 className="text-2xl font-bold truncate max-w-xs sm:max-w-sm">
+              Profil: {profileData.username}
+            </h1>
+          </div>
+          {isOwnProfile && (
+             <Button variant="outline" size="sm" onClick={() => router.push('/profile/edit')}>
+                <Edit3 className="mr-2 h-4 w-4" /> Edytuj Profil
+            </Button>
+          )}
+        </div>
+      </header>
+
+      <main className="flex-1 p-4 sm:p-6 lg:p-8">
+        <div className="container mx-auto max-w-4xl">
+          <Card className="mb-6">
+            <CardHeader className="flex flex-col items-center space-y-4 sm:flex-row sm:space-y-0 sm:space-x-6">
+              <Avatar className="h-24 w-24 sm:h-32 sm:w-32 cursor-pointer" onClick={() => isOwnProfile && setIsEditAvatarOpen(true)}>
+                <AvatarImage src={currentAvatarUrl} alt={profileData.fullName} data-ai-hint="profile avatar large" />
+                <AvatarFallback className="text-4xl">{profileData.fullName?.substring(0,1).toUpperCase()}{profileData.fullName?.split(' ')[1]?.substring(0,1).toUpperCase()}</AvatarFallback>
+              </Avatar>
+              <div className="flex-1 text-center sm:text-left">
+                <CardTitle className="text-3xl">{profileData.fullName}</CardTitle>
+                <CardDescription className="text-lg text-muted-foreground">@{profileData.username}</CardDescription>
+                <p className="mt-2 text-sm">{profileData.bio || "Brak opisu."}</p>
+                <div className="mt-3 flex flex-wrap justify-center sm:justify-start gap-2 text-xs text-muted-foreground">
+                    <span>Poziom: <span className="font-semibold text-primary">{profileData.fitnessLevel}</span></span>
+                    <Separator orientation="vertical" className="h-4 hidden sm:block"/>
+                    <span>Dołączył: {format(parseISO(profileData.joinDate), "PPP", { locale: pl })}</span>
+                </div>
+              </div>
+              {!isOwnProfile && (
+                 <Button onClick={handleFollowToggle} variant={isFollowing ? "secondary" : "default"} className="w-full mt-4 sm:w-auto sm:mt-0">
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    {isFollowing ? "Obserwujesz" : "Obserwuj"}
+                </Button>
+              )}
+            </CardHeader>
+            {profileData.stats && (
+                <CardFooter className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t">
+                    <div className="flex flex-col items-center p-2 rounded-md bg-muted/50">
+                        <span className="text-xl font-bold">{profileData.stats.completedWorkouts}</span>
+                        <span className="text-xs text-muted-foreground">Ukończone Treningi</span>
+                    </div>
+                    <div className="flex flex-col items-center p-2 rounded-md bg-muted/50">
+                        <span className="text-xl font-bold">{profileData.stats.followers}</span>
+                        <span className="text-xs text-muted-foreground">Obserwujący</span>
+                    </div>
+                    <div className="flex flex-col items-center p-2 rounded-md bg-muted/50">
+                        <span className="text-xl font-bold">{profileData.stats.following}</span>
+                        <span className="text-xs text-muted-foreground">Obserwowani</span>
+                    </div>
+                </CardFooter>
+            )}
+          </Card>
+
+          <Tabs defaultValue="activity" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 mb-6">
+              <TabsTrigger value="activity"><ClipboardList className="mr-2 h-4 w-4"/>Aktywność</TabsTrigger>
+              <TabsTrigger value="friends"><Users className="mr-2 h-4 w-4"/>Znajomi ({profileData.friends?.length || 0})</TabsTrigger>
+              <TabsTrigger value="shared-plans"><BookOpen className="mr-2 h-4 w-4"/>Plany ({profileData.sharedPlans?.length || 0})</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="activity">
+              <Card>
+                <CardHeader><CardTitle>Ostatnia Aktywność</CardTitle></CardHeader>
+                <CardContent>
+                  {profileData.activities && profileData.activities.length > 0 ? (
+                    <ScrollArea className="max-h-[400px]">
+                      <ul className="space-y-4 pr-3">
+                        {profileData.activities.map(activity => (
+                          <li key={activity.id} className="p-4 border rounded-lg shadow-sm bg-card hover:bg-muted/50 transition-colors">
+                            <div className="flex items-start gap-3">
+                              <div className="flex-shrink-0 mt-1">{getActivityIcon(activity.type)}</div>
+                              <div className="flex-1">
+                                <p className="text-sm">{activity.content}
+                                  {activity.type === "shared_workout" && activity.workoutName && (
+                                    <Link href={activity.link || "#"} className="text-primary hover:underline ml-1 font-semibold">
+                                       ({activity.workoutName})
+                                    </Link>
+                                  )}
+                                   {activity.type === "achieved_pb" && activity.workoutName && (
+                                    <span className="text-yellow-600 dark:text-yellow-400 ml-1 font-semibold">
+                                       {activity.workoutName} - {activity.pbValue}
+                                    </span>
+                                  )}
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {formatDistanceToNow(parseISO(activity.timestamp), { addSuffix: true, locale: pl })}
+                                </p>
+                              </div>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </ScrollArea>
+                  ) : (
+                    <p className="text-muted-foreground text-center py-6">Brak aktywności do wyświetlenia.</p>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="friends">
+              <Card>
+                <CardHeader><CardTitle>Znajomi / Obserwowani</CardTitle></CardHeader>
+                <CardContent>
+                  {profileData.friends && profileData.friends.length > 0 ? (
+                    <ScrollArea className="max-h-[400px]">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pr-3">
+                        {profileData.friends.map(friend => (
+                          <Card key={friend.id} className="p-3">
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-12 w-12">
+                                <AvatarImage src={friend.avatarUrl} alt={friend.name} data-ai-hint="profile avatar small"/>
+                                <AvatarFallback>{friend.name.substring(0,1)}</AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <Link href={`/profile/${friend.id}`} className="font-semibold hover:underline">{friend.name}</Link>
+                                <p className="text-xs text-muted-foreground">@{friend.username}</p>
+                              </div>
+                            </div>
+                            <CardFooter className="p-0 pt-3 flex gap-2">
+                                <Button variant="outline" size="sm" className="flex-1" asChild>
+                                    <Link href={`/profile/${friend.id}`}><Eye className="mr-1 h-3 w-3"/> Profil</Link>
+                                </Button>
+                               {isOwnProfile && (
+                                 <Button variant="destructive" size="sm" className="flex-1" onClick={() => handleRemoveFriend(friend.id, friend.name)}>
+                                    <Trash2 className="mr-1 h-3 w-3"/> Usuń
+                                 </Button>
+                               )}
+                            </CardFooter>
+                          </Card>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  ) : (
+                    <p className="text-muted-foreground text-center py-6">Brak znajomych do wyświetlenia.</p>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="shared-plans">
+              <Card>
+                <CardHeader><CardTitle>Udostępnione Plany Treningowe</CardTitle></CardHeader>
+                <CardContent>
+                  {profileData.sharedPlans && profileData.sharedPlans.length > 0 ? (
+                     <ScrollArea className="max-h-[400px]">
+                        <div className="space-y-4 pr-3">
+                            {profileData.sharedPlans.map(plan => {
+                                const IconComponent = plan.icon || BookOpen;
+                                return (
+                                <Card key={plan.id} className="p-4 hover:shadow-md transition-shadow">
+                                    <div className="flex items-start gap-3">
+                                    <IconComponent className="h-6 w-6 text-primary mt-1 flex-shrink-0"/>
+                                    <div className="flex-1">
+                                        <Link href={`/plans/${plan.id}`} className="font-semibold text-lg hover:underline">{plan.name}</Link>
+                                        <p className="text-xs text-muted-foreground">Cel: {plan.goal}</p>
+                                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{plan.description || "Brak opisu."}</p>
+                                    </div>
+                                    </div>
+                                    <CardFooter className="p-0 pt-3">
+                                        <Button variant="outline" size="sm" asChild>
+                                            <Link href={`/plans/${plan.id}`}>Zobacz szczegóły</Link>
+                                        </Button>
+                                    </CardFooter>
+                                </Card>
+                                );
+                            })}
+                        </div>
+                     </ScrollArea>
+                  ) : (
+                    <p className="text-muted-foreground text-center py-6">Brak udostępnionych planów treningowych.</p>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
+      </main>
+      <EditProfilePictureDialog
+        isOpen={isEditAvatarOpen}
+        onOpenChange={setIsEditAvatarOpen}
+        currentAvatarUrl={currentAvatarUrl}
+        onSave={handleAvatarChange}
+      />
+       <ProfilePrivacySettingsDialog
+        isOpen={isPrivacySettingsOpen}
+        onOpenChange={setIsPrivacySettingsOpen}
+        // Pass initial settings if available
+        onSave={(settings) => {
+            console.log("Privacy settings saved (simulated):", settings);
+            toast({title: "Ustawienia prywatności zapisane (symulacja)"});
+        }}
+      />
+    </div>
+  );
+}
+
