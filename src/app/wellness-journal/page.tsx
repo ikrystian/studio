@@ -22,6 +22,8 @@ import {
   Loader2,
   ListChecks,
   XCircle,
+  Brain, // Icon for Stress
+  Accessibility, // Icon for DOMS (Muscle Soreness)
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -68,7 +70,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -80,6 +81,8 @@ export interface WellnessEntry {
   wellBeing: number; // 1-5 scale
   energyLevel: number; // 1-5 scale
   sleepQuality: number; // 1-5 scale
+  stressLevel?: number; // 1-5 scale, new
+  muscleSoreness?: number; // 1-5 scale, new
   notes?: string;
 }
 
@@ -88,18 +91,29 @@ const wellnessEntrySchema = z.object({
   wellBeing: z.coerce.number().min(1, "Ocena jest wymagana.").max(5),
   energyLevel: z.coerce.number().min(1, "Ocena jest wymagana.").max(5),
   sleepQuality: z.coerce.number().min(1, "Ocena jest wymagana.").max(5),
+  stressLevel: z.coerce.number().min(1).max(5).optional().or(z.literal("")), // New
+  muscleSoreness: z.coerce.number().min(1).max(5).optional().or(z.literal("")), // New
   notes: z.string().optional(),
 });
 
 type WellnessEntryFormValues = z.infer<typeof wellnessEntrySchema>;
 
 const RATING_OPTIONS = [
-  { value: 1, label: "1 - Bardzo źle" },
-  { value: 2, label: "2 - Źle" },
-  { value: 3, label: "3 - Średnio" },
-  { value: 4, label: "4 - Dobrze" },
-  { value: 5, label: "5 - Bardzo dobrze" },
+  { value: 1, label: "1 - Bardzo niski / Bardzo źle" },
+  { value: 2, label: "2 - Niski / Źle" },
+  { value: 3, label: "3 - Średni / Średnio" },
+  { value: 4, label: "4 - Wysoki / Dobrze" },
+  { value: 5, label: "5 - Bardzo wysoki / Bardzo dobrze" },
 ];
+// Specific labels for soreness if needed
+const SORENESS_RATING_OPTIONS = [
+    { value: 1, label: "1 - Brak bólu" },
+    { value: 2, label: "2 - Lekki ból" },
+    { value: 3, label: "3 - Umiarkowany ból" },
+    { value: 4, label: "4 - Silny ból" },
+    { value: 5, label: "5 - Bardzo silny ból" },
+];
+
 
 const INITIAL_MOCK_ENTRIES: WellnessEntry[] = [
   {
@@ -108,7 +122,9 @@ const INITIAL_MOCK_ENTRIES: WellnessEntry[] = [
     wellBeing: 4,
     energyLevel: 3,
     sleepQuality: 5,
-    notes: "Dobry dzień, trochę zmęczony po treningu.",
+    stressLevel: 2,
+    muscleSoreness: 3,
+    notes: "Dobry dzień, trochę zmęczony po treningu nóg.",
   },
   {
     id: uuidv4(),
@@ -116,6 +132,8 @@ const INITIAL_MOCK_ENTRIES: WellnessEntry[] = [
     wellBeing: 5,
     energyLevel: 5,
     sleepQuality: 4,
+    stressLevel: 1,
+    muscleSoreness: 1,
     notes: "Pełen energii!",
   },
 ];
@@ -133,6 +151,8 @@ export default function WellnessJournalPage() {
       wellBeing: 3,
       energyLevel: 3,
       sleepQuality: 3,
+      stressLevel: "", // Default to empty string to allow optional selection
+      muscleSoreness: "", // Default to empty string
       notes: "",
     },
   });
@@ -145,6 +165,8 @@ export default function WellnessJournalPage() {
       wellBeing: values.wellBeing,
       energyLevel: values.energyLevel,
       sleepQuality: values.sleepQuality,
+      stressLevel: values.stressLevel === "" ? undefined : Number(values.stressLevel),
+      muscleSoreness: values.muscleSoreness === "" ? undefined : Number(values.muscleSoreness),
       notes: values.notes,
     };
 
@@ -158,6 +180,8 @@ export default function WellnessJournalPage() {
       wellBeing: 3,
       energyLevel: 3,
       sleepQuality: 3,
+      stressLevel: "",
+      muscleSoreness: "",
       notes: "",
     });
     setIsSaving(false);
@@ -174,8 +198,10 @@ export default function WellnessJournalPage() {
     setIsSaving(false);
   };
 
-  const getRatingLabel = (value: number): string => {
-    return RATING_OPTIONS.find(opt => opt.value === value)?.label || String(value);
+  const getRatingLabel = (value: number | undefined, type: 'general' | 'soreness' = 'general'): string => {
+    if (value === undefined) return "-";
+    const options = type === 'soreness' ? SORENESS_RATING_OPTIONS : RATING_OPTIONS;
+    return options.find(opt => opt.value === value)?.label || String(value);
   };
 
 
@@ -204,7 +230,7 @@ export default function WellnessJournalPage() {
               <CardTitle className="flex items-center gap-2">
                 <ListChecks className="h-6 w-6 text-primary" /> Dodaj Nowy Wpis
               </CardTitle>
-              <CardDescription>Zarejestruj swoje samopoczucie, poziom energii i jakość snu.</CardDescription>
+              <CardDescription>Zarejestruj swoje samopoczucie, poziom energii, jakość snu i inne metryki.</CardDescription>
             </CardHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -246,7 +272,7 @@ export default function WellnessJournalPage() {
                       </FormItem>
                     )}
                   />
-                  <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+                  <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                     <FormField
                       control={form.control}
                       name="wellBeing"
@@ -295,6 +321,44 @@ export default function WellnessJournalPage() {
                             </FormControl>
                             <SelectContent>
                               {RATING_OPTIONS.map(opt => <SelectItem key={opt.value} value={String(opt.value)}>{opt.label}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                     <FormField
+                      control={form.control}
+                      name="stressLevel"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="flex items-center"><Brain className="mr-2 h-4 w-4"/>Poziom Stresu (opcjonalnie)</FormLabel>
+                          <Select onValueChange={(val) => field.onChange(val === "" ? "" : Number(val))} value={String(field.value)} disabled={isSaving}>
+                            <FormControl>
+                              <SelectTrigger><SelectValue placeholder="Oceń (1-5)" /></SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="">- Brak oceny -</SelectItem>
+                              {RATING_OPTIONS.map(opt => <SelectItem key={opt.value} value={String(opt.value)}>{opt.label}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="muscleSoreness"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="flex items-center"><Accessibility className="mr-2 h-4 w-4"/>Bolesność Mięśni (DOMS) (opcjonalnie)</FormLabel>
+                           <Select onValueChange={(val) => field.onChange(val === "" ? "" : Number(val))} value={String(field.value)} disabled={isSaving}>
+                            <FormControl>
+                              <SelectTrigger><SelectValue placeholder="Oceń (1-5)" /></SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="">- Brak oceny -</SelectItem>
+                              {SORENESS_RATING_OPTIONS.map(opt => <SelectItem key={opt.value} value={String(opt.value)}>{opt.label}</SelectItem>)}
                             </SelectContent>
                           </Select>
                           <FormMessage />
@@ -350,6 +414,8 @@ export default function WellnessJournalPage() {
                         <TableHead>Samopoczucie</TableHead>
                         <TableHead>Energia</TableHead>
                         <TableHead>Sen</TableHead>
+                        <TableHead className="hidden sm:table-cell">Stres</TableHead>
+                        <TableHead className="hidden sm:table-cell">DOMS</TableHead>
                         <TableHead className="hidden md:table-cell">Notatki</TableHead>
                         <TableHead className="text-right">Akcje</TableHead>
                       </TableRow>
@@ -361,7 +427,9 @@ export default function WellnessJournalPage() {
                           <TableCell>{getRatingLabel(entry.wellBeing)}</TableCell>
                           <TableCell>{getRatingLabel(entry.energyLevel)}</TableCell>
                           <TableCell>{getRatingLabel(entry.sleepQuality)}</TableCell>
-                          <TableCell className="text-xs text-muted-foreground hidden md:table-cell max-w-[200px] truncate">
+                          <TableCell className="hidden sm:table-cell">{getRatingLabel(entry.stressLevel)}</TableCell>
+                          <TableCell className="hidden sm:table-cell">{getRatingLabel(entry.muscleSoreness, 'soreness')}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground hidden md:table-cell max-w-[150px] truncate" title={entry.notes}>
                             {entry.notes || "-"}
                           </TableCell>
                           <TableCell className="text-right">
