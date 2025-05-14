@@ -287,10 +287,10 @@ export default function WorkoutHistoryDetailPage() {
             </CardHeader>
             <CardContent className="flex flex-col sm:flex-row gap-3">
                 <Button variant="outline" className="w-full sm:w-auto" disabled>
-                    <Repeat className="mr-2 h-4 w-4" /> Powtórz Trening
+                    <Repeat className="mr-2 h-4 w-4" /> Powtórz Trening (Wkrótce)
                 </Button>
                 <Button variant="outline" className="w-full sm:w-auto" disabled>
-                    <Edit className="mr-2 h-4 w-4" /> Edytuj Wpis
+                    <Edit className="mr-2 h-4 w-4" /> Edytuj Wpis (Wkrótce)
                 </Button>
                  <AlertDialog>
                     <AlertDialogTrigger asChild>
@@ -323,3 +323,5 @@ export default function WorkoutHistoryDetailPage() {
     </div>
   );
 }
+
+    

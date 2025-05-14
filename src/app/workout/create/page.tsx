@@ -51,8 +51,7 @@ import { ExerciseSelectionDialog, type Exercise as SelectableExercise } from "@/
 
 // Schema for an individual exercise in the workout form
 const exerciseSchema = z.object({
-  // id: z.string().uuid(), // UUID was from crypto.randomUUID(), but actual exercise IDs might not be UUIDs
-  id: z.string(), // Use the ID from the selected exercise
+  id: z.string(), 
   name: z.string().min(1, "Nazwa ćwiczenia jest wymagana."),
   // Add more exercise-specific fields here if needed, e.g., sets, reps, duration
 });
@@ -65,9 +64,7 @@ const workoutFormSchema = z.object({
 });
 
 type WorkoutFormValues = z.infer<typeof workoutFormSchema>;
-// type ExerciseInForm = z.infer<typeof exerciseSchema>; // This is the type for exercises *within the form*
 
-// Simulated available exercises for the selection dialog
 export const MOCK_EXERCISES_DATABASE: SelectableExercise[] = [
   { id: "ex1", name: "Wyciskanie sztangi na ławce płaskiej", category: "Klatka" },
   { id: "ex2", name: "Przysiady ze sztangą", category: "Nogi" },
@@ -116,10 +113,8 @@ export default function CreateWorkoutPage() {
   };
 
   const handleExercisesSelected = (selectedExercises: { id: string; name: string }[]) => {
-    // Append might take an array directly
-    // Map selected exercises to match the form's exerciseSchema structure
     const exercisesToAppend = selectedExercises.map(ex => ({
-        id: ex.id, // Use the actual ID from the database/mock
+        id: ex.id,
         name: ex.name,
     }));
     append(exercisesToAppend);
@@ -147,9 +142,22 @@ export default function CreateWorkoutPage() {
 
     await new Promise(resolve => setTimeout(resolve, 1500));
 
+    // const newWorkoutId = `wk${Date.now()}`; // Simulate generating a new ID
     toast({
       title: "Trening zapisany!",
-      description: `Trening "${values.workoutName}" został pomyślnie utworzony.`,
+      description: (
+        <div>
+          <p>Trening "{values.workoutName}" został pomyślnie utworzony.</p>
+          {/* Placeholder for starting the workout immediately */}
+          {/* <Button
+            variant="link"
+            className="p-0 h-auto text-primary"
+            onClick={() => router.push(`/workout/active/${newWorkoutId}`)} // Replace with actual ID logic
+          >
+            Rozpocznij teraz
+          </Button> */}
+        </div>
+      ),
       variant: "default",
     });
     router.push("/workout/start"); 
@@ -260,7 +268,7 @@ export default function CreateWorkoutPage() {
                   ) : (
                     <ul className="space-y-4">
                       {fields.map((item, index) => (
-                        <li key={item.id}> {/* Ensure item.id is unique for list items; RHF useFieldArray uses a unique id prop */}
+                        <li key={item.id}> 
                           <Card className="bg-muted/30 p-4">
                             <div className="flex items-center justify-between">
                               <span className="font-medium">{item.name}</span>
@@ -333,3 +341,5 @@ export default function CreateWorkoutPage() {
     </div>
   );
 }
+
+    
