@@ -162,10 +162,12 @@ const MOCK_WORKOUT_HISTORY_FOR_SUGGESTIONS: MockPastSession[] = [
   { sessionId: 's6', exerciseId: 'ex6', date: '2024-07-20T08:00:00Z', setsPerformed: [{ weight: 'Poziom 7', reps: '30 min' }] },
 ];
 const PROGRESSION_SETTINGS_LOCAL_STORAGE_KEY = "workoutWiseProgressionSettings";
+const ACTIVE_WORKOUT_AUTOSAVE_KEY_PREFIX = "activeWorkoutAutosave_";
+const PENDING_CUSTOM_WORKOUT_KEY = 'pendingCustomWorkoutToStart';
 
 
 const setFormSchema = z.object({
-  weight: z.string().optional(), // Now optional, as it might not apply to time/distance
+  weight: z.string().optional(), 
   reps: z.string().min(1, "Wartość jest wymagana (np. powtórzenia, czas, dystans)."),
   rpe: z.coerce.number().min(1).max(10).optional().or(z.literal("")),
   notes: z.string().optional(),
@@ -181,16 +183,15 @@ function getExerciseTrackingType(exerciseName: string, category?: string): Exerc
   const lowerName = exerciseName.toLowerCase();
   const lowerCategory = category?.toLowerCase();
 
-  if (lowerName.includes('bieg') || lowerName.includes('rower') || lowerName.includes('orbitrek') || lowerName.includes('wiosł') || lowerCategory === 'cardio') {
+  if (lowerName.includes('bieg') || lowerName.includes('rower') || lowerName.includes('orbitrek') || lowerName.includes('wiosło') || lowerCategory === 'cardio') {
     if (lowerName.includes('km') || lowerName.includes('metr') || lowerName.includes('dystans')) return 'distance';
     if (lowerName.includes('min') || lowerName.includes('sek') || lowerName.includes('godz') || lowerName.includes('czas')) return 'time';
-    return 'time'; // Default for cardio if not explicitly distance or time in name
+    return 'time'; 
   }
   if (lowerName.includes('plank') || lowerName.includes('deska') || lowerName.includes('wall sit')) {
     return 'time';
   }
   if (lowerName.includes('podciąganie') || lowerName.includes('pompki') || lowerName.includes('dipy')) {
-    // Could be weight_reps if weighted, or reps_only if bodyweight. For form purposes, 'reps_only' guides placeholder.
     return 'reps_only';
   }
   return 'weight_reps';
@@ -203,12 +204,24 @@ interface ProgressionSuggestion {
   reasoning?: string;
 }
 
+interface AutoSavedWorkoutState {
+    workoutId: string;
+    workoutName?: string;
+    recordedSets: Record<string, RecordedSet[]>;
+    currentExerciseIndex: number;
+    exerciseNotes: Record<string, string>;
+    workoutStartTime: string; // Store as ISO string
+    elapsedTime: number;
+}
+
 
 export default function ActiveWorkoutPage() {
   const router = useRouter();
   const params = useParams();
   const { toast } = useToast();
   const workoutId = params.workoutId as string;
+
+  const ACTIVE_WORKOUT_AUTOSAVE_KEY = `${ACTIVE_WORKOUT_AUTOSAVE_KEY_PREFIX}${workoutId}`;
 
   const [isLoading, setIsLoading] = React.useState(true);
   const [currentWorkout, setCurrentWorkout] = React.useState<Workout | null>(null);
@@ -229,44 +242,191 @@ export default function ActiveWorkoutPage() {
   const [progressionSuggestion, setProgressionSuggestion] = React.useState<ProgressionSuggestion | null>(null);
   const [userProgressionSettings, setUserProgressionSettings] = React.useState<ProgressionSettings | null>(null);
 
+  const [showResumeDialog, setShowResumeDialog] = React.useState(false);
+  const [savedWorkoutData, setSavedWorkoutData] = React.useState<AutoSavedWorkoutState | null>(null);
+
 
   const setForm = useForm<SetFormValues>({
     resolver: zodResolver(setFormSchema),
     defaultValues: { weight: "", reps: "", rpe: "", notes: "" },
   });
 
+  // Load workout: from localStorage (if custom repeat or autosave), or from MOCK_WORKOUTS
   React.useEffect(() => {
     setIsLoading(true);
-    setTimeout(() => {
-      const foundWorkout = MOCK_WORKOUTS.find((w) => w.id === workoutId);
-      if (foundWorkout) {
-        setCurrentWorkout(foundWorkout);
-        if (!workoutStartTime) { // Set start time only once
-            setWorkoutStartTime(new Date());
+    let workoutLoaded = false;
+
+    // Try to load from localStorage if it's a custom repeat
+    if (workoutId.startsWith('custom-repeat-')) {
+        const customWorkoutString = localStorage.getItem(PENDING_CUSTOM_WORKOUT_KEY);
+        if (customWorkoutString) {
+            try {
+                const customWorkout: Workout = JSON.parse(customWorkoutString);
+                if (customWorkout.id === workoutId) { // Ensure it's the correct pending workout
+                    setCurrentWorkout(customWorkout);
+                    if (!workoutStartTime) setWorkoutStartTime(new Date());
+                    workoutLoaded = true;
+                    localStorage.removeItem(PENDING_CUSTOM_WORKOUT_KEY); // Clean up
+                } else {
+                     console.warn("Mismatch in custom workout ID. Expected:", workoutId, "Found in LS:", customWorkout.id);
+                     // Potentially remove the stale item if IDs don't match
+                     localStorage.removeItem(PENDING_CUSTOM_WORKOUT_KEY);
+                }
+            } catch (e) {
+                console.error("Error parsing custom workout from localStorage:", e);
+                localStorage.removeItem(PENDING_CUSTOM_WORKOUT_KEY);
+            }
         }
+    }
+    
+    // If not loaded from custom repeat, try autosave or mock
+    if (!workoutLoaded) {
         try {
-          const storedSettings = localStorage.getItem(PROGRESSION_SETTINGS_LOCAL_STORAGE_KEY);
-          if (storedSettings) {
-            setUserProgressionSettings(JSON.parse(storedSettings));
-          }
+        const autoSavedDataString = localStorage.getItem(ACTIVE_WORKOUT_AUTOSAVE_KEY);
+        if (autoSavedDataString) {
+            const parsedData: AutoSavedWorkoutState = JSON.parse(autoSavedDataString);
+            setSavedWorkoutData(parsedData);
+            setShowResumeDialog(true);
+            // Don't set workoutLoaded = true yet, user needs to decide
+        } else {
+            // No autosave, load from MOCK_WORKOUTS
+            const foundWorkout = MOCK_WORKOUTS.find((w) => w.id === workoutId);
+            if (foundWorkout) {
+            setCurrentWorkout(foundWorkout);
+            if (!workoutStartTime) setWorkoutStartTime(new Date());
+            workoutLoaded = true;
+            }
+        }
         } catch (error) {
-          console.error("Error loading progression settings:", error);
+            console.error("Error loading from localStorage or MOCK_WORKOUTS:", error);
+        }
+    }
+
+
+    if (!workoutLoaded && !showResumeDialog) { // Only show error if not pending resume decision
+        const foundWorkout = MOCK_WORKOUTS.find((w) => w.id === workoutId);
+         if (foundWorkout && !currentWorkout) { // Ensure currentWorkout isn't already set by resume logic later
+            setCurrentWorkout(foundWorkout);
+            if (!workoutStartTime) setWorkoutStartTime(new Date());
+        } else if (!foundWorkout && !workoutId.startsWith('custom-repeat-')) {
+             // If still not found and not a custom type that might be resolved by resume dialog
+            toast({ title: "Błąd", description: "Nie znaleziono treningu.", variant: "destructive" });
+            router.push("/workout/start");
+        }
+    }
+
+    try {
+      const storedSettings = localStorage.getItem(PROGRESSION_SETTINGS_LOCAL_STORAGE_KEY);
+      if (storedSettings) {
+        setUserProgressionSettings(JSON.parse(storedSettings));
+      }
+    } catch (error) {
+      console.error("Error loading progression settings:", error);
+    }
+
+    setIsLoading(false);
+  }, [workoutId, router, toast, ACTIVE_WORKOUT_AUTOSAVE_KEY]);
+
+
+  const handleResumeWorkout = (resume: boolean) => {
+    if (resume && savedWorkoutData) {
+      // Attempt to find the base workout structure (name, exercises) if possible
+      // This is important if savedWorkoutData only stores IDs and performance, not the full template
+      let baseWorkout = MOCK_WORKOUTS.find(w => w.id === savedWorkoutData.workoutId);
+      if(!baseWorkout && workoutId.startsWith('custom-repeat-')) { // Check if current workoutId points to a custom structure
+           const customWorkoutString = localStorage.getItem(PENDING_CUSTOM_WORKOUT_KEY); // This might have been cleared
+           if(customWorkoutString) {
+               try {
+                   const tempParsed = JSON.parse(customWorkoutString)
+                   if(tempParsed.id === workoutId) baseWorkout = tempParsed;
+               } catch(e){ console.error(e)}
+           }
+      }
+      // If we're resuming a session whose original template ID is different from the current workoutId
+      // (e.g., resuming an autosaved 'wk1' while on a 'custom-repeat-...' URL),
+      // we need to ensure currentWorkout is set correctly.
+      if (baseWorkout) {
+          setCurrentWorkout(baseWorkout);
+      } else if (savedWorkoutData.workoutName && savedWorkoutData.workoutId) {
+           // Fallback: Construct a minimal Workout if template not found but autosave has name/id/exercises
+           // This part is tricky as autosave might not have the full `ExerciseInWorkout` structure
+           // For now, we rely on the original template being found or it being a custom-repeat flow.
+           // A more robust solution would store the full ExerciseInWorkout structure in autosave.
+           // For now, let's assume the initial useEffect or custom-repeat logic handles setCurrentWorkout.
+            console.warn(`Resuming workout "${savedWorkoutData.workoutName}" but its original template was not found in MOCK_WORKOUTS. Some features might be limited.`);
+            // If setCurrentWorkout didn't happen, we need to set at least a minimal structure
+            if(!currentWorkout && savedWorkoutData.workoutName && savedWorkoutData.workoutId && MOCK_WORKOUTS.find(w=>w.id === savedWorkoutData.workoutId)) {
+                 setCurrentWorkout(MOCK_WORKOUTS.find(w=>w.id === savedWorkoutData.workoutId)!);
+            } else if (!currentWorkout && savedWorkoutData.workoutId && savedWorkoutData.workoutName) {
+                // Minimal reconstruction if absolutely necessary and exercises were in autosave
+                // This part is omitted for brevity as it requires `exercises` to be in AutoSavedWorkoutState
+            }
+      }
+
+
+      setRecordedSets(savedWorkoutData.recordedSets);
+      setCurrentExerciseIndex(savedWorkoutData.currentExerciseIndex);
+      setExerciseNotes(savedWorkoutData.exerciseNotes);
+      if (savedWorkoutData.workoutStartTime) {
+        setWorkoutStartTime(new Date(parseISO(savedWorkoutData.workoutStartTime)));
+      }
+      setElapsedTime(savedWorkoutData.elapsedTime);
+      toast({ title: "Trening wznowiony." });
+    } else {
+      clearAutoSavedWorkout();
+      toast({ title: "Poprzedni postęp odrzucony.", description: "Rozpoczynanie nowego treningu." });
+       // Ensure workout starts fresh by re-triggering initial load if needed
+      if (!workoutId.startsWith('custom-repeat-')) {
+        const foundWorkout = MOCK_WORKOUTS.find((w) => w.id === workoutId);
+        if (foundWorkout) {
+            setCurrentWorkout(foundWorkout);
+            if (!workoutStartTime) setWorkoutStartTime(new Date());
+             // Reset states to initial for a fresh start
+            setRecordedSets({});
+            setCurrentExerciseIndex(0);
+            setExerciseNotes({});
+            setElapsedTime(0);
         }
       } else {
-        toast({ title: "Błąd", description: "Nie znaleziono treningu.", variant: "destructive" });
-        router.push("/workout/start");
+          // For custom-repeat, if discarded, it should ideally redirect or show error
+          // as the custom data is gone. For now, just logs.
+          console.warn("Custom repeat workout discarded, no template to fall back to from MOCK_WORKOUTS with this ID.")
       }
-      setIsLoading(false);
-    }, 500);
-  }, [workoutId, router, toast, workoutStartTime]); // Added workoutStartTime to deps
+    }
+    setShowResumeDialog(false);
+    setSavedWorkoutData(null);
+    setIsLoading(false); // Ensure loading is false after decision
+  };
+
+  const clearAutoSavedWorkout = () => {
+    localStorage.removeItem(ACTIVE_WORKOUT_AUTOSAVE_KEY);
+  };
+
+
+  // Auto-save to localStorage
+  React.useEffect(() => {
+    if (!isLoading && currentWorkout && workoutStartTime) { // Only save if workout is active and loaded
+      const autoSaveData: AutoSavedWorkoutState = {
+        workoutId: currentWorkout.id, // Save the ID of the template being performed
+        workoutName: currentWorkout.name,
+        recordedSets,
+        currentExerciseIndex,
+        exerciseNotes,
+        workoutStartTime: workoutStartTime.toISOString(),
+        elapsedTime,
+      };
+      localStorage.setItem(ACTIVE_WORKOUT_AUTOSAVE_KEY, JSON.stringify(autoSaveData));
+    }
+  }, [recordedSets, currentExerciseIndex, exerciseNotes, workoutStartTime, elapsedTime, isLoading, currentWorkout, ACTIVE_WORKOUT_AUTOSAVE_KEY]);
+
 
   React.useEffect(() => {
-    if (!workoutStartTime || isResting) return; 
+    if (!workoutStartTime || isResting || isLoading || !currentWorkout) return; 
     const timerInterval = setInterval(() => {
       setElapsedTime(Math.floor((new Date().getTime() - workoutStartTime.getTime()) / 1000));
     }, 1000);
     return () => clearInterval(timerInterval);
-  }, [workoutStartTime, isResting]);
+  }, [workoutStartTime, isResting, isLoading, currentWorkout]);
 
   React.useEffect(() => {
     if (isResting && restTimer > 0) {
@@ -289,7 +449,7 @@ export default function ActiveWorkoutPage() {
 
 
   React.useEffect(() => {
-    if (currentExercise) {
+    if (currentExercise && !isLoading) { // Ensure settings and exercise are loaded
       const getSuggestion = (
         exerciseId: string,
         exerciseName: string,
@@ -298,11 +458,6 @@ export default function ActiveWorkoutPage() {
         settings: ProgressionSettings | null
       ): ProgressionSuggestion | null => {
         
-        const noSuggestion = { 
-          suggestionText: "Brak sugestii dla tego typu ćwiczenia lub ustawień.",
-          reasoning: "Modele progresji są głównie dla ćwiczeń siłowych (ciężar/powtórzenia)."
-        };
-
         if (!settings?.enableProgression) {
           return { 
             suggestionText: "Sugestie progresji są wyłączone w ustawieniach.",
@@ -310,20 +465,24 @@ export default function ActiveWorkoutPage() {
           };
         }
         
-        if (trackingType === 'time' || trackingType === 'distance') {
-            return {
-                suggestionText: `Dla ${exerciseName}: skup się na poprawie wyniku z ostatniego razu lub celuj w ${currentExercise.defaultReps || 'założony cel'}.`,
-                reasoning: "Automatyczne sugestie dla ćwiczeń na czas/dystans - wkrótce!"
-            };
-        }
+        let baseSuggestionText = "Pierwszy raz to ćwiczenie? Daj z siebie wszystko i zanotuj wyniki!";
+        let baseReasoning = "Brak historii dla tego ćwiczenia, zastosowano ustawienia domyślne lub sugestie progresji są wyłączone.";
+        let suggestedValues: ProgressionSuggestion['suggestedValues'] = undefined;
 
         const relevantSessions = history
           .filter(session => session.exerciseId === exerciseId)
           .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-        let baseSuggestionText = "Pierwszy raz to ćwiczenie? Daj z siebie wszystko i zanotuj wyniki!";
-        let baseReasoning = "Brak historii dla tego ćwiczenia lub zastosowano domyślną sugestię.";
-        let suggestedValues: ProgressionSuggestion['suggestedValues'] = undefined;
+        if (trackingType === 'time' || trackingType === 'distance') {
+            baseSuggestionText = `Dla ${exerciseName}: skup się na poprawie wyniku z ostatniego razu lub celuj w ${currentExercise.defaultReps || 'założony cel'}.`;
+            baseReasoning = "Automatyczne sugestie dla ćwiczeń na czas/dystans są ogólne. Sprawdź historię i celuj wyżej!";
+            if (relevantSessions.length > 0) {
+                const lastVal = relevantSessions[0].setsPerformed[0]?.reps;
+                if(lastVal) baseSuggestionText = `Ostatnio: ${lastVal}. Spróbuj pobić ten wynik!`;
+            }
+            return { suggestionText: baseSuggestionText, reasoning: baseReasoning };
+        }
+
 
         if (relevantSessions.length > 0) {
           const lastSession = relevantSessions[0];
@@ -339,28 +498,42 @@ export default function ActiveWorkoutPage() {
               const increment = settings.linearWeightIncrement || 2.5;
               suggestedValues = { weight: lastWeight + increment, reps: lastReps };
               baseSuggestionText = `Sugestia (Liniowa - Ciężar): Spróbuj ${suggestedValues.weight}kg x ${suggestedValues.reps} powt.`;
-              baseReasoning += ` i modelu progresji 'Liniowa (Ciężar)' (+${increment}kg).`;
+              baseReasoning += ` i modelu progresji 'Liniowa (Ciężar)' (+${increment}kg). Warunek: ${settings.linearWeightCondition || 'brak'}`;
             } else if (settings.selectedModel === "linear_reps" && typeof lastReps === 'number') {
               const increment = settings.linearRepsIncrement || 1;
               suggestedValues = { weight: lastWeight, reps: lastReps + increment };
               baseSuggestionText = `Sugestia (Liniowa - Powtórzenia): Spróbuj ${suggestedValues.weight}${typeof suggestedValues.weight === 'number' ? 'kg' : ''} x ${suggestedValues.reps} powt.`;
-              baseReasoning += ` i modelu progresji 'Liniowa (Powtórzenia)' (+${increment} powt.).`;
+              baseReasoning += ` i modelu progresji 'Liniowa (Powtórzenia)' (+${increment} powt.). Warunek: ${settings.linearRepsCondition || 'brak'}`;
             } else if (settings.selectedModel === "double_progression" && settings.doubleProgressionRepRange) {
-                const [minReps, maxReps] = (settings.doubleProgressionRepRange.split('-').map(Number) || [8,12]);
-                if (typeof lastWeight === 'number' && typeof lastReps === 'number' && lastReps >= maxReps) {
-                    const weightIncrement = settings.doubleProgressionWeightIncrement || 2.5;
-                    suggestedValues = {weight: lastWeight + weightIncrement, reps: minReps};
-                    baseSuggestionText = `Sugestia (Podwójna Progresja): Osiągnięto max powt. (${lastReps}). Spróbuj ${suggestedValues.weight}kg x ${suggestedValues.reps} powt.`;
-                    baseReasoning += ` i modelu 'Podwójna Progresja'. Osiągnięto górny zakres powtórzeń, zwiększ ciężar o ${weightIncrement}kg i celuj w ${minReps} powt.`;
+                const [minRepsStr, maxRepsStr] = settings.doubleProgressionRepRange.split('-');
+                const minReps = parseInt(minRepsStr, 10);
+                const maxReps = parseInt(maxRepsStr, 10);
+
+                if (typeof lastWeight === 'number' && typeof lastReps === 'number' && !isNaN(minReps) && !isNaN(maxReps)) {
+                    if (lastReps >= maxReps) {
+                        const weightIncrement = settings.doubleProgressionWeightIncrement || 2.5;
+                        suggestedValues = {weight: lastWeight + weightIncrement, reps: minReps};
+                        baseSuggestionText = `Sugestia (Podwójna Progresja): Osiągnięto max powt. (${lastReps}). Spróbuj ${suggestedValues.weight}kg x ${suggestedValues.reps} powt.`;
+                        baseReasoning += ` i modelu 'Podwójna Progresja'. Osiągnięto górny zakres powtórzeń (${settings.doubleProgressionRepRange}), zwiększ ciężar o ${weightIncrement}kg i celuj w ${minReps} powt.`;
+                    } else {
+                        suggestedValues = {weight: lastWeight, reps: lastReps + (settings.linearRepsIncrement || 1)}; 
+                        baseSuggestionText = `Sugestia (Podwójna Progresja): Celuj w ${minReps}-${maxReps} powt. z ${lastWeight}${typeof lastWeight === 'number' ? 'kg' : ''}. Spróbuj o ${settings.linearRepsIncrement || 1} powt. więcej.`;
+                        baseReasoning += ` i modelu 'Podwójna Progresja'. Celuj w zakres ${settings.doubleProgressionRepRange} powt.`;
+                    }
                 } else {
-                    suggestedValues = {weight: lastWeight, reps: lastReps}; 
-                    baseSuggestionText = `Sugestia (Podwójna Progresja): Celuj w ${settings.doubleProgressionRepRange} powt. z ${lastWeight}${typeof lastWeight === 'number' ? 'kg' : ''}.`;
-                    baseReasoning += ` i modelu 'Podwójna Progresja'. Celuj w zakres ${settings.doubleProgressionRepRange} powt.`;
+                     baseSuggestionText = `Ostatnio (${datePerformed}): ${lastWeight}${typeof lastWeight === 'number' ? 'kg' : ''} x ${lastReps} powt. Skonfiguruj Podwójną Progresję poprawnie.`;
+                     baseReasoning += `. Upewnij się, że zakres powtórzeń i przyrost ciężaru są zdefiniowane w ustawieniach Podwójnej Progresji.`;
                 }
             } else {
-                 baseSuggestionText = `Ostatnio (${datePerformed}): ${lastWeight}${typeof lastWeight === 'number' ? 'kg' : ''} x ${lastReps} powt. Dostosuj parametry.`;
+                 baseSuggestionText = `Ostatnio (${datePerformed}): ${lastWeight}${typeof lastWeight === 'number' ? 'kg' : ''} x ${lastReps} powt. Dostosuj parametry. Nie wybrano/skonfigurowano modelu progresji.`;
+                 baseReasoning += `. Sprawdź Ustawienia Progresji Obciążenia.`
             }
           }
+        } else { // No relevant history
+            if (settings.selectedModel === "linear_weight") {
+                baseSuggestionText = "Brak historii. Zacznij od wagi, którą czujesz, że zrobisz zalecaną liczbę powtórzeń.";
+                baseReasoning = "Brak historii dla tego ćwiczenia. Model 'Liniowa (Ciężar)' wymaga historii do sugestii przyrostu.";
+            } // Add more for other models if needed
         }
         return { suggestionText: baseSuggestionText, suggestedValues, reasoning: baseReasoning };
       };
@@ -375,18 +548,18 @@ export default function ActiveWorkoutPage() {
         if (currentExerciseTrackingType === 'weight_reps' || currentExerciseTrackingType === 'reps_only') {
             defaultWeight = lastSetForThisExercise?.weight?.toString() || "";
         } else if (currentExerciseTrackingType === 'time' || currentExerciseTrackingType === 'distance') {
-            defaultWeight = lastSetForThisExercise?.weight?.toString() || "N/A"; // Or "" if intensity isn't usually logged
+            defaultWeight = lastSetForThisExercise?.weight?.toString() || "N/A";
         }
 
         setForm.reset({
           weight: defaultWeight,
-          reps: "", // Reps/Time/Distance always cleared for new set
+          reps: "", 
           rpe: "",
           notes: ""
         });
       }
     }
-  }, [currentExercise, recordedSets, userProgressionSettings, editingSetInfo, setForm, currentExerciseTrackingType]);
+  }, [currentExercise, recordedSets, userProgressionSettings, editingSetInfo, setForm, currentExerciseTrackingType, isLoading]);
 
 
   const formatTime = (totalSeconds: number) => {
@@ -401,7 +574,7 @@ export default function ActiveWorkoutPage() {
 
     const setEntry: Omit<RecordedSet, 'setNumber'> = {
       weight: (currentExerciseTrackingType === 'time' || currentExerciseTrackingType === 'distance') && (!values.weight || values.weight.trim() === "") ? "N/A" : values.weight || "N/A",
-      reps: values.reps, // Already validated as string min 1
+      reps: values.reps, 
       rpe: values.rpe ? Number(values.rpe) : undefined,
       notes: values.notes || undefined,
     };
@@ -502,7 +675,6 @@ export default function ActiveWorkoutPage() {
     if (editingSetInfo && editingSetInfo.exerciseId === exerciseId && editingSetInfo.setIndex === setIndexToDelete) {
       handleCancelEdit(); 
     } else if (editingSetInfo && editingSetInfo.exerciseId === exerciseId && editingSetInfo.setIndex > setIndexToDelete) {
-      // Adjust the index of the set being edited if a preceding set is deleted
       setEditingSetInfo(info => info ? ({ ...info, setIndex: info.setIndex - 1 }) : null);
     }
     toast({
@@ -566,6 +738,7 @@ export default function ActiveWorkoutPage() {
 
     try {
         localStorage.setItem('workoutSummaryData', JSON.stringify(summaryData));
+        clearAutoSavedWorkout(); // Clear autosave on successful finish
         toast({
             title: "Trening Zakończony!",
             description: "Przekierowuję do podsumowania...",
@@ -610,16 +783,16 @@ export default function ActiveWorkoutPage() {
           return "Intensywność / Poziom (opcjonalne)";
         case 'reps_only':
           return "Obciążenie Dodatkowe (kg/opis, opcjonalne)";
-        default: // weight_reps or other
+        default: 
           return "Ciężar (kg/opis)";
       }
-    } else { // reps field
+    } else { 
       switch (currentExerciseTrackingType) {
         case 'time':
           return "Czas Trwania";
         case 'distance':
           return "Dystans";
-        default: // weight_reps, reps_only or other
+        default: 
           return "Powtórzenia";
       }
     }
@@ -636,7 +809,7 @@ export default function ActiveWorkoutPage() {
         default:
           return "np. 50 lub BW";
       }
-    } else { // reps field
+    } else { 
       const defaultReps = currentExercise?.defaultReps;
       if (defaultReps) return defaultReps;
       switch (currentExerciseTrackingType) {
@@ -651,7 +824,7 @@ export default function ActiveWorkoutPage() {
   };
 
 
-  if (isLoading && !currentWorkout ) { 
+  if (isLoading && !currentWorkout && !showResumeDialog) { 
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -660,18 +833,47 @@ export default function ActiveWorkoutPage() {
     );
   }
   
-  if (!currentWorkout || !currentExercise) {
+  if (showResumeDialog && savedWorkoutData) {
     return (
-         <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
-            <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Błąd Treningu</AlertTitle>
-                <AlertDescription>Nie można załadować danych treningu. Spróbuj ponownie.</AlertDescription>
-                 <Button onClick={() => router.push("/workout/start")} className="mt-4">Wróć do wyboru</Button>
-            </Alert>
+        <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
+            <AlertDialog open={showResumeDialog} onOpenChange={setShowResumeDialog}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Niezakończony Trening</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Znaleziono niezakończony trening "{savedWorkoutData.workoutName || 'Poprzedni Trening'}" z dnia {savedWorkoutData.workoutStartTime ? new Date(parseISO(savedWorkoutData.workoutStartTime)).toLocaleDateString('pl-PL') : 'nieznana data'}. 
+                            Czy chcesz go kontynuować?
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => handleResumeWorkout(false)}>Odrzuć i zacznij od nowa</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => handleResumeWorkout(true)}>Kontynuuj Trening</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
   }
+
+
+  if (!currentWorkout || !currentExercise) {
+    // This case should ideally be caught by the initial loading or resume logic
+    // If it still happens, it means something went wrong with setting currentWorkout
+    if (!isLoading) { // Avoid showing this if we're just about to show the resume dialog
+        return (
+            <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
+                <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>Błąd Treningu</AlertTitle>
+                    <AlertDescription>Nie można załadować danych treningu. Spróbuj ponownie.</AlertDescription>
+                    <Button onClick={() => router.push("/workout/start")} className="mt-4">Wróć do wyboru</Button>
+                </Alert>
+            </div>
+        );
+    }
+    return null; // Or a global loader if isLoading is true but currentWorkout not yet set
+  }
+
 
   const exerciseProgress = ((currentExerciseIndex + 1) / currentWorkout.exercises.length) * 100;
   const setsForCurrentExercise = recordedSets[currentExercise.id] || [];

@@ -52,7 +52,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import type { HistoricalWorkoutSession as OriginalHistoricalWorkoutSession } from "../page";
-import type { RecordedSet as OriginalRecordedSet, ExerciseInWorkout } from "@/app/workout/active/[workoutId]/page";
+import type { RecordedSet as OriginalRecordedSet, ExerciseInWorkout, Workout } from "@/app/workout/active/[workoutId]/page";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -62,6 +62,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent as EditDialogContent, // Renaming to avoid conflict
+  DialogDescription as EditDialogDescription,
+  DialogFooter as EditDialogFooter,
+  DialogHeader as EditDialogHeader,
+  DialogTitle as EditDialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
+
 
 // Make types mutable for editing
 interface RecordedSet extends OriginalRecordedSet {
@@ -83,12 +97,19 @@ enum DifficultyRating {
   Ekstremalny = "Ekstremalny",
 }
 
+const editHistoricalSessionSchema = z.object({
+  difficulty: z.nativeEnum(DifficultyRating).optional(),
+  generalNotes: z.string().optional(),
+  // We'll handle sets separately as it's an array of objects
+});
+type EditHistoricalSessionFormValues = z.infer<typeof editHistoricalSessionSchema>;
+
 
 // Re-using MOCK_HISTORY_SESSIONS for simplicity in this example
 const MOCK_HISTORY_SESSIONS_FOR_DETAIL: HistoricalWorkoutSession[] = [
   {
     id: "hist1",
-    workoutId: "wk1",
+    workoutId: "wk1", // Original template ID
     workoutName: "Poranny Trening Siłowy",
     workoutType: "Siłowy",
     startTime: "2024-07-25T08:00:00.000Z",
@@ -98,9 +119,9 @@ const MOCK_HISTORY_SESSIONS_FOR_DETAIL: HistoricalWorkoutSession[] = [
       ex1: [{ setNumber: 1, weight: "60", reps: "10", notes: "Good form" }, { setNumber: 2, weight: "65", reps: "8" }] as RecordedSet[],
       ex2: [{ setNumber: 1, weight: "100", reps: "5" }] as RecordedSet[],
     },
-    exercises: [
+    exercises: [ // This is the planned structure
       { id: "ex1", name: "Wyciskanie sztangi na ławce płaskiej", defaultSets: 3, defaultReps: "8-10", defaultRest: 90 },
-      { id: "ex2", name: "Przysiady ze sztangą", defaultSets: 4, defaultReps: "10-12", defaultRest: 120 },
+      { id: "ex2", name: "Przysiady ze sztangą", defaultSets: 4, defaultReps: "6-8", defaultRest: 120 },
     ],
     difficulty: DifficultyRating.Sredni,
     generalNotes: "Feeling strong today!",
@@ -136,15 +157,14 @@ const MOCK_HISTORY_SESSIONS_FOR_DETAIL: HistoricalWorkoutSession[] = [
       ex4: [{ setNumber: 1, weight: "BW", reps: "8" }, { setNumber: 2, weight: "BW", reps: "7"}] as RecordedSet[],
     },
     exercises: [
-      { id: "ex1", name: "Wyciskanie sztangi na ławce płaskiej" },
-      { id: "ex2", name: "Przysiady ze sztangą" },
-      { id: "ex4", name: "Podciąganie na drążku" },
+      { id: "ex1", name: "Wyciskanie sztangi na ławce płaskiej", defaultSets: 3, defaultReps: "8-10", defaultRest: 90 },
+      { id: "ex2", name: "Przysiady ze sztangą", defaultSets: 3, defaultReps: "5-8", defaultRest: 120 },
+      { id: "ex4", name: "Podciąganie na drążku", defaultSets: 3, defaultReps: "Max", defaultRest: 75 },
     ],
     difficulty: DifficultyRating.Sredni,
     calculatedTotalVolume: (65*10) + (70*8) + (70*7) + (100*6) + (105*5),
   },
 ];
-
 
 const formatTime = (totalSeconds: number) => {
   const hours = Math.floor(totalSeconds / 3600);
@@ -152,6 +172,8 @@ const formatTime = (totalSeconds: number) => {
   const seconds = totalSeconds % 60;
   return `${hours > 0 ? String(hours).padStart(2, "0") + "h " : ""}${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
 };
+
+const PENDING_CUSTOM_WORKOUT_KEY = 'pendingCustomWorkoutToStart';
 
 export default function WorkoutHistoryDetailPage() {
   const router = useRouter();
@@ -162,18 +184,21 @@ export default function WorkoutHistoryDetailPage() {
   const [sessionData, setSessionData] = React.useState<HistoricalWorkoutSession | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isDeleting, setIsDeleting] = React.useState(false);
-  const [isSavingEdit, setIsSavingEdit] = React.useState(false);
-
+  
   const [isEditingSession, setIsEditingSession] = React.useState(false);
   const [editedSessionData, setEditedSessionData] = React.useState<HistoricalWorkoutSession | null>(null);
 
 
+  const editForm = useForm<EditHistoricalSessionFormValues>({
+    resolver: zodResolver(editHistoricalSessionSchema),
+  });
+
   React.useEffect(() => {
     setIsLoading(true);
+    // Simulate fetching data
     setTimeout(() => {
       const foundSession = MOCK_HISTORY_SESSIONS_FOR_DETAIL.find(s => s.id === sessionId);
       if (foundSession) {
-        // Deep copy for initial sessionData and for editing purposes if needed later
         const deepCopiedSession = JSON.parse(JSON.stringify(foundSession)) as HistoricalWorkoutSession;
         setSessionData(deepCopiedSession);
       } else {
@@ -186,19 +211,24 @@ export default function WorkoutHistoryDetailPage() {
 
   const handleDeleteSession = async () => {
     setIsDeleting(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+    // In a real app, you'd make an API call here to delete from DB
     toast({
       title: "Sesja usunięta",
       description: `Sesja treningowa "${sessionData?.workoutName}" została (symulacyjnie) usunięta.`,
       variant: "default",
     });
-    router.replace("/history");
+    router.replace("/history"); // Go back to history list
   };
 
-  const handleEditSession = () => {
+  const handleStartEditSession = () => {
     if (sessionData) {
-      // Create a deep copy for editing to avoid mutating original state directly
-      setEditedSessionData(JSON.parse(JSON.stringify(sessionData)));
+      const deepCopy: HistoricalWorkoutSession = JSON.parse(JSON.stringify(sessionData));
+      setEditedSessionData(deepCopy);
+      editForm.reset({
+        difficulty: deepCopy.difficulty,
+        generalNotes: deepCopy.generalNotes || "",
+      });
       setIsEditingSession(true);
     }
   };
@@ -206,31 +236,52 @@ export default function WorkoutHistoryDetailPage() {
   const handleCancelEdit = () => {
     setEditedSessionData(null);
     setIsEditingSession(false);
+    editForm.reset(); 
     toast({ title: "Edycja anulowana", variant: "default" });
   };
 
-  const handleSaveChanges = async () => {
+  const onEditSubmit = async (values: EditHistoricalSessionFormValues) => {
     if (!editedSessionData) return;
-    setIsSavingEdit(true);
-    // Add validation for editedSessionData if needed here
-    console.log("Saving edited session data (simulation):", editedSessionData);
+    setIsDeleting(true); // Re-use isDeleting for saving spinner
+
+    const finalEditedData: HistoricalWorkoutSession = {
+        ...editedSessionData,
+        difficulty: values.difficulty,
+        generalNotes: values.generalNotes,
+        // recordedSets would be updated if set editing was implemented here
+    };
+    
+    console.log("Saving edited historical session data (simulation):", finalEditedData);
     await new Promise(resolve => setTimeout(resolve, 1000));
     
-    // Simulate successful save
-    setSessionData(JSON.parse(JSON.stringify(editedSessionData))); // Update main data with edited copy
+    setSessionData(finalEditedData); // Update main data with edited copy
     setIsEditingSession(false);
     setEditedSessionData(null);
-    setIsSavingEdit(false);
+    setIsDeleting(false);
     toast({ title: "Zmiany zapisane!", description: "Dane sesji treningowej zostały zaktualizowane.", variant: "default" });
   };
-
-  const handleSetInputChange = (exerciseId: string, setIndex: number, field: keyof RecordedSet, value: string) => {
+  
+  const handleSetInputChange = (exerciseId: string, setIndex: number, field: keyof RecordedSet, value: string | number) => {
     setEditedSessionData(prev => {
       if (!prev) return null;
       const newEditedData = JSON.parse(JSON.stringify(prev)) as HistoricalWorkoutSession;
       const sets = newEditedData.recordedSets[exerciseId];
       if (sets && sets[setIndex]) {
         (sets[setIndex] as any)[field] = value;
+        // Recalculate total volume if weight or reps changed
+        if (field === 'weight' || field === 'reps') {
+            let totalVolume = 0;
+            Object.values(newEditedData.recordedSets).forEach(exerciseSets => {
+                exerciseSets.forEach(s => {
+                const w = parseFloat(String(s.weight));
+                const r = parseInt(String(s.reps), 10);
+                if (!isNaN(w) && !isNaN(r) && w > 0 && r > 0) {
+                    totalVolume += w * r;
+                }
+                });
+            });
+            newEditedData.calculatedTotalVolume = totalVolume;
+        }
       }
       return newEditedData;
     });
@@ -255,8 +306,20 @@ export default function WorkoutHistoryDetailPage() {
       let sets = newEditedData.recordedSets[exerciseId];
       if (sets) {
         sets = sets.filter((_, index) => index !== setIndexToDelete)
-                   .map((s, i) => ({ ...s, setNumber: i + 1 })); // Re-number sets
+                   .map((s, i) => ({ ...s, setNumber: i + 1 })); 
         newEditedData.recordedSets[exerciseId] = sets;
+        // Recalculate total volume
+        let totalVolume = 0;
+        Object.values(newEditedData.recordedSets).forEach(exerciseSets => {
+            exerciseSets.forEach(s => {
+            const w = parseFloat(String(s.weight));
+            const r = parseInt(String(s.reps), 10);
+            if (!isNaN(w) && !isNaN(r) && w > 0 && r > 0) {
+                totalVolume += w * r;
+            }
+            });
+        });
+        newEditedData.calculatedTotalVolume = totalVolume;
       }
       return newEditedData;
     });
@@ -264,12 +327,33 @@ export default function WorkoutHistoryDetailPage() {
   };
 
   const handleRepeatWorkout = () => {
-    if (sessionData?.workoutId) {
-      router.push(`/workout/active/${sessionData.workoutId}`);
+    if (sessionData && sessionData.exercises && sessionData.exercises.length > 0) {
+        const temporaryWorkout: Workout = {
+            id: `custom-repeat-${Date.now()}`,
+            name: `Powtórzenie: ${sessionData.workoutName}`,
+            exercises: sessionData.exercises.map(ex => ({ // Ensure we pass full ExerciseInWorkout objects
+                id: ex.id,
+                name: ex.name,
+                defaultSets: ex.defaultSets,
+                defaultReps: ex.defaultReps,
+                defaultRest: ex.defaultRest,
+            })),
+        };
+        try {
+            localStorage.setItem(PENDING_CUSTOM_WORKOUT_KEY, JSON.stringify(temporaryWorkout));
+            router.push(`/workout/active/${temporaryWorkout.id}`);
+        } catch (error) {
+            console.error("Error saving custom workout to localStorage for repeat:", error);
+            toast({
+                title: "Błąd",
+                description: "Nie udało się przygotować treningu do powtórzenia.",
+                variant: "destructive",
+            });
+        }
     } else {
       toast({
         title: "Nie można powtórzyć",
-        description: "Brak informacji o oryginalnym szablonie tego treningu.",
+        description: "Brak danych o ćwiczeniach w tej historycznej sesji.",
         variant: "destructive",
       });
     }
@@ -319,16 +403,16 @@ export default function WorkoutHistoryDetailPage() {
           </div>
            {isEditingSession ? (
             <div className="flex gap-2">
-              <Button variant="outline" onClick={handleCancelEdit} disabled={isSavingEdit}>
+              <Button variant="outline" onClick={handleCancelEdit} disabled={isDeleting}>
                 <XCircle className="mr-2 h-4 w-4" /> Anuluj Edycję
               </Button>
-              <Button onClick={handleSaveChanges} disabled={isSavingEdit}>
-                {isSavingEdit ? <Loader2 className="animate-spin mr-2 h-4 w-4"/> : <Save className="mr-2 h-4 w-4" />}
+              <Button onClick={editForm.handleSubmit(onEditSubmit)} disabled={isDeleting}>
+                {isDeleting ? <Loader2 className="animate-spin mr-2 h-4 w-4"/> : <Save className="mr-2 h-4 w-4" />}
                 Zapisz Zmiany
               </Button>
             </div>
           ) : (
-            <Button variant="outline" onClick={handleEditSession}>
+            <Button variant="outline" onClick={handleStartEditSession}>
               <Edit className="mr-2 h-4 w-4" /> Edytuj Wpis
             </Button>
           )}
@@ -364,20 +448,27 @@ export default function WorkoutHistoryDetailPage() {
                     <BarChart className="h-5 w-5 text-primary" />
                     <div>
                         <p className="font-semibold">Ocena Trudności</p>
-                        {isEditingSession && editedSessionData ? (
-                            <Select
-                                value={editedSessionData.difficulty}
-                                onValueChange={(value) => setEditedSessionData(prev => prev ? ({ ...prev, difficulty: value as DifficultyRating }) : null)}
-                            >
-                                <SelectTrigger className="h-8 text-xs">
-                                    <SelectValue placeholder="Oceń trudność..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {Object.values(DifficultyRating).map(level => (
-                                        <SelectItem key={level} value={level}>{level}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                        {isEditingSession ? (
+                            <Controller
+                                control={editForm.control}
+                                name="difficulty"
+                                render={({ field }) => (
+                                    <Select
+                                        value={field.value}
+                                        onValueChange={field.onChange}
+                                        disabled={isDeleting}
+                                    >
+                                        <SelectTrigger className="h-8 text-xs w-full">
+                                            <SelectValue placeholder="Oceń trudność..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {Object.values(DifficultyRating).map(level => (
+                                                <SelectItem key={level} value={level}>{level}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                )}
+                            />
                         ) : (
                             <p>{dataToDisplay.difficulty || "Nie oceniono"}</p>
                         )}
@@ -387,12 +478,19 @@ export default function WorkoutHistoryDetailPage() {
                
                 <div className="pt-4 border-t">
                     <h4 className="font-semibold mb-1 flex items-center gap-1"><StickyNote className="h-4 w-4 text-primary"/> Ogólne Notatki:</h4>
-                    {isEditingSession && editedSessionData ? (
-                        <Textarea
-                            value={editedSessionData.generalNotes || ""}
-                            onChange={(e) => setEditedSessionData(prev => prev ? ({ ...prev, generalNotes: e.target.value }) : null)}
-                            placeholder="Dodaj ogólne notatki do treningu..."
-                            rows={3}
+                    {isEditingSession ? (
+                        <Controller
+                            control={editForm.control}
+                            name="generalNotes"
+                            render={({ field }) => (
+                                <Textarea
+                                    value={field.value || ""}
+                                    onChange={field.onChange}
+                                    placeholder="Dodaj ogólne notatki do treningu..."
+                                    rows={3}
+                                    disabled={isDeleting}
+                                />
+                            )}
                         />
                     ) : (
                          <p className="text-sm text-muted-foreground whitespace-pre-wrap">{dataToDisplay.generalNotes || "Brak ogólnych notatek."}</p>
@@ -409,9 +507,7 @@ export default function WorkoutHistoryDetailPage() {
               {dataToDisplay.exercises.filter(ex => dataToDisplay.recordedSets[ex.id]?.length > 0 || (isEditingSession && editedSessionData?.recordedSets[ex.id]?.length > 0)).length > 0 ? (
                 <ul className="space-y-6">
                   {dataToDisplay.exercises.map((exercise) => {
-                    const setsToDisplay = (isEditingSession && editedSessionData?.recordedSets[exercise.id]) 
-                                        ? editedSessionData.recordedSets[exercise.id] 
-                                        : sessionData?.recordedSets[exercise.id];
+                    const setsToDisplay = dataToDisplay.recordedSets[exercise.id];
                     
                     if (!setsToDisplay || setsToDisplay.length === 0) return null;
 
@@ -434,7 +530,7 @@ export default function WorkoutHistoryDetailPage() {
                                 <div className="space-y-2">
                                   <div className="flex justify-between items-center">
                                     <span className="font-medium text-xs">Seria {set.setNumber}</span>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => handleDeleteEditedSet(exercise.id, index)}>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => handleDeleteEditedSet(exercise.id, index)} disabled={isDeleting}>
                                         <Trash2 className="h-3 w-3"/>
                                     </Button>
                                   </div>
@@ -444,12 +540,14 @@ export default function WorkoutHistoryDetailPage() {
                                         value={String(set.weight)} 
                                         onChange={(e) => handleSetInputChange(exercise.id, index, 'weight', e.target.value)}
                                         className="h-8 text-xs"
+                                        disabled={isDeleting}
                                     />
                                     <Input 
                                         placeholder="Powt./Czas/Dystans" 
                                         value={String(set.reps)} 
                                         onChange={(e) => handleSetInputChange(exercise.id, index, 'reps', e.target.value)}
                                         className="h-8 text-xs"
+                                        disabled={isDeleting}
                                     />
                                   </div>
                                   <Input 
@@ -458,6 +556,7 @@ export default function WorkoutHistoryDetailPage() {
                                       value={String(set.rpe || "")} 
                                       onChange={(e) => handleSetInputChange(exercise.id, index, 'rpe', e.target.value)}
                                       className="h-8 text-xs"
+                                      disabled={isDeleting}
                                   />
                                   <Textarea 
                                       placeholder="Notatki do serii (opcjonalne)" 
@@ -465,6 +564,7 @@ export default function WorkoutHistoryDetailPage() {
                                       onChange={(e) => handleSetInputChange(exercise.id, index, 'notes', e.target.value)}
                                       rows={2}
                                       className="text-xs"
+                                      disabled={isDeleting}
                                   />
                                 </div>
                               ) : (
@@ -478,7 +578,7 @@ export default function WorkoutHistoryDetailPage() {
                           ))}
                         </ul>
                         {isEditingSession && (
-                            <Button variant="outline" size="sm" className="mt-3 text-xs" onClick={() => handleAddNewSet(exercise.id)}>
+                            <Button variant="outline" size="sm" className="mt-3 text-xs" onClick={() => handleAddNewSet(exercise.id)} disabled={isDeleting}>
                                 <PlusCircle className="mr-1 h-3 w-3"/> Dodaj Serię do {exercise.name}
                             </Button>
                         )}
@@ -504,10 +604,7 @@ export default function WorkoutHistoryDetailPage() {
                   <Button variant="outline" className="w-full sm:w-auto" onClick={handleRepeatWorkout}>
                       <Repeat className="mr-2 h-4 w-4" /> Powtórz Trening
                   </Button>
-                  {/* <Button variant="outline" className="w-full sm:w-auto" onClick={handleEditSession}>
-                      <Edit className="mr-2 h-4 w-4" /> Edytuj Wpis
-                  </Button> */}
-                   <AlertDialog>
+                  <AlertDialog>
                       <AlertDialogTrigger asChild>
                           <Button variant="destructive" className="w-full sm:w-auto" disabled={isDeleting}>
                               {isDeleting ? <Loader2 className="animate-spin mr-2 h-4 w-4"/> : <Trash2 className="mr-2 h-4 w-4" />}
