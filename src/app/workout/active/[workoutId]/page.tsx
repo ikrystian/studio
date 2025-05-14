@@ -29,8 +29,8 @@ import {
   XCircle,
   Loader2,
   ArrowLeft,
-  Trash2, // Added for delete set
-  StickyNote, // Added for notes icon
+  Trash2, 
+  StickyNote, 
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -43,7 +43,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea"; // Added Textarea
+import { Textarea } from "@/components/ui/textarea"; 
 import {
   Form,
   FormControl,
@@ -67,6 +67,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"; // Using the global accordion
+import { cn } from "@/lib/utils";
+
 
 // Simulated exercise database (can be expanded or moved)
 const MOCK_EXERCISES_DATABASE: { id: string; name: string; category: string, instructions?: string, videoUrl?: string }[] = [
@@ -79,15 +87,15 @@ const MOCK_EXERCISES_DATABASE: { id: string; name: string; category: string, ins
 ];
 
 // Simulated workout data
-interface ExerciseInWorkout {
-  id: string; // Corresponds to MOCK_EXERCISES_DATABASE id
+export interface ExerciseInWorkout {
+  id: string; 
   name: string;
   defaultSets?: number;
-  defaultReps?: string; // e.g., "8-12" or "15"
+  defaultReps?: string; 
   defaultRest?: number; // seconds
 }
 
-interface Workout {
+export interface Workout {
   id: string;
   name: string;
   exercises: ExerciseInWorkout[];
@@ -113,19 +121,19 @@ const MOCK_WORKOUTS: Workout[] = [
   },
 ];
 
-interface RecordedSet {
+export interface RecordedSet {
   setNumber: number;
-  weight: number | string; // string for "BW" or similar
-  reps: number | string;   // string for "Max" or time
+  weight: number | string; 
+  reps: number | string;   
   rpe?: number;
-  notes?: string; // Added notes field
+  notes?: string; 
 }
 
 const setFormSchema = z.object({
   weight: z.string().min(1, "Waga jest wymagana."),
   reps: z.string().min(1, "Liczba powtórzeń jest wymagana."),
   rpe: z.coerce.number().min(1).max(10).optional().or(z.literal("")),
-  notes: z.string().optional(), // Added notes to schema
+  notes: z.string().optional(), 
 });
 
 type SetFormValues = z.infer<typeof setFormSchema>;
@@ -153,16 +161,17 @@ export default function ActiveWorkoutPage() {
 
   const setForm = useForm<SetFormValues>({
     resolver: zodResolver(setFormSchema),
-    defaultValues: { weight: "", reps: "", rpe: "", notes: "" }, // Added notes default
+    defaultValues: { weight: "", reps: "", rpe: "", notes: "" }, 
   });
 
   React.useEffect(() => {
     setIsLoading(true);
+    // Simulate API call to fetch workout
     setTimeout(() => {
       const foundWorkout = MOCK_WORKOUTS.find((w) => w.id === workoutId);
       if (foundWorkout) {
         setCurrentWorkout(foundWorkout);
-        setWorkoutStartTime(new Date());
+        setWorkoutStartTime(new Date()); // Start timer when workout is loaded
       } else {
         toast({ title: "Błąd", description: "Nie znaleziono treningu.", variant: "destructive" });
         router.push("/workout/start");
@@ -209,10 +218,10 @@ export default function ActiveWorkoutPage() {
 
     const newSet: RecordedSet = {
       setNumber: (recordedSets[currentExercise.id]?.length || 0) + 1,
-      weight: values.weight,
-      reps: values.reps,
+      weight: values.weight, // Could be number or string like "BW"
+      reps: values.reps, // Could be number or string like "Max"
       rpe: values.rpe ? Number(values.rpe) : undefined,
-      notes: values.notes || undefined, // Add notes
+      notes: values.notes || undefined,
     };
 
     setRecordedSets((prev) => ({
@@ -220,7 +229,8 @@ export default function ActiveWorkoutPage() {
       [currentExercise.id]: [...(prev[currentExercise.id] || []), newSet],
     }));
 
-    setForm.reset({ weight: values.weight, reps: "", rpe: "", notes: "" }); // Reset notes as well
+    // Keep weight for next set, clear reps, rpe, and notes
+    setForm.reset({ weight: values.weight, reps: "", rpe: "", notes: "" }); 
 
     const restDuration = currentExercise.defaultRest || DEFAULT_REST_TIME;
     setRestTimer(restDuration);
@@ -234,12 +244,11 @@ export default function ActiveWorkoutPage() {
   const handleDeleteSet = (exerciseId: string, setIndexToDelete: number) => {
     setRecordedSets((prev) => {
       const setsForExercise = prev[exerciseId] || [];
-      const updatedSets = setsForExercise.filter((_, index) => index !== setIndexToDelete);
-      // Optional: Re-number sets if desired, but simpler to keep original numbers or just display index+1
-      // const renumberedSets = updatedSets.map((s, i) => ({ ...s, setNumber: i + 1 }));
+      const updatedSets = setsForExercise.filter((_, index) => index !== setIndexToDelete)
+                                       .map((s, i) => ({ ...s, setNumber: i + 1 })); // Re-number sets
       return {
         ...prev,
-        [exerciseId]: updatedSets, // or renumberedSets
+        [exerciseId]: updatedSets,
       };
     });
     toast({
@@ -277,24 +286,37 @@ export default function ActiveWorkoutPage() {
   };
 
   const handleFinishWorkout = () => {
-    setIsLoading(true);
-    console.log("Workout Finished. Data:", {
-      workoutId: currentWorkout?.id,
-      startTime: workoutStartTime,
-      endTime: new Date(),
-      totalTimeSeconds: elapsedTime,
-      recordedSets: recordedSets,
-    });
-    
-    setTimeout(() => {
-      toast({
-        title: "Trening Zakończony!",
-        description: "Świetna robota! Zobacz swoje podsumowanie.",
-        variant: "default",
-      });
-      router.push(`/workout/start?finished=${currentWorkout?.id}`); 
-      setIsLoading(false);
-    }, 1500);
+    setIsLoading(true); // Use a loading state for the finish action
+    if (!currentWorkout || !workoutStartTime) {
+        toast({ title: "Błąd", description: "Nie można zakończyć treningu.", variant: "destructive"});
+        setIsLoading(false);
+        return;
+    }
+
+    const summaryData = {
+        workoutId: currentWorkout.id,
+        workoutName: currentWorkout.name,
+        startTime: workoutStartTime.toISOString(),
+        endTime: new Date().toISOString(),
+        totalTimeSeconds: elapsedTime,
+        recordedSets: recordedSets,
+        exercises: currentWorkout.exercises // Pass exercise list for summary context
+    };
+
+    try {
+        localStorage.setItem('workoutSummaryData', JSON.stringify(summaryData));
+        toast({
+            title: "Trening Zakończony!",
+            description: "Przekierowuję do podsumowania...",
+            variant: "default",
+        });
+        router.push(`/workout/summary`); 
+    } catch (error) {
+        console.error("Error saving summary data to localStorage:", error);
+        toast({ title: "Błąd zapisu", description: "Nie udało się zapisać danych do podsumowania.", variant: "destructive"});
+    } finally {
+        setIsLoading(false);
+    }
   };
 
   if (isLoading || !currentWorkout || !currentExercise) {
@@ -378,11 +400,11 @@ export default function ActiveWorkoutPage() {
             {currentExerciseDetails?.instructions && (
                  <CardContent className="pt-0">
                     <Accordion type="single" collapsible className="w-full">
-                        <AccordionItem value="item-1">
-                            <AccordionTrigger className="text-sm hover:no-underline">
+                        <AccordionItem value="item-1" className="border-b-0">
+                            <AccordionTrigger className="text-sm hover:no-underline py-2">
                                 <Info className="mr-2 h-4 w-4"/> Pokaż instrukcje
                             </AccordionTrigger>
-                            <AccordionContent className="text-muted-foreground text-sm">
+                            <AccordionContent className="text-muted-foreground text-sm pb-2">
                                 {currentExerciseDetails.instructions}
                                 {currentExerciseDetails.videoUrl && (
                                     <a href={currentExerciseDetails.videoUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline block mt-2">
@@ -570,60 +592,3 @@ export default function ActiveWorkoutPage() {
     </div>
   );
 }
-
-const Accordion = React.forwardRef<
-  React.ElementRef<typeof AccordionPrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Root>
->(({ className, ...props }, ref) => (
-  <AccordionPrimitive.Root ref={ref} className={cn("w-full", className)} {...props} />
-));
-Accordion.displayName = "Accordion"
-
-import * as AccordionPrimitive from "@radix-ui/react-accordion"
-import { cn } from "@/lib/utils"
-
-const AccordionItem = React.forwardRef<
-  React.ElementRef<typeof AccordionPrimitive.Item>,
-  React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Item>
->(({ className, ...props }, ref) => (
-  <AccordionPrimitive.Item
-    ref={ref}
-    className={cn("border-b border-border/50", className)}
-    {...props}
-  />
-))
-AccordionItem.displayName = "AccordionItem"
-
-const AccordionTrigger = React.forwardRef<
-  React.ElementRef<typeof AccordionPrimitive.Trigger>,
-  React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Trigger>
->(({ className, children, ...props }, ref) => (
-  <AccordionPrimitive.Header className="flex">
-    <AccordionPrimitive.Trigger
-      ref={ref}
-      className={cn(
-        "flex flex-1 items-center justify-between py-3 font-medium transition-all hover:underline text-sm text-muted-foreground [&[data-state=open]>svg:last-child]:rotate-180",
-        className
-      )}
-      {...props}
-    >
-      {children}
-      <ChevronRight className="h-4 w-4 shrink-0 transition-transform duration-200" />
-    </AccordionPrimitive.Trigger>
-  </AccordionPrimitive.Header>
-))
-AccordionTrigger.displayName = AccordionPrimitive.Trigger.displayName
-
-const AccordionContent = React.forwardRef<
-  React.ElementRef<typeof AccordionPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Content>
->(({ className, children, ...props }, ref) => (
-  <AccordionPrimitive.Content
-    ref={ref}
-    className="overflow-hidden text-sm transition-all data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down"
-    {...props}
-  >
-    <div className={cn("pb-3 pt-0", className)}>{children}</div>
-  </AccordionPrimitive.Content>
-))
-AccordionContent.displayName = AccordionPrimitive.Content.displayName
