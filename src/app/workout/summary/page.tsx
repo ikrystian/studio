@@ -18,8 +18,25 @@ import {
   Flame,
   Weight,
   Loader2,
-  Edit2, // For exercise notes icon
+  Edit2,
+  Trophy,
+  Share2,
+  BarChartHorizontalBig, // For charts icon
+  CheckCircle,
+  XCircle,
 } from "lucide-react";
+import { format, parseISO } from "date-fns";
+import { pl } from "date-fns/locale";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip, // Renamed to avoid conflict
+} from "recharts";
+
 
 import { Button } from "@/components/ui/button";
 import {
@@ -53,6 +70,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
+
 
 interface WorkoutSummaryData {
   workoutId: string;
@@ -61,8 +86,8 @@ interface WorkoutSummaryData {
   endTime: string;   // ISO string
   totalTimeSeconds: number;
   recordedSets: Record<string, RecordedSet[]>; // exerciseId -> sets
-  exercises: ExerciseInWorkout[];
-  exerciseNotes?: Record<string, string>; // Added for exercise-specific notes
+  exercises: ExerciseInWorkout[]; // Full exercise definitions from the plan
+  exerciseNotes?: Record<string, string>;
 }
 
 enum DifficultyRating {
@@ -74,6 +99,24 @@ enum DifficultyRating {
   Ekstremalny = "Ekstremalny",
 }
 
+// Mock existing PBs for demonstration
+interface MockPB {
+  value: number | string; // Could be weight for reps, or just reps, or time in seconds
+  reps?: number; // For weight_reps type
+}
+const MOCK_EXISTING_PBS: Record<string, MockPB> = {
+  "ex1": { value: 95, reps: 5 }, // Wyciskanie sztangi, np. 95kg x 5
+  "ex2": { value: 130, reps: 5 }, // Przysiady
+  "ex4": { value: "BW", reps: 12 }, // Podciąganie
+};
+
+interface PBSuggestion {
+  exerciseId: string;
+  exerciseName: string;
+  achievedValue: string; // e.g., "100kg x 5powt"
+  status: 'suggested' | 'accepted' | 'rejected';
+}
+
 export default function WorkoutSummaryPage() {
   const router = useRouter();
   const { toast } = useToast();
@@ -83,20 +126,71 @@ export default function WorkoutSummaryPage() {
   const [difficulty, setDifficulty] = React.useState<DifficultyRating | undefined>(undefined);
   const [isSaving, setIsSaving] = React.useState(false);
 
+  const [pbSuggestions, setPbSuggestions] = React.useState<PBSuggestion[]>([]);
+  const [shareToCommunity, setShareToCommunity] = React.useState(false);
+  const [communityPostComment, setCommunityPostComment] = React.useState("");
+
   React.useEffect(() => {
     const dataString = localStorage.getItem('workoutSummaryData');
     if (dataString) {
       try {
         const parsedData: WorkoutSummaryData = JSON.parse(dataString);
         setSummaryData(parsedData);
+
+        // Simulate PB check
+        const suggestions: PBSuggestion[] = [];
+        parsedData.exercises.forEach(exercise => {
+          const sets = parsedData.recordedSets[exercise.id];
+          if (sets && sets.length > 0) {
+            const bestSetForExercise = sets.reduce((best, current) => {
+              const currentWeight = parseFloat(String(current.weight));
+              const currentReps = parseInt(String(current.reps), 10);
+              if (!isNaN(currentWeight) && !isNaN(currentReps)) {
+                const bestWeight = parseFloat(String(best.weight));
+                const bestReps = parseInt(String(best.reps), 10);
+                // Simple comparison: higher weight is better, then more reps for same weight
+                if (currentWeight > bestWeight || (currentWeight === bestWeight && currentReps > bestReps)) {
+                  return current;
+                }
+              }
+              return best;
+            }, { weight: 0, reps: 0 } as RecordedSet);
+
+            const achievedWeight = parseFloat(String(bestSetForExercise.weight));
+            const achievedReps = parseInt(String(bestSetForExercise.reps), 10);
+
+            if (!isNaN(achievedWeight) && !isNaN(achievedReps) && achievedWeight > 0) {
+              const existingPb = MOCK_EXISTING_PBS[exercise.id];
+              let isNewPb = false;
+              if (!existingPb) {
+                isNewPb = true; // Any valid set is a PB if none exists
+              } else {
+                const existingPbWeight = parseFloat(String(existingPb.value));
+                if (achievedWeight > existingPbWeight || (achievedWeight === existingPbWeight && existingPb.reps && achievedReps > existingPb.reps)) {
+                  isNewPb = true;
+                }
+              }
+              if (isNewPb) {
+                suggestions.push({
+                  exerciseId: exercise.id,
+                  exerciseName: exercise.name,
+                  achievedValue: `${bestSetForExercise.weight}kg x ${bestSetForExercise.reps}powt.`,
+                  status: 'suggested',
+                });
+              }
+            }
+          }
+        });
+        setPbSuggestions(suggestions);
+
       } catch (error) {
         console.error("Error parsing summary data from localStorage:", error);
         toast({ title: "Błąd", description: "Nie udało się załadować podsumowania treningu.", variant: "destructive" });
-        router.replace("/dashboard"); 
+        router.replace("/dashboard");
       }
     } else {
       toast({ title: "Brak danych", description: "Nie znaleziono danych do podsumowania treningu.", variant: "destructive" });
-      router.replace("/dashboard"); 
+      router.replace("/dashboard");
     }
     setIsLoading(false);
   }, [router, toast]);
@@ -126,15 +220,19 @@ export default function WorkoutSummaryPage() {
   const handleSaveWorkout = async () => {
     if (!summaryData) return;
     setIsSaving(true);
+    const acceptedPbs = pbSuggestions.filter(s => s.status === 'accepted').map(s => ({ exercise: s.exerciseName, value: s.achievedValue }));
+    
     const fullSummaryToSave = {
       ...summaryData,
       difficulty,
-      generalNotes, // General notes for the whole workout
-      exerciseNotes: summaryData.exerciseNotes, // Exercise specific notes are already in summaryData
+      generalNotes,
+      exerciseNotes: summaryData.exerciseNotes,
       calculatedTotalVolume: calculateTotalVolume(),
+      acceptedPbs,
+      sharedToCommunity: shareToCommunity,
+      communityPostComment: shareToCommunity ? communityPostComment : undefined,
     };
     console.log("Saving workout summary:", fullSummaryToSave);
-
 
     await new Promise(resolve => setTimeout(resolve, 1500));
 
@@ -149,7 +247,7 @@ export default function WorkoutSummaryPage() {
   };
 
   const handleDiscardWorkout = async () => {
-    setIsSaving(true); 
+    setIsSaving(true);
     await new Promise(resolve => setTimeout(resolve, 500));
     
     localStorage.removeItem('workoutSummaryData');
@@ -161,6 +259,47 @@ export default function WorkoutSummaryPage() {
     router.push("/dashboard");
     setIsSaving(false);
   };
+
+  const handlePbSuggestion = (exerciseId: string, newStatus: 'accepted' | 'rejected') => {
+    setPbSuggestions(prev => prev.map(s => s.exerciseId === exerciseId ? { ...s, status: newStatus } : s));
+    toast({
+        title: `Sugestia PB dla ${pbSuggestions.find(s => s.exerciseId === exerciseId)?.exerciseName}`,
+        description: newStatus === 'accepted' ? "Zaakceptowano jako nowy rekord!" : "Odrzucono sugestię.",
+    });
+  };
+
+  const volumePerExerciseChartData = React.useMemo(() => {
+    if (!summaryData) return [];
+    return summaryData.exercises
+      .map(exercise => {
+        const sets = summaryData.recordedSets[exercise.id] || [];
+        let volume = 0;
+        sets.forEach(set => {
+          const weight = parseFloat(String(set.weight));
+          const reps = parseInt(String(set.reps), 10);
+          if (!isNaN(weight) && !isNaN(reps) && weight > 0 && reps > 0) {
+            volume += weight * reps;
+          }
+        });
+        return { name: exercise.name, volume };
+      })
+      .filter(item => item.volume > 0);
+  }, [summaryData]);
+
+  const setsPerExerciseChartData = React.useMemo(() => {
+    if (!summaryData) return [];
+    return summaryData.exercises
+      .map(exercise => {
+        const setsCount = (summaryData.recordedSets[exercise.id] || []).length;
+        return { name: exercise.name, sets: setsCount };
+      })
+      .filter(item => item.sets > 0);
+  }, [summaryData]);
+
+  const chartConfig = {
+    volume: { label: "Objętość (kg)", color: "hsl(var(--chart-1))" },
+    sets: { label: "Liczba Serii", color: "hsl(var(--chart-2))" },
+  } as const;
 
 
   if (isLoading) {
@@ -206,7 +345,7 @@ export default function WorkoutSummaryPage() {
             <CardHeader>
               <CardTitle className="text-3xl">{summaryData.workoutName}</CardTitle>
               <CardDescription>
-                Data: {new Date(summaryData.startTime).toLocaleDateString('pl-PL', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                Data: {format(parseISO(summaryData.startTime), "PPPp", { locale: pl })}
               </CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
@@ -230,6 +369,55 @@ export default function WorkoutSummaryPage() {
 
           <Card>
             <CardHeader>
+              <CardTitle className="flex items-center gap-2"><BarChartHorizontalBig className="h-6 w-6 text-primary"/>Wizualizacja Danych Treningu</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-8">
+              {volumePerExerciseChartData.length > 0 ? (
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">Całkowita Objętość na Ćwiczenie</h3>
+                  <ChartContainer config={chartConfig} className="h-[250px] w-full">
+                    <BarChart data={volumePerExerciseChartData} layout="vertical" margin={{ right: 20, left: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                      <XAxis type="number" dataKey="volume" />
+                      <YAxis type="category" dataKey="name" width={150} interval={0} tick={{ fontSize: 12 }} />
+                      <ChartTooltip cursor={{fill: 'hsl(var(--muted))'}} content={<ChartTooltipContent indicator="dot" />} />
+                      <Bar dataKey="volume" fill="var(--color-volume)" radius={4} barSize={20} />
+                    </BarChart>
+                  </ChartContainer>
+                </div>
+              ) : (
+                <Alert variant="default">
+                  <Info className="h-4 w-4"/>
+                  <AlertTitle>Brak danych do wykresu objętości</AlertTitle>
+                  <AlertDescription>Nie zarejestrowano wystarczających danych (ciężar i powtórzenia) do wygenerowania wykresu objętości.</AlertDescription>
+                </Alert>
+              )}
+              {setsPerExerciseChartData.length > 0 ? (
+                 <div>
+                  <h3 className="text-lg font-semibold mb-2 mt-6">Liczba Serii na Ćwiczenie</h3>
+                  <ChartContainer config={chartConfig} className="h-[250px] w-full">
+                    <BarChart data={setsPerExerciseChartData} layout="vertical" margin={{ right: 20, left: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                      <XAxis type="number" dataKey="sets" allowDecimals={false} />
+                      <YAxis type="category" dataKey="name" width={150} interval={0} tick={{ fontSize: 12 }} />
+                      <ChartTooltip cursor={{fill: 'hsl(var(--muted))'}} content={<ChartTooltipContent indicator="dot" />} />
+                      <Bar dataKey="sets" fill="var(--color-sets)" radius={4} barSize={20} />
+                    </BarChart>
+                  </ChartContainer>
+                </div>
+              ) : (
+                 <Alert variant="default">
+                  <Info className="h-4 w-4"/>
+                  <AlertTitle>Brak danych do wykresu liczby serii</AlertTitle>
+                  <AlertDescription>Nie zarejestrowano żadnych serii dla ćwiczeń w tym treningu.</AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+
+
+          <Card>
+            <CardHeader>
               <CardTitle className="flex items-center gap-2"><ListOrdered className="h-6 w-6 text-primary"/>Wykonane Ćwiczenia</CardTitle>
             </CardHeader>
             <CardContent>
@@ -238,11 +426,34 @@ export default function WorkoutSummaryPage() {
                   {summaryData.exercises.map((exercise) => {
                     const sets = summaryData.recordedSets[exercise.id];
                     const exerciseNote = summaryData.exerciseNotes?.[exercise.id];
+                    const pbSuggestion = pbSuggestions.find(s => s.exerciseId === exercise.id);
+
                     if (!sets || sets.length === 0) return null;
 
                     return (
                       <li key={exercise.id}>
                         <h3 className="font-semibold text-lg mb-1">{exercise.name}</h3>
+                        {pbSuggestion && (
+                            <Alert variant={pbSuggestion.status === 'accepted' ? 'default' : 'default'} className={`mb-2 ${pbSuggestion.status === 'accepted' ? 'border-green-500' : 'border-blue-500/50'}`}>
+                                <Trophy className={`h-4 w-4 ${pbSuggestion.status === 'accepted' ? 'text-green-500' : 'text-blue-500'}`} />
+                                <AlertTitle className={`${pbSuggestion.status === 'accepted' ? 'text-green-600' : 'text-blue-600'}`}>
+                                    {pbSuggestion.status === 'accepted' ? "Rekord Zaakceptowany!" : "Potencjalny Nowy Rekord!"}
+                                </AlertTitle>
+                                <AlertDescription>
+                                    Osiągnięto: {pbSuggestion.achievedValue}
+                                    {pbSuggestion.status === 'suggested' && (
+                                        <div className="mt-2 flex gap-2">
+                                            <Button size="sm" onClick={() => handlePbSuggestion(exercise.id, 'accepted')} variant="default">
+                                                <CheckCircle className="mr-1 h-4 w-4"/>Akceptuj PB
+                                            </Button>
+                                            <Button size="sm" onClick={() => handlePbSuggestion(exercise.id, 'rejected')} variant="outline">
+                                                <XCircle className="mr-1 h-4 w-4"/>Odrzuć
+                                            </Button>
+                                        </div>
+                                    )}
+                                </AlertDescription>
+                            </Alert>
+                        )}
                         {exerciseNote && (
                           <div className="mb-2 p-2 text-sm bg-blue-500/10 border border-blue-500/30 rounded-md">
                             <p className="flex items-center gap-1 font-medium text-blue-700 dark:text-blue-400"><Edit2 className="h-4 w-4"/>Notatka do ćwiczenia:</p>
@@ -277,7 +488,7 @@ export default function WorkoutSummaryPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <label htmlFor="difficulty" className="block text-sm font-medium mb-1">Ocena Trudności Treningu</label>
+                <Label htmlFor="difficulty" className="block text-sm font-medium mb-1">Ocena Trudności Treningu</Label>
                 <Select onValueChange={(value) => setDifficulty(value as DifficultyRating)} value={difficulty}>
                   <SelectTrigger id="difficulty">
                     <SelectValue placeholder="Wybierz poziom trudności..." />
@@ -290,9 +501,9 @@ export default function WorkoutSummaryPage() {
                 </Select>
               </div>
               <div>
-                <label htmlFor="generalNotes" className="block text-sm font-medium mb-1 flex items-center gap-1">
+                <Label htmlFor="generalNotes" className="block text-sm font-medium mb-1 flex items-center gap-1">
                     <StickyNote className="h-4 w-4"/>Notatki Ogólne do Treningu (opcjonalne)
-                </label>
+                </Label>
                 <Textarea
                   id="generalNotes"
                   placeholder="Jak poszło? Coś do zapamiętania na przyszłość?"
@@ -301,6 +512,35 @@ export default function WorkoutSummaryPage() {
                   rows={4}
                 />
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Share2 className="h-5 w-5 text-primary"/>Udostępnij w Społeczności</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="share-community-switch"
+                  checked={shareToCommunity}
+                  onCheckedChange={setShareToCommunity}
+                />
+                <Label htmlFor="share-community-switch">Udostępnij ten trening</Label>
+              </div>
+              {shareToCommunity && (
+                <div>
+                  <Label htmlFor="community-comment">Dodaj komentarz do posta (opcjonalne)</Label>
+                  <Textarea
+                    id="community-comment"
+                    placeholder="Np. Świetny trening! Polecam!"
+                    value={communityPostComment}
+                    onChange={(e) => setCommunityPostComment(e.target.value)}
+                    rows={3}
+                    className="mt-1"
+                  />
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -337,3 +577,4 @@ export default function WorkoutSummaryPage() {
     </div>
   );
 }
+
