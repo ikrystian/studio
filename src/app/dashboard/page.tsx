@@ -7,7 +7,7 @@ import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
 import {
   Activity,
-  Award, // Added for Personal Bests
+  Award, 
   BarChart3,
   Bell,
   BookOpen,
@@ -17,17 +17,18 @@ import {
   ClipboardList,
   Dumbbell,
   Flame,
-  HeartPulse, // Added for Wellness Journal
+  HeartPulse, 
   History,
   MessageSquare,
   PlayCircle,
   Repeat,
   Scale,
   Settings,
-  Timer, // Added for Rest Timer
-  User as UserIcon, // Renamed to avoid conflict
+  Timer, 
+  User as UserIcon, 
   Users,
-  GlassWater, // Added for Hydration
+  GlassWater,
+  Settings2, // Added for Moje Konto
 } from 'lucide-react';
 import type { Metadata } from 'next';
 
@@ -79,8 +80,9 @@ const navItems = [
   { href: '/progress-photos', label: 'Zdjęcia Postępu', icon: Camera, description: 'Track visual changes' },
   { href: '/wellness-journal', label: 'Dziennik Samopoczucia', icon: HeartPulse, description: 'Log your well-being' },
   { href: '/hydration', label: 'Śledzenie Nawodnienia', icon: GlassWater, description: 'Monitor your water intake' },
-  { href: `/profile/${userData.id}`, label: 'Mój Profil', icon: UserIcon, description: 'View & edit your profile' },
-  { href: '/settings', label: 'Ustawienia', icon: Settings, description: 'Manage app settings' },
+  { href: `/profile/${userData.id}`, label: 'Mój Profil Publiczny', icon: UserIcon, description: 'View your public profile' },
+  { href: '/account', label: 'Moje Konto', icon: Settings2, description: 'Manage your account settings' },
+  { href: '/settings', label: 'Ustawienia Aplikacji', icon: Settings, description: 'Manage app settings' },
   { href: '/tools/rest-timer', label: 'Timer Odpoczynku', icon: Timer, description: 'Standalone rest timer' },
 ];
 
@@ -137,7 +139,7 @@ export default function DashboardPage() {
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="pb-4">
-                        <p className="text-sm text-muted-foreground">{item.description}</p>
+                        <p className="text-sm text-muted-foreground line-clamp-2">{item.description}</p>
                       </CardContent>
                       <CardFooter>
                         <Button variant="ghost" size="sm" asChild className="w-full justify-start">
@@ -245,3 +247,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
