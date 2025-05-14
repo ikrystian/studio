@@ -1,4 +1,7 @@
 
+"use client";
+
+import * as React from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -8,10 +11,11 @@ import { Dumbbell, Zap, StretchHorizontal, PlusCircle, Search, ListFilter, Arrow
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-export const metadata: Metadata = {
-  title: 'Rozpocznij Trening | WorkoutWise',
-  description: 'Wybierz istniejący trening lub utwórz nowy.',
-};
+// Note: Metadata should be defined in a server component or moved to a separate file if this remains 'use client'
+// export const metadata: Metadata = {
+//   title: 'Rozpocznij Trening | WorkoutWise',
+//   description: 'Wybierz istniejący trening lub utwórz nowy.',
+// };
 
 // Simulated workout data - replace with actual data fetching
 const availableWorkouts = [
@@ -37,7 +41,6 @@ const getWorkoutIcon = (type: string) => {
 };
 
 export default function StartWorkoutPage() {
-  // TODO: Implement search and filter logic
   const [searchTerm, setSearchTerm] = React.useState('');
   const filteredWorkouts = availableWorkouts.filter(workout =>
     workout.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -60,7 +63,7 @@ export default function StartWorkoutPage() {
             <h1 className="text-2xl font-bold">WorkoutWise</h1>
           </div>
           <Button asChild>
-            <Link href="/workout/create">
+            <Link href="/workout/create"> {/* Updated Link */}
               <PlusCircle className="mr-2 h-5 w-5" />
               Nowy Trening
             </Link>
@@ -134,7 +137,7 @@ export default function StartWorkoutPage() {
                 {searchTerm ? `Nie znaleziono treningów pasujących do "${searchTerm}".` : "Nie masz jeszcze żadnych zapisanych treningów."}
               </p>
               <Button asChild size="lg">
-                <Link href="/workout/create">
+                <Link href="/workout/create"> {/* Updated Link */}
                   <PlusCircle className="mr-2 h-5 w-5" />
                   Utwórz Nowy Trening
                 </Link>
