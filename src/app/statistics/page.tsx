@@ -4,8 +4,8 @@
 import * as React from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, BarChart3, LineChart as LineChartIcon, CalendarDays, TrendingUp, WeightIcon, DumbbellIcon, AlertTriangle, PieChartIcon, ImageIcon, FileDown, Filter, Info } from "lucide-react";
-import { format, parseISO, getWeek, getYear, startOfDay, endOfDay, isValid } from "date-fns";
+import { ArrowLeft, BarChart3, LineChart as LineChartIcon, CalendarDays, TrendingUp, WeightIcon, DumbbellIcon, AlertTriangle, PieChartIcon, ImageIcon, FileDown, Filter, Info, CompareArrows } from "lucide-react";
+import { format, parseISO, getWeek, getYear, startOfDay, endOfDay, isValid, isWithinInterval } from "date-fns";
 import { pl } from "date-fns/locale";
 
 import { Button } from "@/components/ui/button";
@@ -53,6 +53,7 @@ import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AddGoalDialog } from "@/components/statistics/add-goal-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 
 // Mock data (ideally imported from a shared location or fetched)
@@ -177,6 +178,21 @@ const MOCK_USER_GOALS = [
   { id: "goal3", name: "Trenuj 4x w tygodniu", metric: "Częstotliwość treningów", currentValue: 3, targetValue: 4, unit: "treningi/tydz.", deadline: null },
 ];
 
+interface ComparisonMetrics {
+  workoutCount: number;
+  totalVolume: number;
+}
+
+interface ComparisonPeriodData {
+  startDate?: Date;
+  endDate?: Date;
+  metrics: ComparisonMetrics;
+}
+interface ComparisonResults {
+  periodA: ComparisonPeriodData;
+  periodB: ComparisonPeriodData;
+}
+
 
 export default function StatisticsPage() {
   const { toast } = useToast();
@@ -188,35 +204,34 @@ export default function StatisticsPage() {
   const [selectedGlobalEndDate, setSelectedGlobalEndDate] = React.useState<Date | undefined>();
   const [isAddGoalDialogOpen, setIsAddGoalDialogOpen] = React.useState(false);
 
-  // State for filtered data
   const [processedHistorySessions, setProcessedHistorySessions] = React.useState<SimpleHistoricalWorkoutSession[]>(MOCK_HISTORY_SESSIONS_STATS);
   const [processedMeasurements, setProcessedMeasurements] = React.useState<SimpleMeasurement[]>(MOCK_MEASUREMENTS_STATS);
   const [processedWellnessEntries, setProcessedWellnessEntries] = React.useState<WellnessEntryForStats[]>(MOCK_WELLNESS_ENTRIES_FOR_STATS);
+
+  const [periodAStartDate, setPeriodAStartDate] = React.useState<Date | undefined>();
+  const [periodAEndDate, setPeriodAEndDate] = React.useState<Date | undefined>();
+  const [periodBStartDate, setPeriodBStartDate] = React.useState<Date | undefined>();
+  const [periodBEndDate, setPeriodBEndDate] = React.useState<Date | undefined>();
+  const [comparisonResults, setComparisonResults] = React.useState<ComparisonResults | null>(null);
+
 
   const volumeChartExercises = React.useMemo(() =>
     MOCK_EXERCISES_FOR_STATS_FILTER.filter(ex => ex.id !== "all"),
     []
   );
 
-  const initialSelectedExerciseId = volumeChartExercises.length > 0 ? volumeChartExercises[0].id : "";
-  const [selectedExerciseIdForVolume, setSelectedExerciseIdForVolume] = React.useState<string>(initialSelectedExerciseId);
-
-  React.useEffect(() => {
-    if (exerciseIdFromQuery) {
-      const isValidForVolumeChart = volumeChartExercises.some(ex => ex.id === exerciseIdFromQuery);
-      if (isValidForVolumeChart) {
-        setSelectedExerciseIdForVolume(exerciseIdFromQuery);
-      } else if (volumeChartExercises.length > 0) {
-        setSelectedExerciseIdForVolume(volumeChartExercises[0].id);
-        toast({
-          title: "Uwaga",
-          description: `Nie można było automatycznie wybrać ćwiczenia '${exerciseNameFromQuery || exerciseIdFromQuery}' dla wykresu objętości. Wyświetlono statystyki dla '${volumeChartExercises[0].name}'.`,
-          variant: "default",
-          duration: 7000,
-        });
-      }
+  const initialSelectedExerciseId = React.useMemo(() => {
+    if (exerciseIdFromQuery && volumeChartExercises.some(ex => ex.id === exerciseIdFromQuery)) {
+      return exerciseIdFromQuery;
     }
-  }, [exerciseIdFromQuery, exerciseNameFromQuery, toast, volumeChartExercises]);
+    return volumeChartExercises.length > 0 ? volumeChartExercises[0].id : "";
+  }, [exerciseIdFromQuery, volumeChartExercises]);
+
+  const [selectedExerciseIdForVolume, setSelectedExerciseIdForVolume] = React.useState<string>(initialSelectedExerciseId);
+  
+  React.useEffect(() => {
+     setSelectedExerciseIdForVolume(initialSelectedExerciseId);
+  }, [initialSelectedExerciseId]);
 
 
   React.useEffect(() => {
@@ -230,12 +245,19 @@ export default function StatisticsPage() {
               title: "Analiza Ćwiczenia",
               description: `Wyświetlanie trendu objętości dla: ${exerciseNameFromQuery || exerciseIdFromQuery}.`,
             });
+          } else if (volumeChartExercises.length > 0 && selectedExerciseIdForVolume) {
+             toast({
+                title: "Uwaga",
+                description: `Nie można było automatycznie wybrać ćwiczenia '${exerciseNameFromQuery || exerciseIdFromQuery}' dla wykresu objętości. Wyświetlono statystyki dla '${volumeChartExercises.find(ex => ex.id === selectedExerciseIdForVolume)?.name || 'domyślnego ćwiczenia'}'.`,
+                variant: "default",
+                duration: 7000,
+            });
           }
         }
       }, 150);
       return () => clearTimeout(timer);
     }
-  }, [exerciseIdFromQuery, exerciseNameFromQuery, toast, volumeChartExercises]);
+  }, [exerciseIdFromQuery, exerciseNameFromQuery, toast, selectedExerciseIdForVolume, volumeChartExercises]);
 
   const handleApplyGlobalFilters = React.useCallback(() => {
     let filteredSessions = MOCK_HISTORY_SESSIONS_STATS;
@@ -285,7 +307,6 @@ export default function StatisticsPage() {
   }, [selectedGlobalStartDate, selectedGlobalEndDate, toast]);
   
   React.useEffect(() => {
-    // Apply initial filters (which might be none) when component mounts
     handleApplyGlobalFilters();
   }, [handleApplyGlobalFilters]);
 
@@ -396,6 +417,70 @@ export default function StatisticsPage() {
     return Object.entries(categoryCounts).map(([name, value]) => ({ name, value }));
   }, [processedHistorySessions]);
 
+  const calculateMetricsForPeriod = (startDate?: Date, endDate?: Date): ComparisonMetrics => {
+    let workoutCount = 0;
+    let totalVolume = 0;
+
+    const periodSessions = MOCK_HISTORY_SESSIONS_STATS.filter(session => {
+        const sessionDate = parseISO(session.startTime);
+        if (!isValid(sessionDate)) return false;
+        if (startDate && sessionDate < startOfDay(startDate)) return false;
+        if (endDate && sessionDate > endOfDay(endDate)) return false;
+        return true;
+    });
+
+    workoutCount = periodSessions.length;
+
+    periodSessions.forEach(session => {
+        Object.values(session.recordedSets).forEach(exerciseSets => {
+            exerciseSets.forEach(set => {
+                const weight = parseFloat(String(set.weight));
+                const reps = parseInt(String(set.reps), 10);
+                if (!isNaN(weight) && !isNaN(reps) && weight > 0 && reps > 0) {
+                    totalVolume += weight * reps;
+                }
+            });
+        });
+    });
+    return { workoutCount, totalVolume };
+  };
+
+
+  const handleComparePeriods = () => {
+    if (!periodAStartDate || !periodAEndDate || !periodBStartDate || !periodBEndDate) {
+        toast({
+            title: "Błąd",
+            description: "Wybierz pełne zakresy dat dla obu okresów do porównania.",
+            variant: "destructive",
+        });
+        setComparisonResults(null);
+        return;
+    }
+    if (periodAEndDate < periodAStartDate || periodBEndDate < periodBStartDate) {
+        toast({
+            title: "Błąd Zakresu Dat",
+            description: "Data końcowa nie może być wcześniejsza niż data początkowa dla okresu.",
+            variant: "destructive",
+        });
+        setComparisonResults(null);
+        return;
+    }
+
+    const metricsA = calculateMetricsForPeriod(periodAStartDate, periodAEndDate);
+    const metricsB = calculateMetricsForPeriod(periodBStartDate, periodBEndDate);
+
+    setComparisonResults({
+        periodA: { startDate: periodAStartDate, endDate: periodAEndDate, metrics: metricsA },
+        periodB: { startDate: periodBStartDate, endDate: periodBEndDate, metrics: metricsB },
+    });
+
+    toast({
+        title: "Porównanie Wygenerowane",
+        description: "Wyniki porównania okresów są gotowe.",
+    });
+  };
+
+
   const chartConfig = {
     count: { label: "Liczba Treningów", color: "hsl(var(--chart-1))" },
     Waga: { label: "Waga (kg)", color: "hsl(var(--chart-2))" },
@@ -437,7 +522,7 @@ export default function StatisticsPage() {
         <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><Filter className="h-5 w-5 text-primary"/>Globalny Filtr Danych</CardTitle>
-              <CardDescription>Wybierz zakres dat, aby dostosować wyświetlane statystyki.</CardDescription>
+              <CardDescription>Wybierz zakres dat, aby dostosować wyświetlane statystyki na poniższych wykresach (oprócz porównania okresów).</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -549,7 +634,7 @@ export default function StatisticsPage() {
                         </SelectContent>
                     </Select>
                 </div>
-              {exerciseVolumeData.length >= 1 ? ( // Changed condition to >= 1 for single point display
+              {exerciseVolumeData.length >= 1 ? ( 
                 <ChartContainer config={chartConfig} className="h-[350px] w-full">
                   <LineChart data={exerciseVolumeData} margin={{ top: 5, right: 30, left: -10, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -588,7 +673,7 @@ export default function StatisticsPage() {
 
           <Card>
             <CardHeader>
-                <CardTitle>Nakładka Danych z Dziennika Samopoczucia</CardTitle>
+                <CardTitle className="flex items-center gap-2"><Info className="h-5 w-5 text-primary"/>Nakładka Danych z Dziennika Samopoczucia</CardTitle>
                 <CardDescription>Wybierz metryki z dziennika samopoczucia, aby nałożyć je na wykres Trendu Objętości dla Ćwiczenia.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
@@ -611,7 +696,7 @@ export default function StatisticsPage() {
            <Card className="lg:col-span-2">
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><PieChartIcon className="h-6 w-6 text-primary" />Proporcje Trenowanych Grup Mięśniowych</CardTitle>
-              <CardDescription>Rozkład wykonanych ćwiczeń według grup mięśniowych (na podstawie wszystkich zarejestrowanych treningów).</CardDescription>
+              <CardDescription>Rozkład wykonanych ćwiczeń według grup mięśniowych (na podstawie wszystkich zarejestrowanych treningów w wybranym globalnie okresie).</CardDescription>
             </CardHeader>
             <CardContent className="flex justify-center">
               {muscleGroupProportionData.length > 0 ? (
@@ -658,71 +743,134 @@ export default function StatisticsPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Porównaj Okresy (Wkrótce)</CardTitle>
+              <CardTitle className="flex items-center gap-2"><CompareArrows className="h-6 w-6 text-primary" />Porównaj Okresy</CardTitle>
               <CardDescription>Porównaj swoje statystyki między dwoma wybranymi okresami.</CardDescription>
             </CardHeader>
             <CardContent>
-              <Alert variant="default">
-                <Info className="h-4 w-4" />
-                <AlertTitle>Funkcja w Budowie</AlertTitle>
-                <AlertDescription>
-                  Możliwość porównywania okresów zostanie dodana w przyszłości. Będziesz mógł wybrać dwa zakresy dat i zobaczyć porównanie kluczowych metryk.
-                </AlertDescription>
-              </Alert>
-              <div className="mt-4 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label>Okres A - Data od</Label>
-                    <DatePicker disabled />
-                  </div>
-                  <div>
-                    <Label>Okres A - Data do</Label>
-                    <DatePicker disabled />
-                  </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                <div className="space-y-2 p-4 border rounded-lg">
+                    <h4 className="font-semibold text-center">Okres A</h4>
+                    <DatePicker
+                        date={periodAStartDate}
+                        onDateChange={setPeriodAStartDate}
+                        label="Data od (Okres A)"
+                        disabled={(date) => periodAEndDate ? date > periodAEndDate : false}
+                    />
+                    <DatePicker
+                        date={periodAEndDate}
+                        onDateChange={setPeriodAEndDate}
+                        label="Data do (Okres A)"
+                        disabled={(date) => periodAStartDate ? date < periodAStartDate : false}
+                    />
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label>Okres B - Data od</Label>
-                    <DatePicker disabled />
-                  </div>
-                  <div>
-                    <Label>Okres B - Data do</Label>
-                    <DatePicker disabled />
-                  </div>
+                 <div className="space-y-2 p-4 border rounded-lg">
+                    <h4 className="font-semibold text-center">Okres B</h4>
+                    <DatePicker
+                        date={periodBStartDate}
+                        onDateChange={setPeriodBStartDate}
+                        label="Data od (Okres B)"
+                        disabled={(date) => periodBEndDate ? date > periodBEndDate : false}
+                    />
+                    <DatePicker
+                        date={periodBEndDate}
+                        onDateChange={setPeriodBEndDate}
+                        label="Data do (Okres B)"
+                        disabled={(date) => periodBStartDate ? date < periodBStartDate : false}
+                    />
                 </div>
-                <Button disabled>Porównaj (Wkrótce)</Button>
               </div>
+              <Button onClick={handleComparePeriods} className="w-full sm:w-auto">
+                <CompareArrows className="mr-2 h-4 w-4" /> Porównaj Okresy
+              </Button>
+
+              {comparisonResults && (
+                <div className="mt-6 space-y-4">
+                  <h3 className="text-xl font-semibold">Wyniki Porównania</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <p className="text-sm">
+                        <strong>Okres A:</strong> {comparisonResults.periodA.startDate ? format(comparisonResults.periodA.startDate, "PPP", {locale:pl}) : 'N/A'} - {comparisonResults.periodA.endDate ? format(comparisonResults.periodA.endDate, "PPP", {locale:pl}) : 'N/A'}
+                    </p>
+                    <p className="text-sm">
+                        <strong>Okres B:</strong> {comparisonResults.periodB.startDate ? format(comparisonResults.periodB.startDate, "PPP", {locale:pl}) : 'N/A'} - {comparisonResults.periodB.endDate ? format(comparisonResults.periodB.endDate, "PPP", {locale:pl}) : 'N/A'}
+                    </p>
+                  </div>
+                  <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Metryka</TableHead>
+                            <TableHead className="text-right">Okres A</TableHead>
+                            <TableHead className="text-right">Okres B</TableHead>
+                            <TableHead className="text-right">Różnica</TableHead>
+                            <TableHead className="text-right">Zmiana %</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {[
+                            {
+                                label: "Liczba Treningów",
+                                valueA: comparisonResults.periodA.metrics.workoutCount,
+                                valueB: comparisonResults.periodB.metrics.workoutCount,
+                                unit: " treningi/ów"
+                            },
+                            {
+                                label: "Całkowita Objętość",
+                                valueA: comparisonResults.periodA.metrics.totalVolume,
+                                valueB: comparisonResults.periodB.metrics.totalVolume,
+                                unit: " kg"
+                            }
+                        ].map(item => {
+                            const diff = item.valueB - item.valueA;
+                            const percentageChange = item.valueA !== 0 ? ((diff / item.valueA) * 100).toFixed(1) : (item.valueB > 0 ? "∞" : "0.0");
+                            return (
+                                <TableRow key={item.label}>
+                                    <TableCell className="font-medium">{item.label}</TableCell>
+                                    <TableCell className="text-right">{item.valueA.toLocaleString('pl-PL')}{item.unit}</TableCell>
+                                    <TableCell className="text-right">{item.valueB.toLocaleString('pl-PL')}{item.unit}</TableCell>
+                                    <TableCell className={`text-right font-semibold ${diff > 0 ? 'text-green-600' : diff < 0 ? 'text-red-600' : ''}`}>
+                                        {diff > 0 ? '+' : ''}{diff.toLocaleString('pl-PL')}{item.unit}
+                                    </TableCell>
+                                     <TableCell className={`text-right font-semibold ${diff > 0 ? 'text-green-600' : diff < 0 ? 'text-red-600' : ''}`}>
+                                        {diff > 0 ? '+' : ''}{percentageChange}%
+                                    </TableCell>
+                                </TableRow>
+                            );
+                        })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>Moje Cele (Wkrótce)</CardTitle>
+              <CardTitle className="flex items-center gap-2"><TrendingUp className="h-6 w-6 text-primary"/>Moje Cele</CardTitle>
               <CardDescription>Definiuj i śledź swoje cele treningowe i pomiarowe.</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold">Lista Celów</h3>
-                <Button onClick={() => setIsAddGoalDialogOpen(true)} disabled>+ Dodaj Nowy Cel (Wkrótce)</Button>
+                <Button onClick={() => setIsAddGoalDialogOpen(true)} >+ Dodaj Nowy Cel</Button>
               </div>
-              <Alert variant="default">
+               <Alert variant="default" className="mb-4">
                 <Info className="h-4 w-4" />
                 <AlertTitle>Funkcja w Budowie</AlertTitle>
                 <AlertDescription>
-                  Możliwość definiowania i śledzenia celów zostanie dodana w przyszłości. Będziesz mógł tu ustawiać cele, np. "Przysiad 100kg" i monitorować postęp.
+                  Pełne zarządzanie celami, ich śledzenie i wizualizacja postępów są w trakcie rozwoju.
                 </AlertDescription>
               </Alert>
-              <div className="mt-4 space-y-3">
+              <div className="space-y-3">
                 {MOCK_USER_GOALS.map(goal => (
                   <div key={goal.id} className="p-3 border rounded-md bg-muted/30">
                     <div className="flex justify-between items-center">
                       <span className="font-medium">{goal.name}</span>
-                      <span className="text-xs text-muted-foreground">Cel: {goal.targetValue}{goal.unit}</span>
+                      <span className="text-xs text-muted-foreground">Cel: {goal.targetValue.toLocaleString('pl-PL')}{goal.unit}</span>
                     </div>
                     <Progress value={(goal.currentValue / goal.targetValue) * 100} className="h-2 mt-1" />
-                    <p className="text-xs text-muted-foreground mt-1">Aktualnie: {goal.currentValue}{goal.unit} {goal.deadline ? `(do: ${format(parseISO(goal.deadline), "PPP", {locale: pl})})` : ''}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Aktualnie: {goal.currentValue.toLocaleString('pl-PL')}{goal.unit} {goal.deadline ? `(do: ${format(parseISO(goal.deadline), "PPP", {locale: pl})})` : ''}</p>
                   </div>
                 ))}
+                 {MOCK_USER_GOALS.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nie zdefiniowano jeszcze żadnych celów.</p>}
               </div>
             </CardContent>
           </Card>
@@ -733,3 +881,5 @@ export default function StatisticsPage() {
     </div>
   );
 }
+
+    
