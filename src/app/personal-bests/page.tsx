@@ -17,6 +17,9 @@ import {
   Loader2,
   Filter,
   Search as SearchIcon,
+  LineChart as LineChartIcon, // Added for progression chart button
+  Star, // For badge placeholder
+  Medal, // For badge placeholder
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -57,9 +60,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-// Mock exercise list for filtering (could come from a shared source)
+import { Alert } from "@/components/ui/alert"; // Added Alert for badge section
 import { MOCK_EXERCISES_DATABASE } from "@/app/workout/create/page";
+import { PbProgressionChartDialog } from "@/components/personal-bests/pb-progression-chart-dialog"; // New Import
 
 
 export interface PersonalBest {
@@ -98,11 +101,11 @@ const INITIAL_MOCK_PBS: PersonalBest[] = [
   {
     id: uuidv4(),
     exerciseId: "ex6",
-    exerciseName: "Bieg na bieżni (30 min)", // This is a duration based exercise name
+    exerciseName: "Bieg na bieżni (30 min)", 
     recordType: "time_seconds",
-    value: { timeSeconds: 5 * 60 * 60 }, // 5 km run, assuming 6min/km pace -> 30 min = 1800s. For a 5k it would be more like 1200-1800s for a good runner
+    value: { timeSeconds: 30 * 60 }, 
     date: new Date(2024, 5, 20).toISOString(),
-    notes: "Najszybsze 5km na bieżni.",
+    notes: "Najszybsze 30 min na bieżni.",
   },
    {
     id: uuidv4(),
@@ -134,6 +137,9 @@ export default function PersonalBestsPage() {
   const [searchTerm, setSearchTerm] = React.useState("");
   const [selectedExerciseFilter, setSelectedExerciseFilter] = React.useState<string>("all");
 
+  const [isPbChartDialogOpen, setIsPbChartDialogOpen] = React.useState(false);
+  const [pbForChart, setPbForChart] = React.useState<PersonalBest | null>(null);
+
   const filteredPbs = React.useMemo(() => {
     return personalBests
       .filter(pb => {
@@ -158,21 +164,21 @@ export default function PersonalBestsPage() {
       exerciseName: exercise.name,
       recordType: data.recordType,
       value: {
-        weight: data.recordType === "weight_reps" || data.recordType === "max_reps" ? data.valueWeight || undefined : undefined,
-        reps: data.recordType === "weight_reps" || data.recordType === "max_reps" ? data.valueReps || undefined : undefined,
-        timeSeconds: data.recordType === "time_seconds" ? data.valueTimeSeconds || undefined : undefined,
-        distanceKm: data.recordType === "distance_km" ? data.valueDistanceKm || undefined : undefined,
+        weight: data.valueWeight === "" ? undefined : data.valueWeight,
+        reps: data.valueReps === "" ? undefined : Number(data.valueReps),
+        timeSeconds: data.valueTimeSeconds === "" ? undefined : Number(data.valueTimeSeconds),
+        distanceKm: data.valueDistanceKm === "" ? undefined : Number(data.valueDistanceKm),
       },
-      date: data.date,
+      date: typeof data.date === 'string' ? data.date : data.date.toISOString(), // Ensure date is ISO string
       notes: data.notes,
     };
 
     if (editingPb) {
       setPersonalBests(prev => prev.map(p => (p.id === editingPb.id ? pbEntry : p)));
-      toast({ title: "Rekord zaktualizowany", description: "Twój rekord został pomyślnie zaktualizowany." });
+      toast({ title: "Rekord Zaktualizowany!", description: "Twój rekord został pomyślnie zaktualizowany." });
     } else {
       setPersonalBests(prev => [...prev, pbEntry]);
-      toast({ title: "Rekord dodany", description: "Nowy rekord został pomyślnie zapisany." });
+      toast({ title: "Nowy Rekord Zapisany! Gratulacje!", description: `Ustanowiłeś nowy rekord w ${pbEntry.exerciseName}.` });
     }
     setIsManageDialogOpen(false);
     setEditingPb(null);
@@ -197,12 +203,17 @@ export default function PersonalBestsPage() {
     setIsDeleting(false);
   };
 
+  const handleOpenPbChart = (pb: PersonalBest) => {
+    setPbForChart(pb);
+    setIsPbChartDialogOpen(true);
+  };
+
   const formatPbValue = (pb: PersonalBest): string => {
     switch (pb.recordType) {
       case "weight_reps":
         return `${pb.value.weight || '-'} kg x ${pb.value.reps || '-'} powt.`;
       case "max_reps":
-        return `${pb.value.reps || '-'} powt. ${pb.value.weight ? `(${pb.value.weight} kg)` : '(BW)'}`;
+        return `${pb.value.reps || '-'} powt. ${pb.value.weight ? `(${pb.value.weight === "BW" ? "BW" : pb.value.weight + "kg"})` : '(BW)'}`;
       case "time_seconds":
         const totalSeconds = pb.value.timeSeconds || 0;
         const minutes = Math.floor(totalSeconds / 60);
@@ -255,6 +266,12 @@ export default function PersonalBestsPage() {
             onSave={handleSavePb}
             initialData={editingPb}
             availableExercises={MOCK_EXERCISES_DATABASE}
+          />
+
+          <PbProgressionChartDialog
+            isOpen={isPbChartDialogOpen}
+            onOpenChange={setIsPbChartDialogOpen}
+            pbData={pbForChart}
           />
 
           {pbToDelete && (
@@ -329,10 +346,11 @@ export default function PersonalBestsPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-[30%]">Ćwiczenie</TableHead>
-                        <TableHead className="w-[25%]">Rekord</TableHead>
+                        <TableHead className="w-[25%]">Ćwiczenie</TableHead>
+                        <TableHead className="w-[20%]">Rekord</TableHead>
                         <TableHead className="w-[15%]" >Typ Rekordu</TableHead>
                         <TableHead className="w-[15%] text-center">Data</TableHead>
+                        <TableHead className="w-[10%] text-center">Progresja</TableHead>
                         <TableHead className="text-right w-[15%]">Akcje</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -343,12 +361,18 @@ export default function PersonalBestsPage() {
                           <TableCell>{formatPbValue(pb)}</TableCell>
                           <TableCell className="text-muted-foreground">{RECORD_TYPE_LABELS[pb.recordType]}</TableCell>
                           <TableCell className="text-center">{format(parseISO(pb.date), "dd MMM yyyy", { locale: pl })}</TableCell>
+                          <TableCell className="text-center">
+                            <Button variant="ghost" size="icon" onClick={() => handleOpenPbChart(pb)} title="Zobacz progresję">
+                              <LineChartIcon className="h-4 w-4" />
+                              <span className="sr-only">Zobacz progresję</span>
+                            </Button>
+                          </TableCell>
                           <TableCell className="text-right">
-                            <Button variant="ghost" size="icon" onClick={() => handleEditPb(pb)} className="mr-1">
+                            <Button variant="ghost" size="icon" onClick={() => handleEditPb(pb)} className="mr-1" title="Edytuj rekord">
                               <Edit className="h-4 w-4" />
                               <span className="sr-only">Edytuj</span>
                             </Button>
-                            <Button variant="ghost" size="icon" onClick={() => openDeleteConfirmation(pb)} className="text-destructive hover:text-destructive">
+                            <Button variant="ghost" size="icon" onClick={() => openDeleteConfirmation(pb)} className="text-destructive hover:text-destructive" title="Usuń rekord">
                               <Trash2 className="h-4 w-4" />
                               <span className="sr-only">Usuń</span>
                             </Button>
@@ -366,8 +390,43 @@ export default function PersonalBestsPage() {
                 </CardFooter>
             )}
           </Card>
+
+          <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Award className="h-5 w-5 text-primary"/>Moje Odznaki (Symulacja)</CardTitle>
+                <CardDescription>Przeglądaj zdobyte odznaki za osiągnięcia.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Alert>
+                    <Trophy className="h-4 w-4"/>
+                    <p className="font-semibold">Funkcja w budowie</p>
+                    <p className="text-xs text-muted-foreground">
+                        System odznak i nagród za osiągnięcia (w tym za rekordy życiowe) zostanie dodany w przyszłości.
+                    </p>
+                </Alert>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-4">
+                    {/* Mock Badges */}
+                    {[
+                        {name: "Mistrz Przysiadu: 140kg", icon: Dumbbell},
+                        {name: "Klub 100kg: Wyciskanie", icon: Award},
+                        {name: "Wytrwały Biegacz: 30 min", icon: Medal},
+                        {name: "Siłacz Podciągania: 15xBW", icon: Star},
+                    ].map((badge, idx) => {
+                        const Icon = badge.icon;
+                        return (
+                            <div key={idx} className="flex flex-col items-center text-center p-3 border rounded-lg bg-muted/50">
+                                <Icon className="h-10 w-10 text-amber-500 mb-2"/>
+                                <p className="text-xs font-medium">{badge.name}</p>
+                            </div>
+                        )
+                    })}
+                </div>
+            </CardContent>
+          </Card>
+
         </div>
       </main>
     </div>
   );
 }
+
