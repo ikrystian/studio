@@ -7,23 +7,24 @@ import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
 import {
   Activity,
+  Award, // Added for Personal Bests
   BarChart3,
   Bell,
+  BookOpen,
+  CalendarDays,
+  Camera,
+  ChevronRight,
   ClipboardList,
   Dumbbell,
+  Flame,
   History,
   MessageSquare,
   PlayCircle,
+  Repeat,
   Scale,
   Settings,
-  Users,
-  ChevronRight,
-  CalendarDays,
-  Flame,
-  Repeat,
-  BookOpen,
   User as UserIcon,
-  Camera, // Added for Progress Photos
+  Users,
 } from 'lucide-react';
 import type { Metadata } from 'next';
 
@@ -69,6 +70,7 @@ const navItems = [
   { href: '/workout/start', label: 'Rozpocznij trening', icon: PlayCircle, description: 'Start a new session' },
   { href: '/plans', label: 'Plany treningowe', icon: BookOpen, description: 'View your plans' },
   { href: '/history', label: 'Historia', icon: History, description: 'Track your progress' },
+  { href: '/personal-bests', label: 'Rekordy Życiowe', icon: Award, description: 'View your PBs' },
   { href: '/community', label: 'Społeczność', icon: Users, description: 'Connect with others' },
   { href: '/measurements', label: 'Pomiary', icon: Scale, description: 'Log your metrics' },
   { href: '/progress-photos', label: 'Zdjęcia Postępu', icon: Camera, description: 'Track visual changes' },
