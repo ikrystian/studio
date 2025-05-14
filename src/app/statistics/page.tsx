@@ -4,7 +4,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, BarChart3, LineChart as LineChartIcon, CalendarDays, TrendingUp, WeightIcon, DumbbellIcon, AlertTriangle, PieChartIcon, ImageIcon, FileDown, Filter, Info, ArrowRightLeft, Target, Edit, Trash2, PlusCircle, Save } from "lucide-react";
+import { ArrowLeft, BarChart3, LineChart as LineChartIcon, CalendarDays, TrendingUp, WeightIcon, DumbbellIcon, AlertTriangle, PieChartIcon, ImageIcon, FileDown, Filter, Info, ArrowRightLeft, Target, Edit, Trash2, PlusCircle, Save, Loader2 } from "lucide-react";
 import { format, parseISO, getWeek, getYear, startOfDay, endOfDay, isValid, isWithinInterval, isBefore } from "date-fns";
 import { pl } from "date-fns/locale";
 import { v4 as uuidv4 } from "uuid";
@@ -46,8 +46,8 @@ import {
   ResponsiveContainer,
   Tooltip as RechartsTooltip,
 } from "recharts";
-import { useToast } from "@/hooks/use-toast";
-import { DatePicker } from "@/components/ui/date-picker";
+import { useToast } from "@/hooks/use-toast"; // Import useToast
+import { DatePicker } from "@/components/ui/date-picker"; // Assuming you have this from Shadcn
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -65,6 +65,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { cn } from "@/lib/utils";
 
 
 // Mock data (ideally imported from a shared location or fetched)
@@ -720,7 +721,7 @@ export default function StatisticsPage() {
                   </div>
                 )}
               </CardContent>
-              <CardFooter className="flex justify-end">
+              <CardFooter className="flex justify-end print-hide">
                  <TooltipProvider>
                   <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handlePrintChart("workout-frequency-chart-card")}><ImageIcon className="h-4 w-4"/></Button></TooltipTrigger><TooltipContent><p>Eksportuj wykres jako Obraz/PDF</p></TooltipContent></Tooltip>
                   <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => exportChartDataToCSV(workoutFrequencyData, "czestotliwosc_treningow.csv", [{key: 'week', label: 'Tydzień'}, {key: 'count', label: 'Liczba Treningów'}])} disabled={workoutFrequencyData.length === 0}><FileDown className="h-4 w-4"/></Button></TooltipTrigger><TooltipContent><p>Eksportuj dane jako CSV</p></TooltipContent></Tooltip>
@@ -750,7 +751,7 @@ export default function StatisticsPage() {
                   </div>
                 )}
               </CardContent>
-              <CardFooter className="justify-between">
+              <CardFooter className="justify-between print-hide">
                   <p className="text-xs text-muted-foreground">Dane pochodzą z sekcji "Pomiary".</p>
                   <div>
                     <TooltipProvider>
@@ -768,7 +769,7 @@ export default function StatisticsPage() {
               <CardDescription>Całkowita objętość (ciężar x powtórzenia) dla wybranego ćwiczenia w kolejnych sesjach, z opcjonalną nakładką danych z dziennika samopoczucia.</CardDescription>
             </CardHeader>
             <CardContent>
-                <div className="mb-4 print-hide">
+                <div className="flex flex-col sm:flex-row gap-4 mb-4 print-hide">
                     <Select value={selectedExerciseIdForVolume} onValueChange={setSelectedExerciseIdForVolume}>
                         <SelectTrigger className="w-full sm:w-[300px]">
                         <SelectValue placeholder="Wybierz ćwiczenie do analizy objętości" />
@@ -779,6 +780,23 @@ export default function StatisticsPage() {
                         ))}
                         </SelectContent>
                     </Select>
+                    <div className="space-y-2">
+                        <Label className="text-sm font-medium">Nakładka z Dziennika Samopoczucia:</Label>
+                        <div className="flex flex-wrap gap-x-4 gap-y-2">
+                            {['wellBeing', 'energyLevel', 'sleepQuality'].map(metricKey => (
+                                <div key={metricKey} className="flex items-center space-x-2">
+                                <Checkbox
+                                    id={`wellness-${metricKey}`}
+                                    checked={selectedWellnessMetrics.includes(metricKey)}
+                                    onCheckedChange={() => handleWellnessMetricToggle(metricKey)}
+                                />
+                                <Label htmlFor={`wellness-${metricKey}`} className="text-sm font-normal">
+                                    {metricKey === 'wellBeing' ? 'Samopoczucie' : metricKey === 'energyLevel' ? 'Energia' : 'Sen'}
+                                </Label>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
                 </div>
               {exerciseVolumeData.length >= 1 ? ( 
                 <ChartContainer config={chartConfig} className="h-[350px] w-full">
@@ -804,7 +822,7 @@ export default function StatisticsPage() {
                 </div>
               )}
             </CardContent>
-            <CardFooter className="justify-between">
+            <CardFooter className="justify-between print-hide">
                 <p className="text-xs text-muted-foreground">
                   Analiza objętości dla ćwiczeń siłowych z zarejestrowanym ciężarem i powtórzeniami.
                 </p>
@@ -858,7 +876,7 @@ export default function StatisticsPage() {
                 </div>
               )}
             </CardContent>
-             <CardFooter className="justify-between">
+             <CardFooter className="justify-between print-hide">
                 <p className="text-xs text-muted-foreground">
                   Kategorie grup mięśniowych są mapowane na podstawie wykonanych ćwiczeń.
                 </p>
@@ -873,16 +891,11 @@ export default function StatisticsPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><ArrowRightLeft className="h-6 w-6 text-primary" />Porównaj Okresy (Wkrótce)</CardTitle>
+              <CardTitle className="flex items-center gap-2"><ArrowRightLeft className="h-6 w-6 text-primary" />Porównaj Okresy</CardTitle>
               <CardDescription>Porównaj swoje statystyki między dwoma wybranymi okresami.</CardDescription>
             </CardHeader>
             <CardContent>
-              <Alert variant="default" className="mb-4">
-                <Info className="h-4 w-4"/>
-                <AlertTitle>Funkcja w Budowie</AlertTitle>
-                <AlertDescription>Możliwość porównywania okresów zostanie dodana w przyszłości.</AlertDescription>
-              </Alert>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4 print-hide">
                 <div className="space-y-2 p-4 border rounded-lg bg-muted/30">
                     <h4 className="font-semibold text-center">Okres A</h4>
                     <DatePicker
@@ -914,7 +927,7 @@ export default function StatisticsPage() {
                     />
                 </div>
               </div>
-              <Button onClick={handleComparePeriods} className="w-full sm:w-auto">
+              <Button onClick={handleComparePeriods} className="w-full sm:w-auto print-hide">
                 <ArrowRightLeft className="mr-2 h-4 w-4" /> Porównaj Okresy
               </Button>
 
@@ -979,15 +992,10 @@ export default function StatisticsPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Target className="h-6 w-6 text-primary"/>Moje Cele (Wkrótce)</CardTitle>
+              <CardTitle className="flex items-center gap-2"><Target className="h-6 w-6 text-primary"/>Moje Cele</CardTitle>
               <CardDescription>Definiuj i śledź swoje cele treningowe i pomiarowe.</CardDescription>
             </CardHeader>
             <CardContent>
-              <Alert className="mb-4">
-                <Info className="h-4 w-4"/>
-                <AlertTitle>Funkcja w Rozwoju</AlertTitle>
-                <AlertDescription>Pełne zarządzanie celami, ich śledzenie i wizualizacja postępów będą dostępne wkrótce.</AlertDescription>
-              </Alert>
               <div className="flex items-center justify-between mb-4 print-hide">
                 <h3 className="text-lg font-semibold">Lista Celów</h3>
                 <Button onClick={() => setIsAddGoalDialogOpen(true)} >
