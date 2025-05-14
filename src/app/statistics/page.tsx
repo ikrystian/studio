@@ -1,10 +1,11 @@
+
 "use client";
 
 import * as React from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation"; // Import useSearchParams
-import { ArrowLeft, BarChart3, LineChart as LineChartIcon, CalendarDays, TrendingUp, WeightIcon, DumbbellIcon, AlertTriangle, PieChartIcon, ImageIcon, FileDown } from "lucide-react";
-import { format, parseISO, getWeek, getYear } from "date-fns";
+import { useSearchParams } from "next/navigation";
+import { ArrowLeft, BarChart3, LineChart as LineChartIcon, CalendarDays, TrendingUp, WeightIcon, DumbbellIcon, AlertTriangle, PieChartIcon, ImageIcon, FileDown, Filter, Info } from "lucide-react";
+import { format, parseISO, getWeek, getYear, startOfDay, endOfDay, isValid } from "date-fns";
 import { pl } from "date-fns/locale";
 
 import { Button } from "@/components/ui/button";
@@ -44,8 +45,8 @@ import {
   ResponsiveContainer,
   Tooltip as RechartsTooltip,
 } from "recharts";
-import { useToast } from "@/hooks/use-toast"; // Import useToast
-import { DatePicker } from "@/components/ui/date-picker"; // Assuming you have this from Shadcn
+import { useToast } from "@/hooks/use-toast";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -55,7 +56,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 
 
 // Mock data (ideally imported from a shared location or fetched)
-// Simplified HistoricalWorkoutSession for this page
 interface SimpleHistoricalWorkoutSession {
   id: string;
   workoutName: string;
@@ -64,82 +64,72 @@ interface SimpleHistoricalWorkoutSession {
   exercises: { id: string; name: string }[];
 }
 
-// Updated MOCK_HISTORY_SESSIONS_STATS for muscle group chart diversity
 const MOCK_HISTORY_SESSIONS_STATS: SimpleHistoricalWorkoutSession[] = [
   {
-    id: "hist1", workoutName: "Poranny Trening Siłowy", startTime: "2024-07-01T08:00:00.000Z", 
+    id: "hist1", workoutName: "Poranny Trening Siłowy", startTime: "2024-07-01T08:00:00.000Z",
     recordedSets: { ex1: [{ weight: "60", reps: "10" }, { weight: "65", reps: "8" }] },
-    exercises: [{ id: "ex1", name: "Wyciskanie sztangi na ławce płaskiej"}] // Klatka
+    exercises: [{ id: "ex1", name: "Wyciskanie sztangi na ławce płaskiej"}]
   },
   {
     id: "hist2", workoutName: "Szybkie Cardio HIIT", startTime: "2024-07-03T17:30:00.000Z",
-    recordedSets: { ex6: [{ weight: "N/A", reps: "30min"}] }, exercises: [{id: "ex6", name: "Bieg na bieżni"}] // Cardio
+    recordedSets: { ex6: [{ weight: "N/A", reps: "30min"}] }, exercises: [{id: "ex6", name: "Bieg na bieżni"}]
   },
-  { 
+  {
     id: "hist3", workoutName: "Trening Siłowy Całego Ciała", startTime: "2024-07-08T08:15:00.000Z",
-    recordedSets: { 
-      ex1: [{ weight: "65", reps: "10" }, { weight: "70", reps: "8" }], 
+    recordedSets: {
+      ex1: [{ weight: "65", reps: "10" }, { weight: "70", reps: "8" }],
       ex2: [{ weight: "100", reps: "6"}],
-      ex4: [{ weight: "BW", reps: "8"}] 
+      ex4: [{ weight: "BW", reps: "8"}]
     },
     exercises: [
-      { id: "ex1", name: "Wyciskanie sztangi na ławce płaskiej"}, // Klatka
-      {id: "ex2", name: "Przysiady ze sztangą"}, // Nogi
-      {id: "ex4", name: "Podciąganie na drążku"} // Plecy
+      { id: "ex1", name: "Wyciskanie sztangi na ławce płaskiej"},
+      {id: "ex2", name: "Przysiady ze sztangą"},
+      {id: "ex4", name: "Podciąganie na drążku"}
     ]
   },
-   { 
+   {
     id: "hist4", workoutName: "Wieczorny Trening Nóg", startTime: "2024-07-10T19:00:00.000Z",
     recordedSets: { ex2: [{ weight: "105", reps: "5" }, { weight: "110", reps: "5" }] },
-    exercises: [{id: "ex2", name: "Przysiady ze sztangą"}] // Nogi
+    exercises: [{id: "ex2", name: "Przysiady ze sztangą"}]
   },
-  { 
+  {
     id: "hist5", workoutName: "Trening Barków i Ramion", startTime: "2024-07-15T08:00:00.000Z",
-    recordedSets: { 
-      ex9: [{ weight: "25", reps: "10" }], 
-      ex10: [{ weight: "15", reps: "12"}] 
+    recordedSets: {
+      ex9: [{ weight: "25", reps: "10" }],
+      ex10: [{ weight: "15", reps: "12"}]
     },
     exercises: [
-        { id: "ex9", name: "Wyciskanie żołnierskie (OHP)"}, // Barki
-        { id: "ex10", name: "Uginanie ramion ze sztangą"} // Ramiona
+        { id: "ex9", name: "Wyciskanie żołnierskie (OHP)"},
+        { id: "ex10", name: "Uginanie ramion ze sztangą"}
     ]
   },
-  { 
+  {
     id: "hist6", workoutName: "Full Body Workout", startTime: "2024-07-22T10:00:00.000Z",
-    recordedSets: { 
-        ex1: [{ weight: "75", reps: "5" }], 
+    recordedSets: {
+        ex1: [{ weight: "75", reps: "5" }],
         ex2: [{ weight: "110", reps: "5" }],
         ex12: [{ weight: "60", reps: "8"}]
     },
     exercises: [
-        { id: "ex1", name: "Wyciskanie sztangi na ławce płaskiej"}, // Klatka
-        {id: "ex2", name: "Przysiady ze sztangą"}, // Nogi
-        {id: "ex12", name: "Wiosłowanie sztangą"} // Plecy
+        { id: "ex1", name: "Wyciskanie sztangi na ławce płaskiej"},
+        {id: "ex2", name: "Przysiady ze sztangą"},
+        {id: "ex12", name: "Wiosłowanie sztangą"}
     ]
+  },
+  {
+    id: "hist7", workoutName: "Klatka i Triceps", startTime: "2024-06-20T09:00:00.000Z",
+    recordedSets: { ex1: [{ weight: "55", reps: "12" }], ex5: [{weight:"BW", reps: "15"}] },
+    exercises: [{ id: "ex1", name: "Wyciskanie sztangi na ławce płaskiej"}, {id: "ex5", name: "Pompki"}]
   },
 ];
 
 const EXERCISE_CATEGORIES_MAP: { [exerciseId: string]: string } = {
-  "ex1": "Klatka",
-  "ex2": "Nogi",
-  "ex3": "Plecy",
-  "ex4": "Plecy",
-  "ex5": "Klatka", // Pompki
-  "ex6": "Cardio", // Bieg
-  "ex7": "Cardio", // Skakanka
-  "ex8": "Całe ciało", // Rozciąganie dynamiczne
-  "ex9": "Barki", // OHP
-  "ex10": "Ramiona", // Uginanie ramion
-  "ex11": "Brzuch", // Plank
-  "ex12": "Plecy", // Wiosłowanie
-  "ex13": "Nogi", // Wykroki
-  "ex14": "Barki", // Unoszenie hantli
-  "ex15": "Ramiona", // Francuskie wyciskanie
-  "ex16": "Brzuch", // Allah Pompki
-  "ex17": "Nogi", // Przysiad bułgarski
-  "ex18": "Klatka", // Wyciskanie hantli skos
+  "ex1": "Klatka", "ex2": "Nogi", "ex3": "Plecy", "ex4": "Plecy", "ex5": "Klatka",
+  "ex6": "Cardio", "ex7": "Cardio", "ex8": "Całe ciało", "ex9": "Barki",
+  "ex10": "Ramiona", "ex11": "Brzuch", "ex12": "Plecy", "ex13": "Nogi",
+  "ex14": "Barki", "ex15": "Ramiona", "ex16": "Brzuch", "ex17": "Nogi",
+  "ex18": "Klatka",
 };
-
 
 interface SimpleMeasurement {
   id: string;
@@ -147,15 +137,15 @@ interface SimpleMeasurement {
   weight: number;
 }
 const MOCK_MEASUREMENTS_STATS: SimpleMeasurement[] = [
-  { id: "m1", date: new Date(2024, 6, 1).toISOString(), weight: 75.5 },
-  { id: "m2", date: new Date(2024, 6, 8).toISOString(), weight: 75.0 },
-  { id: "m3", date: new Date(2024, 6, 15).toISOString(), weight: 74.8 },
-  { id: "m4", date: new Date(2024, 6, 22).toISOString(), weight: 74.5 },
-  { id: "m5", date: new Date(2024, 6, 29).toISOString(), weight: 74.0 },
+  { id: "m1", date: new Date(2024, 5, 15).toISOString(), weight: 76.0 }, // June 15
+  { id: "m2", date: new Date(2024, 6, 1).toISOString(), weight: 75.5 },  // July 1
+  { id: "m3", date: new Date(2024, 6, 8).toISOString(), weight: 75.0 },  // July 8
+  { id: "m4", date: new Date(2024, 6, 15).toISOString(), weight: 74.8 }, // July 15
+  { id: "m5", date: new Date(2024, 6, 22).toISOString(), weight: 74.5 }, // July 22
+  { id: "m6", date: new Date(2024, 6, 29).toISOString(), weight: 74.0 }, // July 29
 ];
 
 const MOCK_EXERCISES_FOR_STATS_FILTER = [
-    // { id: "all", name: "Wszystkie Ćwiczenia (dla częstotliwości)"}, // Removed 'all' as it's not for volume
     { id: "ex1", name: "Wyciskanie sztangi na ławce płaskiej" },
     { id: "ex2", name: "Przysiady ze sztangą" },
     { id: "ex4", name: "Podciąganie na drążku" },
@@ -178,9 +168,9 @@ const MOCK_WELLNESS_ENTRIES_FOR_STATS: WellnessEntryForStats[] = [
   { date: "2024-07-10", wellBeing: 2, energyLevel: 2, sleepQuality: 2 },
   { date: "2024-07-15", wellBeing: 4, energyLevel: 4, sleepQuality: 5 },
   { date: "2024-07-22", wellBeing: 3, energyLevel: 3, sleepQuality: 4 },
+  { date: "2024-06-20", wellBeing: 4, energyLevel: 4, sleepQuality: 4 },
 ];
 
-// Mock goals data
 const MOCK_USER_GOALS = [
   { id: "goal1", name: "Przysiad 120kg x 5", metric: "Przysiady ze sztangą - Objętość", currentValue: 110 * 5, targetValue: 120 * 5, unit: "kg*powt", deadline: "2024-12-31" },
   { id: "goal2", name: "Wyciskanie 80kg", metric: "Wyciskanie sztangi na ławce płaskiej - Max Ciężar", currentValue: 75, targetValue: 80, unit: "kg", deadline: "2024-10-30" },
@@ -193,17 +183,21 @@ export default function StatisticsPage() {
   const searchParams = useSearchParams();
   const exerciseIdFromQuery = searchParams.get("exerciseId");
   const exerciseNameFromQuery = searchParams.get("exerciseName");
-  
+
   const [selectedGlobalStartDate, setSelectedGlobalStartDate] = React.useState<Date | undefined>();
   const [selectedGlobalEndDate, setSelectedGlobalEndDate] = React.useState<Date | undefined>();
   const [isAddGoalDialogOpen, setIsAddGoalDialogOpen] = React.useState(false);
 
-  // Determine exercises valid for the volume chart
+  // State for filtered data
+  const [processedHistorySessions, setProcessedHistorySessions] = React.useState<SimpleHistoricalWorkoutSession[]>(MOCK_HISTORY_SESSIONS_STATS);
+  const [processedMeasurements, setProcessedMeasurements] = React.useState<SimpleMeasurement[]>(MOCK_MEASUREMENTS_STATS);
+  const [processedWellnessEntries, setProcessedWellnessEntries] = React.useState<WellnessEntryForStats[]>(MOCK_WELLNESS_ENTRIES_FOR_STATS);
+
   const volumeChartExercises = React.useMemo(() =>
-    MOCK_EXERCISES_FOR_STATS_FILTER.filter(ex => ex.id !== "all"), // Ensure 'all' is excluded if it was there
+    MOCK_EXERCISES_FOR_STATS_FILTER.filter(ex => ex.id !== "all"),
     []
   );
-  
+
   const initialSelectedExerciseId = volumeChartExercises.length > 0 ? volumeChartExercises[0].id : "";
   const [selectedExerciseIdForVolume, setSelectedExerciseIdForVolume] = React.useState<string>(initialSelectedExerciseId);
 
@@ -213,7 +207,7 @@ export default function StatisticsPage() {
       if (isValidForVolumeChart) {
         setSelectedExerciseIdForVolume(exerciseIdFromQuery);
       } else if (volumeChartExercises.length > 0) {
-        setSelectedExerciseIdForVolume(volumeChartExercises[0].id); // Fallback to the first valid exercise
+        setSelectedExerciseIdForVolume(volumeChartExercises[0].id);
         toast({
           title: "Uwaga",
           description: `Nie można było automatycznie wybrać ćwiczenia '${exerciseNameFromQuery || exerciseIdFromQuery}' dla wykresu objętości. Wyświetlono statystyki dla '${volumeChartExercises[0].name}'.`,
@@ -221,34 +215,86 @@ export default function StatisticsPage() {
           duration: 7000,
         });
       }
-      // If volumeChartExercises is empty, selectedExerciseIdForVolume remains its initial value.
     }
   }, [exerciseIdFromQuery, exerciseNameFromQuery, toast, volumeChartExercises]);
 
 
   React.useEffect(() => {
-    if (exerciseIdFromQuery) { // Scroll if any exerciseId was passed, even if selection defaulted
+    if (exerciseIdFromQuery) {
       const timer = setTimeout(() => {
         const element = document.getElementById('exercise-volume-chart-card');
         if (element) {
           element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-           if (volumeChartExercises.some(ex => ex.id === exerciseIdFromQuery)) { // Check if the exact exercise was selected for the toast
+           if (volumeChartExercises.some(ex => ex.id === exerciseIdFromQuery)) {
             toast({
               title: "Analiza Ćwiczenia",
               description: `Wyświetlanie trendu objętości dla: ${exerciseNameFromQuery || exerciseIdFromQuery}.`,
             });
           }
         }
-      }, 150); // Slightly increased delay
+      }, 150);
       return () => clearTimeout(timer);
     }
   }, [exerciseIdFromQuery, exerciseNameFromQuery, toast, volumeChartExercises]);
 
+  const handleApplyGlobalFilters = React.useCallback(() => {
+    let filteredSessions = MOCK_HISTORY_SESSIONS_STATS;
+    let filteredMeasurementsData = MOCK_MEASUREMENTS_STATS;
+    let filteredWellness = MOCK_WELLNESS_ENTRIES_FOR_STATS;
+
+    if (selectedGlobalStartDate) {
+      const startDate = startOfDay(selectedGlobalStartDate);
+      filteredSessions = filteredSessions.filter(session => {
+        const sessionDate = parseISO(session.startTime);
+        return isValid(sessionDate) && sessionDate >= startDate;
+      });
+      filteredMeasurementsData = filteredMeasurementsData.filter(m => {
+        const measurementDate = parseISO(m.date);
+        return isValid(measurementDate) && measurementDate >= startDate;
+      });
+      filteredWellness = filteredWellness.filter(w => {
+          const wellnessDate = parseISO(w.date);
+          return isValid(wellnessDate) && wellnessDate >= startDate;
+      });
+    }
+
+    if (selectedGlobalEndDate) {
+      const endDate = endOfDay(selectedGlobalEndDate);
+      filteredSessions = filteredSessions.filter(session => {
+        const sessionDate = parseISO(session.startTime);
+        return isValid(sessionDate) && sessionDate <= endDate;
+      });
+      filteredMeasurementsData = filteredMeasurementsData.filter(m => {
+        const measurementDate = parseISO(m.date);
+        return isValid(measurementDate) && measurementDate <= endDate;
+      });
+       filteredWellness = filteredWellness.filter(w => {
+          const wellnessDate = parseISO(w.date);
+          return isValid(wellnessDate) && wellnessDate <= endDate;
+      });
+    }
+
+    setProcessedHistorySessions(filteredSessions);
+    setProcessedMeasurements(filteredMeasurementsData);
+    setProcessedWellnessEntries(filteredWellness);
+
+    toast({
+      title: "Filtry Zastosowane",
+      description: `Dane zostały przefiltrowane dla zakresu od ${selectedGlobalStartDate ? format(selectedGlobalStartDate, "PPP", {locale: pl}) : " początku"} do ${selectedGlobalEndDate ? format(selectedGlobalEndDate, "PPP", {locale: pl}) : " końca"}.`,
+    });
+  }, [selectedGlobalStartDate, selectedGlobalEndDate, toast]);
+  
+  React.useEffect(() => {
+    // Apply initial filters (which might be none) when component mounts
+    handleApplyGlobalFilters();
+  }, [handleApplyGlobalFilters]);
+
 
   const workoutFrequencyData = React.useMemo(() => {
     const workoutsByWeek: { [week: string]: number } = {};
-    MOCK_HISTORY_SESSIONS_STATS.forEach(session => {
+    processedHistorySessions.forEach(session => {
       const date = parseISO(session.startTime);
+      if (!isValid(date)) return;
       const year = getYear(date);
       const weekNumber = getWeek(date, { locale: pl, weekStartsOn: 1 });
       const weekKey = `${year}-W${String(weekNumber).padStart(2, '0')}`;
@@ -257,16 +303,16 @@ export default function StatisticsPage() {
     return Object.entries(workoutsByWeek)
       .map(([week, count]) => ({ week, count }))
       .sort((a, b) => a.week.localeCompare(b.week));
-  }, []);
+  }, [processedHistorySessions]);
 
   const weightTrendData = React.useMemo(() => {
-    return MOCK_MEASUREMENTS_STATS
+    return processedMeasurements
       .sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime())
       .map(m => ({
         date: format(parseISO(m.date), "dd MMM yy", { locale: pl }),
         Waga: m.weight,
       }));
-  }, []);
+  }, [processedMeasurements]);
 
   const [selectedWellnessMetrics, setSelectedWellnessMetrics] = React.useState<string[]>([]);
 
@@ -280,7 +326,7 @@ export default function StatisticsPage() {
 
   const exerciseVolumeData = React.useMemo(() => {
     if (!selectedExerciseIdForVolume || selectedExerciseIdForVolume === "all") return [];
-    
+
     const mergedData: Array<{
       date: string;
       sessionDate: Date;
@@ -291,11 +337,14 @@ export default function StatisticsPage() {
     }> = [];
 
     const wellnessDataMap = new Map<string, WellnessEntryForStats>();
-    MOCK_WELLNESS_ENTRIES_FOR_STATS.forEach(entry => {
-      wellnessDataMap.set(format(parseISO(entry.date), "yyyy-MM-dd"), entry);
+    processedWellnessEntries.forEach(entry => {
+      const entryDate = parseISO(entry.date);
+      if(isValid(entryDate)) {
+        wellnessDataMap.set(format(entryDate, "yyyy-MM-dd"), entry);
+      }
     });
 
-    MOCK_HISTORY_SESSIONS_STATS.forEach(session => {
+    processedHistorySessions.forEach(session => {
       if (session.exercises.some(ex => ex.id === selectedExerciseIdForVolume)) {
         let volume = 0;
         const setsForExercise = session.recordedSets[selectedExerciseIdForVolume];
@@ -308,41 +357,44 @@ export default function StatisticsPage() {
             }
           });
         }
-        
-        const sessionDateStr = format(parseISO(session.startTime), "yyyy-MM-dd");
-        const displayDateStr = format(parseISO(session.startTime), "dd MMM yy", { locale: pl });
+
+        const sessionDateObj = parseISO(session.startTime);
+        if (!isValid(sessionDateObj)) return;
+
+        const sessionDateStr = format(sessionDateObj, "yyyy-MM-dd");
+        const displayDateStr = format(sessionDateObj, "dd MMM yy", { locale: pl });
         const wellnessEntry = wellnessDataMap.get(sessionDateStr);
 
         const dataPoint: any = {
           date: displayDateStr,
-          sessionDate: parseISO(session.startTime),
-          Volume: volume > 0 ? volume : undefined, // Only include if volume > 0
+          sessionDate: sessionDateObj,
+          Volume: volume > 0 ? volume : undefined,
         };
 
         if (wellnessEntry) {
-          if (selectedWellnessMetrics.includes('wellBeing')) dataPoint.wellBeing = wellnessEntry.wellBeing;
-          if (selectedWellnessMetrics.includes('energyLevel')) dataPoint.energyLevel = wellnessEntry.energyLevel;
-          if (selectedWellnessMetrics.includes('sleepQuality')) dataPoint.sleepQuality = wellnessEntry.sleepQuality;
+          if (selectedWellnessMetrics.includes('wellBeing') && wellnessEntry.wellBeing !== undefined) dataPoint.wellBeing = wellnessEntry.wellBeing;
+          if (selectedWellnessMetrics.includes('energyLevel') && wellnessEntry.energyLevel !== undefined) dataPoint.energyLevel = wellnessEntry.energyLevel;
+          if (selectedWellnessMetrics.includes('sleepQuality') && wellnessEntry.sleepQuality !== undefined) dataPoint.sleepQuality = wellnessEntry.sleepQuality;
         }
-        if (dataPoint.Volume !== undefined) { // Only add datapoint if there is volume for this exercise
+        if (dataPoint.Volume !== undefined) {
              mergedData.push(dataPoint);
         }
       }
     });
     return mergedData.sort((a,b) => a.sessionDate.getTime() - b.sessionDate.getTime());
-  }, [selectedExerciseIdForVolume, selectedWellnessMetrics]);
+  }, [selectedExerciseIdForVolume, selectedWellnessMetrics, processedHistorySessions, processedWellnessEntries]);
 
 
   const muscleGroupProportionData = React.useMemo(() => {
     const categoryCounts: { [category: string]: number } = {};
-    MOCK_HISTORY_SESSIONS_STATS.forEach(session => {
+    processedHistorySessions.forEach(session => {
       session.exercises.forEach(exercise => {
         const category = EXERCISE_CATEGORIES_MAP[exercise.id] || "Inne";
         categoryCounts[category] = (categoryCounts[category] || 0) + 1;
       });
     });
     return Object.entries(categoryCounts).map(([name, value]) => ({ name, value }));
-  }, []);
+  }, [processedHistorySessions]);
 
   const chartConfig = {
     count: { label: "Liczba Treningów", color: "hsl(var(--chart-1))" },
@@ -353,23 +405,14 @@ export default function StatisticsPage() {
     Plecy: { label: "Plecy", color: "hsl(var(--chart-3))" },
     Barki: { label: "Barki", color: "hsl(var(--chart-4))" },
     Ramiona: { label: "Ramiona", color: "hsl(var(--chart-5))" },
-    Cardio: { label: "Cardio", color: "hsl(var(--chart-1))" }, 
+    Cardio: { label: "Cardio", color: "hsl(var(--chart-1))" },
     Brzuch: { label: "Brzuch", color: "hsl(var(--chart-2))" },
     "Całe ciało": { label: "Całe ciało", color: "hsl(var(--chart-3))"},
     Inne: { label: "Inne", color: "hsl(var(--chart-4))" },
     wellBeing: { label: "Samopoczucie (1-5)", color: "hsl(var(--chart-4))" },
     energyLevel: { label: "Energia (1-5)", color: "hsl(var(--chart-5))" },
-    sleepQuality: { label: "Sen (1-5)", color: "hsl(var(--chart-2))" }, // Re-using color
+    sleepQuality: { label: "Sen (1-5)", color: "hsl(var(--chart-2))" },
   } as const;
-
-  const handleApplyGlobalFilters = () => {
-    toast({
-      title: "Filtry Zastosowane (Symulacja)",
-      description: `Dane zostałyby przefiltrowane dla zakresu od ${selectedGlobalStartDate ? format(selectedGlobalStartDate, "PPP", {locale: pl}) : " początku"} do ${selectedGlobalEndDate ? format(selectedGlobalEndDate, "PPP", {locale: pl}) : " końca"}.`,
-    });
-    // In a real app, this would trigger re-fetching or re-calculating data
-  };
-
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -393,8 +436,8 @@ export default function StatisticsPage() {
 
         <Card>
             <CardHeader>
-              <CardTitle>Globalny Filtr Danych</CardTitle>
-              <CardDescription>Wybierz zakres dat oraz inne filtry, aby dostosować wyświetlane statystyki.</CardDescription>
+              <CardTitle className="flex items-center gap-2"><Filter className="h-5 w-5 text-primary"/>Globalny Filtr Danych</CardTitle>
+              <CardDescription>Wybierz zakres dat, aby dostosować wyświetlane statystyki.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -419,7 +462,7 @@ export default function StatisticsPage() {
                 <Label>Wybierz grupy mięśniowe (placeholder)</Label>
                 <p className="text-sm text-muted-foreground">Tu pojawi się multiselect/checkboxy do wyboru grup mięśniowych (funkcja wkrótce).</p>
               </div>
-               <Button onClick={handleApplyGlobalFilters} disabled={!selectedGlobalStartDate && !selectedGlobalEndDate}>Zastosuj Filtry</Button>
+               <Button onClick={handleApplyGlobalFilters}>Zastosuj Filtry</Button>
             </CardContent>
           </Card>
 
@@ -460,7 +503,7 @@ export default function StatisticsPage() {
                 <CardDescription>Zmiany Twojej wagi w czasie.</CardDescription>
               </CardHeader>
               <CardContent>
-                {weightTrendData.length > 1 ? ( 
+                {weightTrendData.length > 1 ? (
                   <ChartContainer config={chartConfig} className="h-[300px] w-full">
                     <LineChart data={weightTrendData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -487,7 +530,7 @@ export default function StatisticsPage() {
               </CardFooter>
             </Card>
           </div>
-          
+
           <Card id="exercise-volume-chart-card" className="lg:col-span-2">
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><DumbbellIcon className="h-6 w-6 text-primary" />Trend Objętości dla Ćwiczenia</CardTitle>
@@ -506,26 +549,26 @@ export default function StatisticsPage() {
                         </SelectContent>
                     </Select>
                 </div>
-              {exerciseVolumeData.length > 1 ? (
+              {exerciseVolumeData.length >= 1 ? ( // Changed condition to >= 1 for single point display
                 <ChartContainer config={chartConfig} className="h-[350px] w-full">
                   <LineChart data={exerciseVolumeData} margin={{ top: 5, right: 30, left: -10, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} />
                     <YAxis yAxisId="left" dataKey="Volume" domain={['auto', 'auto']} tickLine={false} axisLine={false} tickMargin={8} />
                     {selectedWellnessMetrics.length > 0 && (
-                       <YAxis yAxisId="right" orientation="right" domain={[1,5]} allowDecimals={false} tickLine={false} axisLine={false} tickMargin={8} />
+                       <YAxis yAxisId="right" orientation="right" domain={[1,5]} allowDecimals={false} tickCount={5} tickLine={false} axisLine={false} tickMargin={8} />
                     )}
                     <ChartTooltip cursor={true} content={<ChartTooltipContent indicator="dot" />} />
                     <ChartLegend content={<ChartLegendContent />} />
-                    <Line yAxisId="left" type="monotone" dataKey="Volume" name={`Objętość (${MOCK_EXERCISES_FOR_STATS_FILTER.find(ex => ex.id === selectedExerciseIdForVolume)?.name})`} stroke="var(--color-Volume)" strokeWidth={2} dot={{ fill: "var(--color-Volume)" }} activeDot={{ r: 6 }}/>
-                    {selectedWellnessMetrics.includes('wellBeing') && <Line yAxisId="right" type="monotone" dataKey="wellBeing" name="Samopoczucie" stroke={chartConfig.wellBeing.color} strokeWidth={2} dot={{ fill: chartConfig.wellBeing.color }} activeDot={{ r: 6 }}/>}
-                    {selectedWellnessMetrics.includes('energyLevel') && <Line yAxisId="right" type="monotone" dataKey="energyLevel" name="Energia" stroke={chartConfig.energyLevel.color} strokeWidth={2} dot={{ fill: chartConfig.energyLevel.color }} activeDot={{ r: 6 }}/>}
-                    {selectedWellnessMetrics.includes('sleepQuality') && <Line yAxisId="right" type="monotone" dataKey="sleepQuality" name="Sen" stroke={chartConfig.sleepQuality.color} strokeWidth={2} dot={{ fill: chartConfig.sleepQuality.color }} activeDot={{ r: 6 }}/>}
+                    <Line yAxisId="left" type="monotone" dataKey="Volume" name={`Objętość (${MOCK_EXERCISES_FOR_STATS_FILTER.find(ex => ex.id === selectedExerciseIdForVolume)?.name})`} stroke="var(--color-Volume)" strokeWidth={2} dot={{ fill: "var(--color-Volume)" }} activeDot={{ r: 6 }} connectNulls={false}/>
+                    {selectedWellnessMetrics.includes('wellBeing') && <Line yAxisId="right" type="monotone" dataKey="wellBeing" name="Samopoczucie" stroke={chartConfig.wellBeing.color} strokeWidth={2} dot={{ fill: chartConfig.wellBeing.color }} activeDot={{ r: 6 }} connectNulls={false} />}
+                    {selectedWellnessMetrics.includes('energyLevel') && <Line yAxisId="right" type="monotone" dataKey="energyLevel" name="Energia" stroke={chartConfig.energyLevel.color} strokeWidth={2} dot={{ fill: chartConfig.energyLevel.color }} activeDot={{ r: 6 }} connectNulls={false} />}
+                    {selectedWellnessMetrics.includes('sleepQuality') && <Line yAxisId="right" type="monotone" dataKey="sleepQuality" name="Sen" stroke={chartConfig.sleepQuality.color} strokeWidth={2} dot={{ fill: chartConfig.sleepQuality.color }} activeDot={{ r: 6 }} connectNulls={false} />}
                   </LineChart>
                 </ChartContainer>
               ) : (
                  <div className="flex items-center justify-center h-[350px] text-muted-foreground">
-                    <AlertTriangle className="mr-2 h-5 w-5" /> 
+                    <AlertTriangle className="mr-2 h-5 w-5" />
                     {!selectedExerciseIdForVolume || selectedExerciseIdForVolume === "all" ? "Wybierz ćwiczenie, aby zobaczyć trend objętości." : "Za mało danych dla wybranego ćwiczenia, aby wyświetlić trend objętości."}
                 </div>
               )}
@@ -565,7 +608,7 @@ export default function StatisticsPage() {
             </CardContent>
           </Card>
 
-           <Card className="lg:col-span-2"> 
+           <Card className="lg:col-span-2">
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><PieChartIcon className="h-6 w-6 text-primary" />Proporcje Trenowanych Grup Mięśniowych</CardTitle>
               <CardDescription>Rozkład wykonanych ćwiczeń według grup mięśniowych (na podstawie wszystkich zarejestrowanych treningów).</CardDescription>
@@ -690,107 +733,3 @@ export default function StatisticsPage() {
     </div>
   );
 }
-
-// Helper DatePicker component if not globally available (example)
-// interface DatePickerProps {
-//   date?: Date;
-//   onDateChange?: (date?: Date) => void;
-//   label?: string;
-//   disabled?: boolean | ((date: Date) => boolean);
-// }
-// const DatePicker: React.FC<DatePickerProps> = ({ date, onDateChange, label, disabled }) => (
-//   <div className="space-y-1">
-//     {label && <Label>{label}</Label>}
-//     <Popover>
-//       <PopoverTrigger asChild>
-//         <Button
-//           variant={"outline"}
-//           className={cn(
-//             "w-full justify-start text-left font-normal",
-//             !date && "text-muted-foreground"
-//           )}
-//           disabled={typeof disabled === 'boolean' ? disabled : false}
-//         >
-//           <CalendarDays className="mr-2 h-4 w-4" />
-//           {date ? format(date, "PPP", { locale: pl }) : <span>Wybierz datę</span>}
-//         </Button>
-//       </PopoverTrigger>
-//       <PopoverContent className="w-auto p-0">
-//         <Calendar
-//           mode="single"
-//           selected={date}
-//           onSelect={onDateChange}
-//           disabled={typeof disabled === 'function' ? disabled : (typeof disabled === 'boolean' ? () => disabled : undefined)}
-//           initialFocus
-//           locale={pl}
-//         />
-//       </PopoverContent>
-//     </Popover>
-//   </div>
-// );
-// Note: A proper DatePicker component should be imported from ui/date-picker or similar if it exists.
-// For this prototype, I'm assuming a similar component is available or that this simplified one is acceptable.
-// The provided code uses `import { DatePicker } from "@/components/ui/date-picker";`
-// If this component doesn't exist, it needs to be created or the usage adapted.
-// For now, I'll assume it exists and takes these props.
-// I'll remove this comment and the inline DatePicker if a proper one is used from `ui/date-picker`.
-
-// I will assume `components/ui/date-picker.tsx` looks something like this for the props used:
-/*
-// components/ui/date-picker.tsx (Example structure for props used)
-"use client"
-import * as React from "react"
-import { format } from "date-fns"
-import { pl } from "date-fns/locale"
-import { Calendar as CalendarIcon } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Calendar, CalendarProps } from "@/components/ui/calendar"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
-import { Label } from "./label";
-
-interface DatePickerProps {
-  date?: Date;
-  onDateChange?: (date?: Date) => void;
-  label?: string;
-  disabled?: CalendarProps["disabled"];
-  className?: string;
-}
-
-export function DatePicker({ date, onDateChange, label, disabled, className }: DatePickerProps) {
-  return (
-    <div className={cn("space-y-1", className)}>
-      {label && <Label>{label}</Label>}
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button
-            variant={"outline"}
-            className={cn(
-              "w-full justify-start text-left font-normal",
-              !date && "text-muted-foreground"
-            )}
-            disabled={typeof disabled === 'boolean' ? disabled : false} // Simplified disabled prop
-          >
-            <CalendarIcon className="mr-2 h-4 w-4" />
-            {date ? format(date, "PPP", { locale: pl }) : <span>Wybierz datę</span>}
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-0">
-          <Calendar
-            mode="single"
-            selected={date}
-            onSelect={onDateChange}
-            disabled={disabled}
-            initialFocus
-            locale={pl}
-          />
-        </PopoverContent>
-      </Popover>
-    </div>
-  )
-}
-*/
