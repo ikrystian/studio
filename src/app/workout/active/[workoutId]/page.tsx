@@ -34,6 +34,7 @@ import {
   Lightbulb,
   Edit2, // For exercise notes icon
   Edit3, // For edit set icon
+  HelpCircle, // For "why this suggestion"
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -139,6 +140,7 @@ export interface RecordedSet {
 interface EditingSetInfo {
   exerciseId: string;
   setIndex: number; // index in the recordedSets[exerciseId] array
+  setData: RecordedSet; // Store the original data of the set being edited
 }
 
 // Simplified mock history for progression suggestions
@@ -169,6 +171,13 @@ type SetFormValues = z.infer<typeof setFormSchema>;
 
 const DEFAULT_REST_TIME = 60; // seconds
 
+interface ProgressionSuggestion {
+  suggestionText: string;
+  suggestedValues?: { weight?: string | number; reps?: string | number };
+  reasoning?: string;
+}
+
+
 export default function ActiveWorkoutPage() {
   const router = useRouter();
   const params = useParams();
@@ -191,7 +200,7 @@ export default function ActiveWorkoutPage() {
   const [isResting, setIsResting] = React.useState(false);
   const restIntervalRef = React.useRef<NodeJS.Timeout | null>(null);
 
-  const [progressionSuggestion, setProgressionSuggestion] = React.useState<string | null>(null);
+  const [progressionSuggestion, setProgressionSuggestion] = React.useState<ProgressionSuggestion | null>(null);
   const [userProgressionSettings, setUserProgressionSettings] = React.useState<ProgressionSettings | null>(null);
 
 
@@ -208,7 +217,6 @@ export default function ActiveWorkoutPage() {
       if (foundWorkout) {
         setCurrentWorkout(foundWorkout);
         setWorkoutStartTime(new Date());
-        // Load progression settings from localStorage
         try {
           const storedSettings = localStorage.getItem(PROGRESSION_SETTINGS_LOCAL_STORAGE_KEY);
           if (storedSettings) {
@@ -226,7 +234,7 @@ export default function ActiveWorkoutPage() {
   }, [workoutId, router, toast]);
 
   React.useEffect(() => {
-    if (!workoutStartTime || isResting) return; // Don't run elapsed timer if resting
+    if (!workoutStartTime || isResting) return; 
     const timerInterval = setInterval(() => {
       setElapsedTime(Math.floor((new Date().getTime() - workoutStartTime.getTime()) / 1000));
     }, 1000);
@@ -257,45 +265,65 @@ export default function ActiveWorkoutPage() {
         exerciseId: string,
         history: MockPastSession[],
         settings: ProgressionSettings | null
-      ): string | null => {
+      ): ProgressionSuggestion | null => {
         if (!settings?.enableProgression) {
-          return "Sugestie progresji są wyłączone w ustawieniach.";
+          return { 
+            suggestionText: "Sugestie progresji są wyłączone w ustawieniach.",
+            reasoning: "Aby włączyć, przejdź do Ustawienia > Ustawienia Progresji Obciążenia."
+          };
         }
 
         const relevantSessions = history
           .filter(session => session.exerciseId === exerciseId)
           .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-        let baseSuggestion = "Pierwszy raz to ćwiczenie? Daj z siebie wszystko i zanotuj wyniki!";
+        let baseSuggestionText = "Pierwszy raz to ćwiczenie? Daj z siebie wszystko i zanotuj wyniki!";
+        let baseReasoning = "Brak historii dla tego ćwiczenia lub zastosowano domyślną sugestię.";
+        let suggestedValues: ProgressionSuggestion['suggestedValues'] = undefined;
+
         if (relevantSessions.length > 0) {
           const lastSession = relevantSessions[0];
-          const lastSet = lastSession.setsPerformed[0];
+          const lastSet = lastSession.setsPerformed[0]; 
           if (lastSet) {
             const lastWeight = lastSet.weight;
             const lastReps = lastSet.reps;
             const datePerformed = new Date(lastSession.date).toLocaleDateString('pl-PL');
-            baseSuggestion = `Ostatnio (${datePerformed}): ${lastWeight}${typeof lastWeight === 'number' ? 'kg' : ''} x ${lastReps} powt. `;
+            
+            baseReasoning = `Na podstawie ostatniego treningu z ${datePerformed} (${lastWeight}${typeof lastWeight === 'number' ? 'kg' : ''} x ${lastReps} powt.)`;
 
-            if (settings.selectedModel === "linear_weight" && typeof lastWeight === 'number') {
+            if (settings.selectedModel === "linear_weight" && typeof lastWeight === 'number' && typeof lastReps === 'number') {
               const increment = settings.linearWeightIncrement || 2.5;
-              baseSuggestion += `Sugestia (Liniowa - Ciężar): Spróbuj ${lastWeight + increment}kg x ${lastReps} powt.`;
+              suggestedValues = { weight: lastWeight + increment, reps: lastReps };
+              baseSuggestionText = `Sugestia (Liniowa - Ciężar): Spróbuj ${suggestedValues.weight}kg x ${suggestedValues.reps} powt.`;
+              baseReasoning += ` i modelu progresji 'Liniowa (Ciężar)' (+${increment}kg).`;
             } else if (settings.selectedModel === "linear_reps" && typeof lastReps === 'number') {
               const increment = settings.linearRepsIncrement || 1;
-              baseSuggestion += `Sugestia (Liniowa - Powtórzenia): Spróbuj ${lastWeight}${typeof lastWeight === 'number' ? 'kg' : ''} x ${lastReps + increment} powt.`;
+              suggestedValues = { weight: lastWeight, reps: lastReps + increment };
+              baseSuggestionText = `Sugestia (Liniowa - Powtórzenia): Spróbuj ${suggestedValues.weight}${typeof suggestedValues.weight === 'number' ? 'kg' : ''} x ${suggestedValues.reps} powt.`;
+              baseReasoning += ` i modelu progresji 'Liniowa (Powtórzenia)' (+${increment} powt.).`;
             } else if (settings.selectedModel === "double_progression" && settings.doubleProgressionRepRange) {
-               baseSuggestion += `Sugestia (Podwójna Progresja): Celuj w ${settings.doubleProgressionRepRange} powt. z ${lastWeight}${typeof lastWeight === 'number' ? 'kg' : ''}.`;
+                const [minReps, maxReps] = (settings.doubleProgressionRepRange.split('-').map(Number) || [8,12]);
+                if (typeof lastWeight === 'number' && typeof lastReps === 'number' && lastReps >= maxReps) {
+                    const weightIncrement = settings.doubleProgressionWeightIncrement || 2.5;
+                    suggestedValues = {weight: lastWeight + weightIncrement, reps: minReps};
+                    baseSuggestionText = `Sugestia (Podwójna Progresja): Osiągnięto max powt. (${lastReps}). Spróbuj ${suggestedValues.weight}kg x ${suggestedValues.reps} powt.`;
+                    baseReasoning += ` i modelu 'Podwójna Progresja'. Osiągnięto górny zakres powtórzeń, zwiększ ciężar o ${weightIncrement}kg i celuj w ${minReps} powt.`;
+                } else {
+                    suggestedValues = {weight: lastWeight, reps: lastReps}; // Or suggest aiming for more reps within range
+                    baseSuggestionText = `Sugestia (Podwójna Progresja): Celuj w ${settings.doubleProgressionRepRange} powt. z ${lastWeight}${typeof lastWeight === 'number' ? 'kg' : ''}.`;
+                    baseReasoning += ` i modelu 'Podwójna Progresja'. Celuj w zakres ${settings.doubleProgressionRepRange} powt.`;
+                }
             } else {
-                baseSuggestion += "Dostosuj parametry zgodnie ze swoim planem.";
+                 baseSuggestionText = `Ostatnio (${datePerformed}): ${lastWeight}${typeof lastWeight === 'number' ? 'kg' : ''} x ${lastReps} powt. Dostosuj parametry.`;
             }
           }
         }
-        return baseSuggestion;
+        return { suggestionText: baseSuggestionText, suggestedValues, reasoning: baseReasoning };
       };
       setProgressionSuggestion(getSuggestion(currentExercise.id, MOCK_WORKOUT_HISTORY_FOR_SUGGESTIONS, userProgressionSettings));
       
-      // Pre-fill form for new set, or clear if switching exercises while editing
       if (!editingSetInfo || editingSetInfo.exerciseId !== currentExercise.id) {
-        setEditingSetInfo(null); // Clear editing state if exercise changed
+        setEditingSetInfo(null); 
         const setsForThisExercise = recordedSets[currentExercise.id] || [];
         const lastSetForThisExercise = setsForThisExercise[setsForThisExercise.length -1];
         setForm.reset({
@@ -327,10 +355,9 @@ export default function ActiveWorkoutPage() {
     };
 
     if (editingSetInfo && editingSetInfo.exerciseId === currentExercise.id) {
-      // Update existing set
       const updatedSetsForExercise = [...(recordedSets[currentExercise.id] || [])];
       updatedSetsForExercise[editingSetInfo.setIndex] = {
-        ...updatedSetsForExercise[editingSetInfo.setIndex], // keep original setNumber
+        ...updatedSetsForExercise[editingSetInfo.setIndex], 
         ...setEntry,
       };
       setRecordedSets(prev => ({
@@ -338,11 +365,10 @@ export default function ActiveWorkoutPage() {
         [currentExercise.id]: updatedSetsForExercise,
       }));
       toast({ title: "Seria zaktualizowana!" });
-      setEditingSetInfo(null); // Exit edit mode
+      setEditingSetInfo(null); 
       setForm.reset({ weight: String(setEntry.weight), reps: "", rpe: "", notes: "" });
 
     } else {
-      // Add new set
       const newSet: RecordedSet = {
         ...setEntry,
         setNumber: (recordedSets[currentExercise.id]?.length || 0) + 1,
@@ -365,14 +391,14 @@ export default function ActiveWorkoutPage() {
   const handleStartEditSet = (exerciseId: string, setIndex: number) => {
     const setBeingEdited = recordedSets[exerciseId]?.[setIndex];
     if (setBeingEdited) {
-      setEditingSetInfo({ exerciseId, setIndex });
+      setEditingSetInfo({ exerciseId, setIndex, setData: { ...setBeingEdited } });
       setForm.reset({
         weight: String(setBeingEdited.weight),
         reps: String(setBeingEdited.reps),
         rpe: setBeingEdited.rpe ? String(setBeingEdited.rpe) : "",
         notes: setBeingEdited.notes || ""
       });
-      setIsResting(false); // Stop rest timer if it was running
+      setIsResting(false); 
       if(restIntervalRef.current) clearInterval(restIntervalRef.current);
       setRestTimer(0);
     }
@@ -380,8 +406,7 @@ export default function ActiveWorkoutPage() {
 
   const handleCancelEdit = () => {
     setEditingSetInfo(null);
-    // Reset form to how it would be for a new set (e.g., prefill weight from last *actual* set)
-    const setsForThisExercise = recordedSets[currentExercise.id] || [];
+    const setsForThisExercise = currentExercise ? recordedSets[currentExercise.id] || [] : [];
     const lastSetForThisExercise = setsForThisExercise[setsForThisExercise.length -1];
     setForm.reset({
         weight: lastSetForThisExercise?.weight?.toString() || "",
@@ -391,22 +416,20 @@ export default function ActiveWorkoutPage() {
     });
   };
 
-
   const handleDeleteSet = (exerciseId: string, setIndexToDelete: number) => {
     setRecordedSets((prev) => {
       const setsForExercise = prev[exerciseId] || [];
       const updatedSets = setsForExercise
         .filter((_, index) => index !== setIndexToDelete)
-        .map((s, i) => ({ ...s, setNumber: i + 1 })); // Re-number sets
+        .map((s, i) => ({ ...s, setNumber: i + 1 })); 
       return {
         ...prev,
         [exerciseId]: updatedSets,
       };
     });
     if (editingSetInfo && editingSetInfo.exerciseId === exerciseId && editingSetInfo.setIndex === setIndexToDelete) {
-      handleCancelEdit(); // If the deleted set was being edited, cancel edit mode
+      handleCancelEdit(); 
     } else if (editingSetInfo && editingSetInfo.exerciseId === exerciseId && editingSetInfo.setIndex > setIndexToDelete) {
-      // If a set before the one being edited was deleted, adjust the editing index
       setEditingSetInfo(info => info ? ({ ...info, setIndex: info.setIndex - 1 }) : null);
     }
     toast({
@@ -430,10 +453,10 @@ export default function ActiveWorkoutPage() {
   const handleNextExercise = () => {
     if (currentWorkout && currentExerciseIndex < currentWorkout.exercises.length - 1) {
       setCurrentExerciseIndex((prev) => prev + 1);
-      setIsResting(false); // Ensure rest is stopped
+      setIsResting(false); 
       if (restIntervalRef.current) clearInterval(restIntervalRef.current);
       setRestTimer(0);
-      setEditingSetInfo(null); // Clear editing state when moving to next exercise
+      setEditingSetInfo(null); 
     } else {
       toast({ title: "To ostatnie ćwiczenie!", description: "Możesz teraz zakończyć trening.", variant: "default"});
     }
@@ -442,15 +465,15 @@ export default function ActiveWorkoutPage() {
   const handlePreviousExercise = () => {
     if (currentExerciseIndex > 0) {
       setCurrentExerciseIndex((prev) => prev - 1);
-      setIsResting(false); // Ensure rest is stopped
+      setIsResting(false); 
       if (restIntervalRef.current) clearInterval(restIntervalRef.current);
       setRestTimer(0);
-      setEditingSetInfo(null); // Clear editing state
+      setEditingSetInfo(null); 
     }
   };
 
   const handleFinishWorkout = () => {
-    setIsLoading(true); // Indicate loading for the finish process
+    setIsLoading(true); 
     if (!currentWorkout || !workoutStartTime) {
         toast({ title: "Błąd", description: "Nie można zakończyć treningu.", variant: "destructive"});
         setIsLoading(false);
@@ -458,17 +481,16 @@ export default function ActiveWorkoutPage() {
     }
 
     const summaryData = {
-        workoutId: currentWorkout.id, // Add workoutId to summary
+        workoutId: currentWorkout.id, 
         workoutName: currentWorkout.name,
         startTime: workoutStartTime.toISOString(),
         endTime: new Date().toISOString(),
         totalTimeSeconds: elapsedTime,
         recordedSets: recordedSets,
-        exercises: currentWorkout.exercises, // Pass full exercise definitions
+        exercises: currentWorkout.exercises, 
         exerciseNotes: exerciseNotes,
     };
 
-    // Save summaryData to localStorage for the summary page
     try {
         localStorage.setItem('workoutSummaryData', JSON.stringify(summaryData));
         toast({
@@ -480,12 +502,31 @@ export default function ActiveWorkoutPage() {
     } catch (error) {
         console.error("Error saving summary data to localStorage:", error);
         toast({ title: "Błąd zapisu", description: "Nie udało się zapisać danych do podsumowania.", variant: "destructive"});
-        setIsLoading(false); // Reset loading state on error
+        setIsLoading(false); 
     }
-    // Do not set isLoading to false here if navigation is successful, page will unmount
+  };
+  
+  const handleApplySuggestion = () => {
+    if (progressionSuggestion?.suggestedValues) {
+      const { weight, reps } = progressionSuggestion.suggestedValues;
+      if (weight !== undefined) setForm.setValue('weight', String(weight));
+      if (reps !== undefined) setForm.setValue('reps', String(reps));
+      toast({ title: "Sugestia zastosowana!", description: "Pola wagi i powtórzeń zostały zaktualizowane." });
+    }
   };
 
-  if (isLoading && !currentWorkout ) { // Only show full page loader initially
+  const handleShowReasoning = () => {
+    if (progressionSuggestion?.reasoning) {
+      toast({
+        title: "Logika Sugestii",
+        description: progressionSuggestion.reasoning,
+        duration: 10000, // Longer duration for reading
+      });
+    }
+  };
+
+
+  if (isLoading && !currentWorkout ) { 
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -495,8 +536,6 @@ export default function ActiveWorkoutPage() {
   }
   
   if (!currentWorkout || !currentExercise) {
-     // This case might happen if workoutId is invalid and initial loading finishes
-     // Or if navigation logic has an issue. A more robust app might redirect.
     return (
          <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
             <Alert variant="destructive">
@@ -508,7 +547,6 @@ export default function ActiveWorkoutPage() {
         </div>
     );
   }
-
 
   const exerciseProgress = ((currentExerciseIndex + 1) / currentWorkout.exercises.length) * 100;
   const setsForCurrentExercise = recordedSets[currentExercise.id] || [];
@@ -601,10 +639,27 @@ export default function ActiveWorkoutPage() {
                 <Alert variant="default" className="border-primary/50">
                   <Lightbulb className="h-4 w-4 text-primary" />
                   <AlertTitle className="text-primary">Sugestia Progresji</AlertTitle>
-                  <AlertDescription>{progressionSuggestion}</AlertDescription>
-                   <div className="mt-3 flex gap-2">
-                       <Button variant="ghost" size="sm" disabled><CheckCircle className="mr-2 h-4 w-4"/> Zastosuj sugestię (Wkrótce)</Button>
-                       <Button variant="ghost" size="sm" disabled><HelpCircle className="mr-2 h-4 w-4"/> Dlaczego taka sugestia? (Wkrótce)</Button>
+                  <AlertDescription>{progressionSuggestion.suggestionText}</AlertDescription>
+                   <div className="mt-3 flex gap-2 items-center">
+                       <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={handleApplySuggestion}
+                        disabled={!progressionSuggestion.suggestedValues}
+                       >
+                         <CheckCircle className="mr-2 h-4 w-4"/> Zastosuj sugestię
+                       </Button>
+                       <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={handleShowReasoning}
+                        disabled={!progressionSuggestion.reasoning}
+                        className="h-7 w-7"
+                        title="Dlaczego taka sugestia?"
+                       >
+                         <HelpCircle className="h-4 w-4"/>
+                         <span className="sr-only">Dlaczego taka sugestia?</span>
+                       </Button>
                    </div>
                 </Alert>
               )}
@@ -755,7 +810,7 @@ export default function ActiveWorkoutPage() {
                             className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
                             onClick={() => handleStartEditSet(currentExercise.id, index)}
                             aria-label="Edytuj serię"
-                            disabled={!!editingSetInfo} // Disable if another set is already being edited
+                            disabled={!!editingSetInfo} 
                           >
                             <Edit3 className="mr-1 h-4 w-4" /> Edytuj
                           </Button>
@@ -765,7 +820,7 @@ export default function ActiveWorkoutPage() {
                             className="text-destructive hover:text-destructive-foreground hover:bg-destructive/90"
                             onClick={() => currentExercise && handleDeleteSet(currentExercise.id, index)}
                             aria-label="Usuń serię"
-                             disabled={!!editingSetInfo} // Optionally disable delete while editing another set
+                             disabled={!!editingSetInfo} 
                           >
                             <Trash2 className="mr-1 h-4 w-4" /> Usuń
                           </Button>
@@ -776,7 +831,6 @@ export default function ActiveWorkoutPage() {
               </CardContent>
             </Card>
           )}
-
 
           <div className="mt-8 flex justify-between items-center gap-4">
             <Button
