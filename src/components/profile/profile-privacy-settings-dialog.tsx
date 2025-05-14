@@ -40,21 +40,26 @@ export function ProfilePrivacySettingsDialog({
   onSave,
 }: ProfilePrivacySettingsDialogProps) {
   const { toast } = useToast();
-  const [currentSettings, setCurrentSettings] = React.useState<UserPrivacySettings>(initialSettings);
+  // Use local state for switches, initialized from props
+  const [localSettings, setLocalSettings] = React.useState<UserPrivacySettings>(initialSettings);
 
+  // Update local state if initialSettings prop changes (e.g., when dialog reopens)
   React.useEffect(() => {
     if (isOpen) {
-      setCurrentSettings(initialSettings); // Reset to initial settings when dialog opens
+      setLocalSettings(initialSettings);
     }
   }, [isOpen, initialSettings]);
 
   const handleSettingChange = (key: keyof UserPrivacySettings, value: boolean) => {
-    setCurrentSettings(prev => ({ ...prev, [key]: value }));
+    setLocalSettings(prev => ({ ...prev, [key]: value }));
   };
 
   const handleSaveChanges = () => {
-    onSave(currentSettings);
-    // onOpenChange(false); // Parent will close it after onSave completes
+    onSave(localSettings); // Pass the locally managed settings back to parent
+    // Parent component (`profile/edit/page.tsx` or `account/page.tsx`) is responsible for:
+    // 1. Actually saving to localStorage or backend
+    // 2. Showing a toast
+    // 3. Closing the dialog (by setting its `isOpen` prop to false)
   };
 
   return (
@@ -74,7 +79,7 @@ export function ProfilePrivacySettingsDialog({
         <div className="space-y-6 py-4">
           <div className="flex items-center justify-between rounded-lg border p-4">
             <div className="space-y-0.5">
-              <Label htmlFor="isActivityPublic" className="text-base flex items-center gap-2">
+              <Label htmlFor="dialog-isActivityPublic" className="text-base flex items-center gap-2">
                 <ListChecks className="h-4 w-4" /> Moja Aktywność Publiczna
               </Label>
               <p className="text-xs text-muted-foreground">
@@ -82,15 +87,15 @@ export function ProfilePrivacySettingsDialog({
               </p>
             </div>
             <Switch
-              id="isActivityPublic"
-              checked={currentSettings.isActivityPublic}
+              id="dialog-isActivityPublic"
+              checked={localSettings.isActivityPublic}
               onCheckedChange={(checked) => handleSettingChange("isActivityPublic", checked)}
             />
           </div>
 
           <div className="flex items-center justify-between rounded-lg border p-4">
             <div className="space-y-0.5">
-              <Label htmlFor="isFriendsListPublic" className="text-base flex items-center gap-2">
+              <Label htmlFor="dialog-isFriendsListPublic" className="text-base flex items-center gap-2">
                 <Users className="h-4 w-4" /> Lista Znajomych Publiczna
               </Label>
               <p className="text-xs text-muted-foreground">
@@ -98,15 +103,15 @@ export function ProfilePrivacySettingsDialog({
               </p>
             </div>
             <Switch
-              id="isFriendsListPublic"
-              checked={currentSettings.isFriendsListPublic}
+              id="dialog-isFriendsListPublic"
+              checked={localSettings.isFriendsListPublic}
               onCheckedChange={(checked) => handleSettingChange("isFriendsListPublic", checked)}
             />
           </div>
 
           <div className="flex items-center justify-between rounded-lg border p-4">
             <div className="space-y-0.5">
-              <Label htmlFor="isSharedPlansPublic" className="text-base flex items-center gap-2">
+              <Label htmlFor="dialog-isSharedPlansPublic" className="text-base flex items-center gap-2">
                 <BookOpen className="h-4 w-4" /> Udostępnione Plany Publiczne
               </Label>
               <p className="text-xs text-muted-foreground">
@@ -114,13 +119,12 @@ export function ProfilePrivacySettingsDialog({
               </p>
             </div>
             <Switch
-              id="isSharedPlansPublic"
-              checked={currentSettings.isSharedPlansPublic}
+              id="dialog-isSharedPlansPublic"
+              checked={localSettings.isSharedPlansPublic}
               onCheckedChange={(checked) => handleSettingChange("isSharedPlansPublic", checked)}
             />
           </div>
           
-          {/* Add more privacy options here as needed */}
            <p className="text-xs text-muted-foreground pt-2">
             Uwaga: Bardziej granularne ustawienia prywatności (np. dla poszczególnych postów) mogą być dostępne w odpowiednich sekcjach. Te ustawienia dotyczą ogólnej widoczności na Twoim profilu.
           </p>
@@ -140,3 +144,5 @@ export function ProfilePrivacySettingsDialog({
     </Dialog>
   );
 }
+
+    

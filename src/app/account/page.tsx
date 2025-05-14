@@ -4,7 +4,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form"; // Added Controller
 import * as z from "zod";
 import { format, parseISO } from "date-fns";
 import { pl } from "date-fns/locale";
@@ -25,10 +25,11 @@ import {
   Bell,
   Trash2,
   Settings2,
-  LogOut, // Placeholder for login history
-  FileText, // Placeholder for export
-  Info, // Placeholder for info/links
+  LogOut,
+  FileText,
+  Info,
   AlertTriangle,
+  Image as ImageIcon, // Placeholder for 2FA QR
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -75,6 +76,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { TwoFactorAuthDialog } from "@/components/account/two-factor-auth-dialog";
+import { ViewBackupCodesDialog } from "@/components/account/view-backup-codes-dialog";
+import { Switch } from "@/components/ui/switch"; // Added Switch
+import { Label } from "@/components/ui/label"; // Added Label
+import type { UserPrivacySettings } from "@/components/profile/profile-privacy-settings-dialog"; // Import UserPrivacySettings
+
 
 // Mock data - in a real app, this would come from an API
 const MOCK_USER_DATA = {
@@ -86,8 +93,24 @@ const MOCK_USER_DATA = {
   weight: 75.5, // kg
   height: 180, // cm
   fitnessLevel: "intermediate" as "beginner" | "intermediate" | "advanced",
-  // preferences for notifications can be added here
 };
+
+const PROFILE_PRIVACY_SETTINGS_KEY = "currentUserPrivacySettings";
+const DEFAULT_PRIVACY_SETTINGS: UserPrivacySettings = {
+  isActivityPublic: true,
+  isFriendsListPublic: true,
+  isSharedPlansPublic: true,
+};
+
+
+const MOCK_LOGIN_HISTORY = [
+    {id: "lh1", date: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(), type: "Logowanie", ip: "192.168.1.10 (Przybliżone)", device: "Chrome na Windows"},
+    {id: "lh2", date: new Date(Date.now() - 1000 * 60 * 60 * 28).toISOString(), type: "Zmiana hasła", ip: "89.123.45.67 (Przybliżone)", device: "Safari na iPhone"},
+    {id: "lh3", date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5).toISOString(), type: "Logowanie", ip: "192.168.1.12 (Przybliżone)", device: "Aplikacja mobilna Android"},
+];
+
+const MOCK_BACKUP_CODES = ["1A2B-C3D4", "E5F6-G7H8", "I9J0-K1L2", "M3N4-O5P6", "Q7R8-S9T0"];
+
 
 const personalDataSchema = z.object({
   fullName: z.string().min(1, "Imię i nazwisko jest wymagane."),
@@ -140,13 +163,49 @@ const deleteAccountSchema = z.object({
 });
 type DeleteAccountFormValues = z.infer<typeof deleteAccountSchema>;
 
+const verify2FACodeSchema = z.object({
+    code: z.string().length(6, "Kod musi mieć 6 cyfr.").regex(/^\d{6}$/, "Kod musi składać się z 6 cyfr."),
+});
+type Verify2FACodeFormValues = z.infer<typeof verify2FACodeSchema>;
+
+const deactivate2FASchema = z.object({
+    password: z.string().min(1, "Hasło jest wymagane do deaktywacji 2FA."),
+});
+type Deactivate2FAFormValues = z.infer<typeof deactivate2FASchema>;
+
+
 
 export default function AccountPage() {
   const { toast } = useToast();
   const [currentUserData, setCurrentUserData] = React.useState(MOCK_USER_DATA);
   const [isLoading, setIsLoading] = React.useState(false);
   const [isEditingPersonalData, setIsEditingPersonalData] = React.useState(false);
-  const [isSubmitting, setIsSubmitting] = React.useState(false); // For specific form submissions
+  const [isSubmitting, setIsSubmitting] = React.useState(false); 
+
+  const [isTwoFactorEnabled, setIsTwoFactorEnabled] = React.useState(false);
+  const [showTwoFactorDialog, setShowTwoFactorDialog] = React.useState(false);
+  const [backupCodes, setBackupCodes] = React.useState<string[]>([]);
+  const [showBackupCodesDialog, setShowBackupCodesDialog] = React.useState(false);
+
+  const [privacySettings, setPrivacySettings] = React.useState<UserPrivacySettings>(DEFAULT_PRIVACY_SETTINGS);
+  const [isSavingPrivacy, setIsSavingPrivacy] = React.useState(false);
+
+
+  React.useEffect(() => {
+    // Simulate loading privacy settings
+    try {
+      const storedSettings = localStorage.getItem(PROFILE_PRIVACY_SETTINGS_KEY);
+      if (storedSettings) {
+        setPrivacySettings(JSON.parse(storedSettings));
+      } else {
+        setPrivacySettings(DEFAULT_PRIVACY_SETTINGS); // Initialize if not found
+      }
+    } catch (error) {
+      console.error("Error loading privacy settings:", error);
+      setPrivacySettings(DEFAULT_PRIVACY_SETTINGS);
+    }
+  }, []);
+
 
   const personalDataForm = useForm<PersonalDataFormValues>({
     resolver: zodResolver(personalDataSchema),
@@ -175,8 +234,14 @@ export default function AccountPage() {
     defaultValues: { passwordConfirmation: ""},
   });
 
+  const deactivate2faForm = useForm<Deactivate2FAFormValues>({
+    resolver: zodResolver(deactivate2FASchema),
+    defaultValues: { password: "" },
+  });
+
   React.useEffect(() => {
     setIsLoading(true);
+    // Simulate fetching user data
     setTimeout(() => {
       personalDataForm.reset({
         fullName: currentUserData.fullName,
@@ -186,6 +251,10 @@ export default function AccountPage() {
         height: currentUserData.height ?? "",
         fitnessLevel: currentUserData.fitnessLevel,
       });
+      // Simulate fetching 2FA status
+      const stored2FAStatus = localStorage.getItem("workoutWise2FAStatus");
+      setIsTwoFactorEnabled(stored2FAStatus === "true");
+
       setIsLoading(false);
     }, 500);
   }, [currentUserData, personalDataForm]);
@@ -213,9 +282,7 @@ export default function AccountPage() {
     setIsSubmitting(true);
     console.log("Zmiana adresu email:", values);
     await new Promise(resolve => setTimeout(resolve, 1000));
-    // Simulate success or error
-    if (values.currentPasswordForEmail === "password") { // Simulate correct password
-      // setCurrentUserData(prev => ({ ...prev, email: values.newEmail })); // Update UI after backend confirmation
+    if (values.currentPasswordForEmail === "password") { 
       toast({ title: "Email zmieniony (Symulacja)", description: `Link weryfikacyjny został wysłany na ${values.newEmail}. Zmiana zostanie zastosowana po potwierdzeniu.`});
       emailForm.reset();
     } else {
@@ -228,7 +295,7 @@ export default function AccountPage() {
     setIsSubmitting(true);
     console.log("Zmiana hasła:", values);
     await new Promise(resolve => setTimeout(resolve, 1000));
-    if (values.currentPassword === "password") { // Simulate correct password
+    if (values.currentPassword === "password") { 
       toast({ title: "Hasło zmienione (Symulacja)", description: "Twoje hasło zostało pomyślnie zaktualizowane."});
       passwordForm.reset();
     } else {
@@ -241,14 +308,63 @@ export default function AccountPage() {
     setIsSubmitting(true);
     console.log("Usuwanie konta, potwierdzenie hasłem:", values.passwordConfirmation);
     await new Promise(resolve => setTimeout(resolve, 1500));
-    if (values.passwordConfirmation === "password") { // Simulate correct password
+    if (values.passwordConfirmation === "password") { 
         toast({ title: "Konto usunięte (Symulacja)", description: "Twoje konto zostało usunięte. Zostaniesz wylogowany.", variant: "destructive" });
-        // router.push("/login"); // Redirect to login after deletion
+        // router.push("/login"); 
     } else {
         deleteAccountForm.setError("passwordConfirmation", { type: "manual", message: "Nieprawidłowe hasło."});
     }
     setIsSubmitting(false);
   }
+
+  const handleActivate2FA = () => {
+    setIsTwoFactorEnabled(true);
+    setBackupCodes(MOCK_BACKUP_CODES); // Simulate generating backup codes
+    localStorage.setItem("workoutWise2FAStatus", "true");
+    toast({ title: "2FA Aktywowane!", description: "Dwuetapowa weryfikacja została pomyślnie włączona."});
+    setShowTwoFactorDialog(false);
+    setShowBackupCodesDialog(true); // Show backup codes dialog
+  };
+
+  const onDeactivate2FASubmit = async (data: Deactivate2FAFormValues) => {
+    setIsSubmitting(true);
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    if (data.password === "password") { // Simulate correct password
+        setIsTwoFactorEnabled(false);
+        localStorage.removeItem("workoutWise2FAStatus");
+        setBackupCodes([]);
+        toast({ title: "2FA Dezaktywowane", description: "Dwuetapowa weryfikacja została wyłączona.", variant: "default"});
+        deactivate2faForm.reset();
+    } else {
+        deactivate2faForm.setError("password", { type: "manual", message: "Nieprawidłowe hasło." });
+    }
+    setIsSubmitting(false);
+  };
+
+  const handlePrivacySettingChange = (key: keyof UserPrivacySettings, value: boolean) => {
+    setPrivacySettings(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleSavePrivacySettings = async () => {
+    setIsSavingPrivacy(true);
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate save
+    try {
+        localStorage.setItem(PROFILE_PRIVACY_SETTINGS_KEY, JSON.stringify(privacySettings));
+        toast({
+            title: "Ustawienia prywatności zapisane!",
+            description: "Twoje preferencje prywatności profilu zostały zaktualizowane."
+        });
+    } catch (error) {
+        console.error("Error saving privacy settings to localStorage:", error);
+        toast({
+            title: "Błąd zapisu ustawień prywatności",
+            variant: "destructive"
+        });
+    } finally {
+        setIsSavingPrivacy(false);
+    }
+  };
+
 
   const renderDisplayValue = (value: string | number | undefined | null, unit = "", defaultValue = "N/A") => {
     if (value === undefined || value === null || value === "") return defaultValue;
@@ -275,11 +391,12 @@ export default function AccountPage() {
       <main className="flex-1 p-4 sm:p-6 lg:p-8">
         <div className="container mx-auto max-w-3xl">
             <Tabs defaultValue="personal-data" className="w-full">
-                <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-4 mb-6">
+                <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-5 mb-6">
                     <TabsTrigger value="personal-data"><UserCircle2 className="mr-2 h-4 w-4 sm:hidden md:inline-block"/>Dane Osobowe</TabsTrigger>
                     <TabsTrigger value="security"><ShieldCheck className="mr-2 h-4 w-4 sm:hidden md:inline-block"/>Bezpieczeństwo</TabsTrigger>
-                    <TabsTrigger value="notifications"><Bell className="mr-2 h-4 w-4 sm:hidden md:inline-block"/>Powiadomienia</TabsTrigger>
-                    <TabsTrigger value="delete-account"><Trash2 className="mr-2 h-4 w-4 sm:hidden md:inline-block"/>Usuń Konto</TabsTrigger>
+                    <TabsTrigger value="privacy"><ShieldCheck className="mr-2 h-4 w-4 sm:hidden md:inline-block"/>Prywatność Profilu</TabsTrigger>
+                    <TabsTrigger value="linked-accounts"><Link className="mr-2 h-4 w-4 sm:hidden md:inline-block"/>Połączone Konta</TabsTrigger>
+                    <TabsTrigger value="data-management"><FileText className="mr-2 h-4 w-4 sm:hidden md:inline-block"/>Zarządzanie Danymi</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="personal-data">
@@ -418,116 +535,285 @@ export default function AccountPage() {
                                     <Button type="submit" disabled={isSubmitting}>{isSubmitting ? <Loader2 className="animate-spin mr-2"/> : <Lock className="mr-2 h-4 w-4"/>} Zmień Hasło (Symulacja)</Button>
                                 </form>
                             </Form>
-                             {/* Placeholder for 2FA */}
-                            <div className="p-4 border rounded-lg space-y-2">
-                                <h3 className="text-lg font-semibold">Weryfikacja Dwuetapowa (2FA)</h3>
-                                <p className="text-sm text-muted-foreground">Zwiększ bezpieczeństwo swojego konta.</p>
-                                <Button variant="outline" disabled><ShieldCheck className="mr-2 h-4 w-4" /> Skonfiguruj 2FA (Wkrótce)</Button>
-                            </div>
-                            {/* Placeholder for Linked Accounts */}
-                            <div className="p-4 border rounded-lg space-y-2">
-                                <h3 className="text-lg font-semibold">Połączone Konta</h3>
-                                <p className="text-sm text-muted-foreground">Zarządzaj kontami Google, Facebook itp. połączonymi z Twoim profilem WorkoutWise.</p>
-                                <Button variant="outline" disabled><Info className="mr-2 h-4 w-4" /> Zarządzaj Połączonymi Kontami (Wkrótce)</Button>
-                            </div>
-                            {/* Placeholder for Login History */}
-                            <div className="p-4 border rounded-lg space-y-2">
-                                <h3 className="text-lg font-semibold">Historia Logowań</h3>
-                                <p className="text-sm text-muted-foreground">Przeglądaj ostatnie aktywności logowania na Twoim koncie.</p>
-                                <Button variant="outline" disabled><LogOut className="mr-2 h-4 w-4" /> Zobacz Historię Logowań (Wkrótce)</Button>
-                            </div>
+                            {/* 2FA Section */}
+                            <Card className="p-4 border rounded-lg">
+                                <CardHeader className="p-0 pb-3">
+                                    <CardTitle className="text-lg font-semibold">Weryfikacja Dwuetapowa (2FA)</CardTitle>
+                                    <CardDescription>Zwiększ bezpieczeństwo swojego konta.</CardDescription>
+                                </CardHeader>
+                                <CardContent className="p-0 space-y-3">
+                                {isTwoFactorEnabled ? (
+                                    <>
+                                        <Alert variant="default" className="border-green-500 dark:border-green-400">
+                                            <ShieldCheck className="h-4 w-4 text-green-500" />
+                                            <AlertTitle className="text-green-700 dark:text-green-300">2FA jest Aktywne</AlertTitle>
+                                            <AlertDescription>
+                                                Twoje konto jest dodatkowo chronione.
+                                            </AlertDescription>
+                                        </Alert>
+                                        <Button variant="outline" onClick={() => setShowBackupCodesDialog(true)} disabled={isSubmitting} className="w-full sm:w-auto mr-2">
+                                            Pokaż Kody Zapasowe
+                                        </Button>
+                                        <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <Button variant="destructive" disabled={isSubmitting} className="w-full sm:w-auto">
+                                                    Dezaktywuj 2FA
+                                                </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle>Dezaktywować 2FA?</AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                        Aby potwierdzić, wprowadź swoje obecne hasło.
+                                                    </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <Form {...deactivate2faForm}>
+                                                    <form onSubmit={deactivate2faForm.handleSubmit(onDeactivate2FASubmit)} className="space-y-4">
+                                                        <FormField
+                                                            control={deactivate2faForm.control}
+                                                            name="password"
+                                                            render={({ field }) => (
+                                                                <FormItem>
+                                                                    <FormLabel>Obecne hasło</FormLabel>
+                                                                    <FormControl><Input type="password" {...field} /></FormControl>
+                                                                    <FormMessage />
+                                                                </FormItem>
+                                                            )}
+                                                        />
+                                                        <AlertDialogFooter>
+                                                            <AlertDialogCancel disabled={isSubmitting}>Anuluj</AlertDialogCancel>
+                                                            <AlertDialogAction type="submit" disabled={isSubmitting} className="bg-destructive hover:bg-destructive/90">
+                                                                {isSubmitting ? <Loader2 className="animate-spin mr-2"/> : null}
+                                                                Potwierdź i dezaktywuj
+                                                            </AlertDialogAction>
+                                                        </AlertDialogFooter>
+                                                    </form>
+                                                </Form>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                    </>
+                                ) : (
+                                     <Button onClick={() => setShowTwoFactorDialog(true)} variant="outline" disabled={isSubmitting}>
+                                        <ShieldCheck className="mr-2 h-4 w-4" /> Aktywuj Weryfikację Dwuetapową
+                                    </Button>
+                                )}
+                                </CardContent>
+                            </Card>
+                             {/* Login History Section */}
+                            <Card className="p-4 border rounded-lg">
+                                <CardHeader className="p-0 pb-3">
+                                    <CardTitle className="text-lg font-semibold">Historia Logowań i Aktywności</CardTitle>
+                                    <CardDescription>Przeglądaj ostatnie aktywności na Twoim koncie.</CardDescription>
+                                </CardHeader>
+                                <CardContent className="p-0">
+                                    {MOCK_LOGIN_HISTORY.length > 0 ? (
+                                        <ul className="space-y-2 text-sm">
+                                            {MOCK_LOGIN_HISTORY.slice(0,3).map(item => ( // Show last 3 for brevity
+                                                <li key={item.id} className="p-2 border-b last:border-b-0">
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="font-medium">{item.type}</span>
+                                                        <span className="text-xs text-muted-foreground">{format(parseISO(item.date), "PPPp", { locale: pl })}</span>
+                                                    </div>
+                                                    <p className="text-xs text-muted-foreground">IP: {item.ip}, Urządzenie: {item.device}</p>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    ) : (
+                                        <p className="text-sm text-muted-foreground">Brak historii logowań do wyświetlenia.</p>
+                                    )}
+                                     <Button variant="link" size="sm" className="mt-2 p-0 h-auto" disabled>Zobacz pełną historię (Wkrótce)</Button>
+                                </CardContent>
+                            </Card>
 
                         </CardContent>
                     </Card>
                 </TabsContent>
-                <TabsContent value="notifications">
-                     <Card>
-                        <CardHeader><CardTitle>Powiadomienia</CardTitle><CardDescription>Zarządzaj preferencjami powiadomień.</CardDescription></CardHeader>
-                        <CardContent>
-                            <Alert variant="default">
-                                <Bell className="h-4 w-4"/> 
-                                <AlertTitle>Ustawienia Powiadomień</AlertTitle>
-                                <AlertDescription>
-                                    Szczegółowe ustawienia powiadomień (np. przypomnienia o treningu, aktywności społecznościowe) znajdują się w głównej sekcji "Ustawienia Aplikacji".
-                                    <Button asChild variant="link" className="p-0 h-auto mt-2">
-                                        <Link href="/settings">Przejdź do Ustawień Aplikacji <ArrowLeft className="transform rotate-180 ml-1 h-3 w-3" /></Link>
-                                    </Button>
-                                </AlertDescription>
-                            </Alert>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-                <TabsContent value="delete-account">
-                     <Card className="border-destructive">
+                <TabsContent value="privacy">
+                    <Card>
                         <CardHeader>
-                            <CardTitle className="text-destructive flex items-center gap-2"><AlertTriangle className="h-6 w-6"/>Usuń Konto</CardTitle>
-                            <CardDescription>Trwałe usunięcie konta i wszystkich powiązanych danych.</CardDescription>
+                            <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary"/>Ustawienia Prywatności Profilu</CardTitle>
+                            <CardDescription>Zarządzaj tym, co inni użytkownicy mogą widzieć na Twoim profilu publicznym.</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-6">
-                            <Alert variant="destructive">
-                                <AlertTriangle className="h-4 w-4" />
-                                <AlertTitle>Ostrzeżenie!</AlertTitle>
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between rounded-lg border p-4">
+                                    <div className="space-y-0.5">
+                                    <Label htmlFor="privacy-activity" className="text-base">
+                                        Moja Aktywność Publiczna
+                                    </Label>
+                                    <p className="text-xs text-muted-foreground">
+                                        Czy inni mogą widzieć Twoje udostępnione treningi, posty, nowe rekordy itp.?
+                                    </p>
+                                    </div>
+                                    <Switch
+                                    id="privacy-activity"
+                                    checked={privacySettings.isActivityPublic}
+                                    onCheckedChange={(checked) => handlePrivacySettingChange("isActivityPublic", checked)}
+                                    disabled={isSavingPrivacy}
+                                    />
+                                </div>
+                                <div className="flex items-center justify-between rounded-lg border p-4">
+                                    <div className="space-y-0.5">
+                                    <Label htmlFor="privacy-friends" className="text-base">
+                                        Lista Znajomych Publiczna
+                                    </Label>
+                                    <p className="text-xs text-muted-foreground">
+                                        Czy inni mogą widzieć listę Twoich znajomych/obserwowanych?
+                                    </p>
+                                    </div>
+                                    <Switch
+                                    id="privacy-friends"
+                                    checked={privacySettings.isFriendsListPublic}
+                                    onCheckedChange={(checked) => handlePrivacySettingChange("isFriendsListPublic", checked)}
+                                    disabled={isSavingPrivacy}
+                                    />
+                                </div>
+                                <div className="flex items-center justify-between rounded-lg border p-4">
+                                    <div className="space-y-0.5">
+                                    <Label htmlFor="privacy-plans" className="text-base">
+                                        Udostępnione Plany Publiczne
+                                    </Label>
+                                    <p className="text-xs text-muted-foreground">
+                                        Czy inni mogą widzieć Twoje udostępnione plany treningowe?
+                                    </p>
+                                    </div>
+                                    <Switch
+                                    id="privacy-plans"
+                                    checked={privacySettings.isSharedPlansPublic}
+                                    onCheckedChange={(checked) => handlePrivacySettingChange("isSharedPlansPublic", checked)}
+                                    disabled={isSavingPrivacy}
+                                    />
+                                </div>
+                            </div>
+                            <Button onClick={handleSavePrivacySettings} disabled={isSavingPrivacy}>
+                                {isSavingPrivacy ? <Loader2 className="animate-spin mr-2 h-4 w-4"/> : <Save className="mr-2 h-4 w-4" />}
+                                Zapisz Ustawienia Prywatności
+                            </Button>
+                            <Alert>
+                                <Info className="h-4 w-4"/>
+                                <AlertTitle>Informacja</AlertTitle>
                                 <AlertDescription>
-                                    Usunięcie konta jest operacją nieodwracalną. Wszystkie Twoje dane, w tym historia treningów, plany, postępy i ustawienia zostaną trwale usunięte.
+                                    Pamiętaj, że niektóre podstawowe informacje (jak nazwa użytkownika) mogą być zawsze publiczne.
+                                    Bardziej szczegółowe ustawienia prywatności (np. dla poszczególnych postów) mogą być dostępne w odpowiednich sekcjach aplikacji.
                                 </AlertDescription>
                             </Alert>
-                             <Form {...deleteAccountForm}>
-                                <form onSubmit={deleteAccountForm.handleSubmit(onSubmitDeleteAccount)} className="space-y-4">
-                                     <FormField control={deleteAccountForm.control} name="passwordConfirmation" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Potwierdź hasłem</FormLabel>
-                                            <FormControl><Input type="password" placeholder="Wpisz swoje hasło" {...field} /></FormControl>
-                                            <FormDescription>Aby potwierdzić chęć usunięcia konta, wpisz swoje obecne hasło.</FormDescription>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}/>
-                                    <AlertDialog>
-                                        <AlertDialogTrigger asChild>
-                                            <Button variant="destructive" className="w-full" type="button" disabled={!deleteAccountForm.formState.isValid || isSubmitting}>
-                                                <Trash2 className="mr-2 h-4 w-4" /> Usuń Moje Konto Na Stałe
-                                            </Button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                            <AlertDialogTitle>Czy na pewno chcesz usunąć konto?</AlertDialogTitle>
-                                            <AlertDialogDescription>
-                                                To jest Twoja ostatnia szansa na przerwanie tej operacji. Po potwierdzeniu, wszystkie Twoje dane zostaną usunięte i nie będzie można ich odzyskać.
-                                            </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                            <AlertDialogCancel disabled={isSubmitting}>Anuluj</AlertDialogCancel>
-                                            <AlertDialogAction 
-                                                onClick={deleteAccountForm.handleSubmit(onSubmitDeleteAccount)} 
-                                                disabled={isSubmitting}
-                                                className="bg-destructive hover:bg-destructive/90"
-                                            >
-                                                {isSubmitting ? <Loader2 className="animate-spin mr-2"/> : <Trash2 className="mr-2 h-4 w-4"/>}
-                                                Tak, usuń konto
-                                            </AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
-                                </form>
-                            </Form>
                         </CardContent>
-                         <CardFooter className="flex-col items-start space-y-4 pt-6 border-t">
-                             <div>
-                                <h4 className="font-semibold mb-1 flex items-center gap-1"><FileText className="h-4 w-4"/>Eksport Danych</h4>
-                                <p className="text-sm text-muted-foreground mb-2">Przed usunięciem konta możesz chcieć wyeksportować swoje dane.</p>
-                                <Button variant="outline" disabled><FileText className="mr-2 h-4 w-4" /> Eksportuj Moje Dane (Wkrótce)</Button>
-                             </div>
-                             <div>
-                                <h4 className="font-semibold mb-1 flex items-center gap-1"><Info className="h-4 w-4"/>Ustawienia Prywatności Profilu</h4>
-                                <p className="text-sm text-muted-foreground mb-2">Zarządzaj tym, co inni użytkownicy mogą widzieć na Twoim profilu publicznym.</p>
-                                <Button variant="outline" disabled><ShieldCheck className="mr-2 h-4 w-4" /> Ustawienia Prywatności (Wkrótce)</Button>
-                             </div>
-                         </CardFooter>
                     </Card>
                 </TabsContent>
+                <TabsContent value="linked-accounts">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2"><Link className="mr-0 h-5 w-5 text-primary"/>Połączone Konta</CardTitle>
+                            <CardDescription>Zarządzaj kontami Google, Facebook itp. połączonymi z Twoim profilem WorkoutWise.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <Alert>
+                                <Info className="h-4 w-4"/>
+                                <AlertTitle>Funkcja w Budowie</AlertTitle>
+                                <AlertDescription>
+                                    Możliwość łączenia kont z serwisami takimi jak Google czy Facebook zostanie dodana w przyszłości.
+                                </AlertDescription>
+                            </Alert>
+                            <div className="p-4 border rounded-lg">
+                                <h4 className="font-semibold">Google</h4>
+                                <p className="text-sm text-muted-foreground mb-2">Status: Niepołączono</p>
+                                <Button variant="outline" disabled>Połącz z Google (Wkrótce)</Button>
+                            </div>
+                             <div className="p-4 border rounded-lg">
+                                <h4 className="font-semibold">Facebook</h4>
+                                <p className="text-sm text-muted-foreground mb-2">Status: Niepołączono</p>
+                                <Button variant="outline" disabled>Połącz z Facebook (Wkrótce)</Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+                 <TabsContent value="data-management">
+                     <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5 text-primary"/>Zarządzanie Danymi</CardTitle>
+                            <CardDescription>Eksportuj swoje dane lub trwale usuń konto.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-8">
+                             <Card className="p-4">
+                                <CardHeader className="p-0 pb-3">
+                                    <CardTitle className="text-lg font-semibold flex items-center gap-1"><FileText className="h-4 w-4"/>Eksport Danych</CardTitle>
+                                </CardHeader>
+                                <CardContent className="p-0 space-y-2">
+                                    <p className="text-sm text-muted-foreground">Możesz zażądać eksportu swoich danych osobowych i treningowych w ustrukturyzowanym formacie.</p>
+                                    <Button variant="outline" disabled><FileText className="mr-2 h-4 w-4" /> Rozpocznij eksport (Wkrótce)</Button>
+                                     <p className="text-xs text-muted-foreground pt-1">Proces przygotowania danych może zająć trochę czasu. Otrzymasz powiadomienie, gdy plik będzie gotowy do pobrania lub zostanie wysłany na Twój email.</p>
+                                </CardContent>
+                             </Card>
+                             <Card className="border-destructive p-4">
+                                <CardHeader className="p-0 pb-3">
+                                    <CardTitle className="text-destructive flex items-center gap-2"><AlertTriangle className="h-5 w-5"/>Usuń Konto</CardTitle>
+                                </CardHeader>
+                                <CardContent className="p-0 space-y-4">
+                                    <Alert variant="destructive">
+                                        <AlertTriangle className="h-4 w-4" />
+                                        <AlertTitle>Ostrzeżenie!</AlertTitle>
+                                        <AlertDescription>
+                                            Usunięcie konta jest operacją nieodwracalną. Wszystkie Twoje dane, w tym historia treningów, plany, postępy i ustawienia zostaną trwale usunięte.
+                                        </AlertDescription>
+                                    </Alert>
+                                    <Form {...deleteAccountForm}>
+                                        <form onSubmit={deleteAccountForm.handleSubmit(onSubmitDeleteAccount)} className="space-y-4">
+                                            <FormField control={deleteAccountForm.control} name="passwordConfirmation" render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Potwierdź hasłem</FormLabel>
+                                                    <FormControl><Input type="password" placeholder="Wpisz swoje hasło" {...field} /></FormControl>
+                                                    <FormDescription>Aby potwierdzić chęć usunięcia konta, wpisz swoje obecne hasło.</FormDescription>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}/>
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                    <Button variant="destructive" className="w-full" type="button" disabled={!deleteAccountForm.formState.isValid || isSubmitting}>
+                                                        <Trash2 className="mr-2 h-4 w-4" /> Usuń Moje Konto Na Stałe
+                                                    </Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                    <AlertDialogTitle>Czy na pewno chcesz usunąć konto?</AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                        To jest Twoja ostatnia szansa na przerwanie tej operacji. Po potwierdzeniu, wszystkie Twoje dane zostaną usunięte i nie będzie można ich odzyskać.
+                                                    </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                    <AlertDialogCancel disabled={isSubmitting}>Anuluj</AlertDialogCancel>
+                                                    <AlertDialogAction 
+                                                        onClick={deleteAccountForm.handleSubmit(onSubmitDeleteAccount)} 
+                                                        disabled={isSubmitting}
+                                                        className="bg-destructive hover:bg-destructive/90"
+                                                    >
+                                                        {isSubmitting ? <Loader2 className="animate-spin mr-2"/> : <Trash2 className="mr-2 h-4 w-4"/>}
+                                                        Tak, usuń konto
+                                                    </AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
+                                        </form>
+                                    </Form>
+                                </CardContent>
+                             </Card>
+                        </CardContent>
+                    </Card>
+                 </TabsContent>
             </Tabs>
         </div>
       </main>
+       <TwoFactorAuthDialog
+            isOpen={showTwoFactorDialog}
+            onOpenChange={setShowTwoFactorDialog}
+            onActivateSuccess={handleActivate2FA}
+        />
+        <ViewBackupCodesDialog
+            isOpen={showBackupCodesDialog}
+            onOpenChange={setShowBackupCodesDialog}
+            backupCodes={backupCodes}
+        />
     </div>
   );
 }
-        
+
+    
