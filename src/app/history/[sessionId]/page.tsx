@@ -47,6 +47,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import type { HistoricalWorkoutSession } from "../page"; // Import from parent
+import type { RecordedSet as ActiveRecordedSet } from "@/app/workout/active/[workoutId]/page";
+
 
 // Re-using MOCK_HISTORY_SESSIONS for simplicity in this example
 // In a real app, you'd fetch this session by ID from a backend
@@ -60,8 +62,8 @@ const MOCK_HISTORY_SESSIONS_FOR_DETAIL: HistoricalWorkoutSession[] = [
     endTime: "2024-07-25T09:00:00.000Z",
     totalTimeSeconds: 3600,
     recordedSets: {
-      ex1: [{ setNumber: 1, weight: "60", reps: "10", notes: "Good form" }, { setNumber: 2, weight: "65", reps: "8" }],
-      ex2: [{ setNumber: 1, weight: "100", reps: "5" }],
+      ex1: [{ setNumber: 1, weight: "60", reps: "10", notes: "Good form" }, { setNumber: 2, weight: "65", reps: "8" }] as ActiveRecordedSet[],
+      ex2: [{ setNumber: 1, weight: "100", reps: "5" }] as ActiveRecordedSet[],
     },
     exercises: [
       { id: "ex1", name: "Wyciskanie sztangi na ławce płaskiej", defaultSets: 3, defaultReps: "8-10", defaultRest: 90 },
@@ -80,7 +82,7 @@ const MOCK_HISTORY_SESSIONS_FOR_DETAIL: HistoricalWorkoutSession[] = [
     endTime: "2024-07-27T18:00:00.000Z",
     totalTimeSeconds: 1800,
     recordedSets: {
-      ex6: [{ setNumber: 1, weight: "N/A", reps: "30 min" }],
+      ex6: [{ setNumber: 1, weight: "N/A", reps: "30 min" }] as ActiveRecordedSet[],
     },
     exercises: [{ id: "ex6", name: "Bieg na bieżni (30 min)", defaultSets: 1, defaultReps: "30 min", defaultRest: 0 }],
     difficulty: "Trudny" as any, // Cast for mock data
@@ -96,9 +98,9 @@ const MOCK_HISTORY_SESSIONS_FOR_DETAIL: HistoricalWorkoutSession[] = [
     endTime: "2024-07-29T09:20:00.000Z",
     totalTimeSeconds: 3900,
     recordedSets: {
-      ex1: [{ setNumber: 1, weight: "65", reps: "10" }, { setNumber: 2, weight: "70", reps: "8"}, { setNumber: 3, weight: "70", reps: "7"}],
-      ex2: [{ setNumber: 1, weight: "100", reps: "6" }, { setNumber: 2, weight: "105", reps: "5"}],
-      ex4: [{ setNumber: 1, weight: "BW", reps: "8" }, { setNumber: 2, weight: "BW", reps: "7"}],
+      ex1: [{ setNumber: 1, weight: "65", reps: "10" }, { setNumber: 2, weight: "70", reps: "8"}, { setNumber: 3, weight: "70", reps: "7"}] as ActiveRecordedSet[],
+      ex2: [{ setNumber: 1, weight: "100", reps: "6" }, { setNumber: 2, weight: "105", reps: "5"}] as ActiveRecordedSet[],
+      ex4: [{ setNumber: 1, weight: "BW", reps: "8" }, { setNumber: 2, weight: "BW", reps: "7"}] as ActiveRecordedSet[],
     },
     exercises: [
       { id: "ex1", name: "Wyciskanie sztangi na ławce płaskiej" },
@@ -147,13 +149,14 @@ export default function WorkoutHistoryDetailPage() {
     setIsDeleting(true);
     // Simulate API call for deletion
     await new Promise(resolve => setTimeout(resolve, 1000));
+    // In a real app, you would also update the source of MOCK_HISTORY_SESSIONS_FOR_DETAIL or refetch
     toast({
       title: "Sesja usunięta",
-      description: `Sesja treningowa "${sessionData?.workoutName}" została usunięta.`,
+      description: `Sesja treningowa "${sessionData?.workoutName}" została (symulacyjnie) usunięta.`,
       variant: "default",
     });
     router.replace("/history");
-    setIsDeleting(false);
+    // No need to setIsDeleting(false) as we are redirecting
   };
 
   if (isLoading) {
@@ -277,22 +280,23 @@ export default function WorkoutHistoryDetailPage() {
               )}
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Dumbbell className="h-6 w-6 text-primary"/>Akcje</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col sm:flex-row gap-3">
-                <Button variant="outline" className="w-full sm:w-auto" disabled> {/* Placeholder */}
+                <Button variant="outline" className="w-full sm:w-auto" disabled>
                     <Repeat className="mr-2 h-4 w-4" /> Powtórz Trening
                 </Button>
-                <Button variant="outline" className="w-full sm:w-auto" disabled> {/* Placeholder */}
+                <Button variant="outline" className="w-full sm:w-auto" disabled>
                     <Edit className="mr-2 h-4 w-4" /> Edytuj Wpis
                 </Button>
                  <AlertDialog>
                     <AlertDialogTrigger asChild>
                         <Button variant="destructive" className="w-full sm:w-auto" disabled={isDeleting}>
-                            <Trash2 className="mr-2 h-4 w-4" /> Usuń Wpis
+                            {isDeleting ? <Loader2 className="animate-spin mr-2 h-4 w-4"/> : <Trash2 className="mr-2 h-4 w-4" />}
+                             Usuń Wpis
                         </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>

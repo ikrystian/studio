@@ -29,10 +29,10 @@ import {
   XCircle,
   Loader2,
   ArrowLeft,
-  Trash2, 
+  Trash2,
   StickyNote,
   Lightbulb,
-  Edit2, // For exercise notes icon
+  Edit2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -45,7 +45,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea"; 
+import { Textarea } from "@/components/ui/textarea";
 import {
   Form,
   FormControl,
@@ -74,7 +74,7 @@ import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@/components/ui/accordion"; 
+} from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
 
 
@@ -90,10 +90,10 @@ const MOCK_EXERCISES_DATABASE: { id: string; name: string; category: string, ins
 
 // Simulated workout data
 export interface ExerciseInWorkout {
-  id: string; 
+  id: string;
   name: string;
   defaultSets?: number;
-  defaultReps?: string; 
+  defaultReps?: string;
   defaultRest?: number; // seconds
 }
 
@@ -125,10 +125,10 @@ const MOCK_WORKOUTS: Workout[] = [
 
 export interface RecordedSet {
   setNumber: number;
-  weight: number | string; 
-  reps: number | string;   
+  weight: number | string;
+  reps: number | string;
   rpe?: number;
-  notes?: string; 
+  notes?: string;
 }
 
 // Simplified mock history for progression suggestions
@@ -151,7 +151,7 @@ const setFormSchema = z.object({
   weight: z.string().min(1, "Waga jest wymagana."),
   reps: z.string().min(1, "Liczba powtórzeń jest wymagana."),
   rpe: z.coerce.number().min(1).max(10).optional().or(z.literal("")),
-  notes: z.string().optional(), 
+  notes: z.string().optional(),
 });
 
 type SetFormValues = z.infer<typeof setFormSchema>;
@@ -167,10 +167,10 @@ export default function ActiveWorkoutPage() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [currentWorkout, setCurrentWorkout] = React.useState<Workout | null>(null);
   const [currentExerciseIndex, setCurrentExerciseIndex] = React.useState(0);
-  
+
   const [recordedSets, setRecordedSets] = React.useState<Record<string, RecordedSet[]>>({});
-  const [exerciseNotes, setExerciseNotes] = React.useState<Record<string, string>>({}); // For exercise-specific notes
-  
+  const [exerciseNotes, setExerciseNotes] = React.useState<Record<string, string>>({});
+
   const [workoutStartTime, setWorkoutStartTime] = React.useState<Date | null>(null);
   const [elapsedTime, setElapsedTime] = React.useState(0); // in seconds
 
@@ -182,7 +182,7 @@ export default function ActiveWorkoutPage() {
 
   const setForm = useForm<SetFormValues>({
     resolver: zodResolver(setFormSchema),
-    defaultValues: { weight: "", reps: "", rpe: "", notes: "" }, 
+    defaultValues: { weight: "", reps: "", rpe: "", notes: "" },
   });
 
   React.useEffect(() => {
@@ -191,7 +191,7 @@ export default function ActiveWorkoutPage() {
       const foundWorkout = MOCK_WORKOUTS.find((w) => w.id === workoutId);
       if (foundWorkout) {
         setCurrentWorkout(foundWorkout);
-        setWorkoutStartTime(new Date()); 
+        setWorkoutStartTime(new Date());
       } else {
         toast({ title: "Błąd", description: "Nie znaleziono treningu.", variant: "destructive" });
         router.push("/workout/start");
@@ -201,7 +201,7 @@ export default function ActiveWorkoutPage() {
   }, [workoutId, router, toast]);
 
   React.useEffect(() => {
-    if (!workoutStartTime || isResting) return; 
+    if (!workoutStartTime || isResting) return;
     const timerInterval = setInterval(() => {
       setElapsedTime(Math.floor((new Date().getTime() - workoutStartTime.getTime()) / 1000));
     }, 1000);
@@ -235,7 +235,7 @@ export default function ActiveWorkoutPage() {
 
         if (relevantSessions.length > 0) {
           const lastSession = relevantSessions[0];
-          const lastSet = lastSession.setsPerformed[0]; 
+          const lastSet = lastSession.setsPerformed[0];
 
           if (lastSet) {
             const lastWeight = lastSet.weight;
@@ -255,8 +255,14 @@ export default function ActiveWorkoutPage() {
         return "Pierwszy raz to ćwiczenie? Daj z siebie wszystko i zanotuj wyniki!";
       };
       setProgressionSuggestion(getSuggestion(currentExercise.id, MOCK_WORKOUT_HISTORY_FOR_SUGGESTIONS));
+       setForm.reset({
+        weight: recordedSets[currentExercise.id]?.[recordedSets[currentExercise.id].length -1]?.weight?.toString() || "", // Pre-fill with last set's weight for this exercise
+        reps: "",
+        rpe: "",
+        notes: ""
+      });
     }
-  }, [currentExercise]);
+  }, [currentExercise, recordedSets]);
 
   const formatTime = (totalSeconds: number) => {
     const hours = Math.floor(totalSeconds / 3600);
@@ -281,7 +287,7 @@ export default function ActiveWorkoutPage() {
       [currentExercise.id]: [...(prev[currentExercise.id] || []), newSet],
     }));
 
-    setForm.reset({ weight: String(newSet.weight), reps: "", rpe: "", notes: "" }); 
+    setForm.reset({ weight: String(newSet.weight), reps: "", rpe: "", notes: "" });
 
     const restDuration = currentExercise.defaultRest || DEFAULT_REST_TIME;
     setRestTimer(restDuration);
@@ -295,8 +301,9 @@ export default function ActiveWorkoutPage() {
   const handleDeleteSet = (exerciseId: string, setIndexToDelete: number) => {
     setRecordedSets((prev) => {
       const setsForExercise = prev[exerciseId] || [];
-      const updatedSets = setsForExercise.filter((_, index) => index !== setIndexToDelete)
-                                       .map((s, i) => ({ ...s, setNumber: i + 1 })); 
+      const updatedSets = setsForExercise
+        .filter((_, index) => index !== setIndexToDelete)
+        .map((s, i) => ({ ...s, setNumber: i + 1 })); // Re-number sets
       return {
         ...prev,
         [exerciseId]: updatedSets,
@@ -308,7 +315,7 @@ export default function ActiveWorkoutPage() {
       variant: "default",
     });
   };
-  
+
   const handleExerciseNotesChange = (exerciseId: string, notes: string) => {
     setExerciseNotes(prev => ({ ...prev, [exerciseId]: notes }));
   };
@@ -319,13 +326,12 @@ export default function ActiveWorkoutPage() {
     setRestTimer(0);
     toast({ title: "Odpoczynek pominięty", variant: "default" });
   };
-  
+
   const handleNextExercise = () => {
     if (currentWorkout && currentExerciseIndex < currentWorkout.exercises.length - 1) {
       setCurrentExerciseIndex((prev) => prev + 1);
-      setIsResting(false); 
+      setIsResting(false);
       if (restIntervalRef.current) clearInterval(restIntervalRef.current);
-      setForm.reset({ weight: "", reps: "", rpe: "", notes: "" });
     } else {
       toast({ title: "To ostatnie ćwiczenie!", description: "Możesz teraz zakończyć trening.", variant: "default"});
     }
@@ -336,12 +342,11 @@ export default function ActiveWorkoutPage() {
       setCurrentExerciseIndex((prev) => prev - 1);
       setIsResting(false);
       if (restIntervalRef.current) clearInterval(restIntervalRef.current);
-      setForm.reset({ weight: "", reps: "", rpe: "", notes: "" });
     }
   };
 
   const handleFinishWorkout = () => {
-    setIsLoading(true); 
+    setIsLoading(true);
     if (!currentWorkout || !workoutStartTime) {
         toast({ title: "Błąd", description: "Nie można zakończyć treningu.", variant: "destructive"});
         setIsLoading(false);
@@ -356,7 +361,7 @@ export default function ActiveWorkoutPage() {
         totalTimeSeconds: elapsedTime,
         recordedSets: recordedSets,
         exercises: currentWorkout.exercises,
-        exerciseNotes: exerciseNotes, // Add exercise-specific notes
+        exerciseNotes: exerciseNotes,
     };
 
     try {
@@ -366,7 +371,7 @@ export default function ActiveWorkoutPage() {
             description: "Przekierowuję do podsumowania...",
             variant: "default",
         });
-        router.push(`/workout/summary`); 
+        router.push(`/workout/summary`);
     } catch (error) {
         console.error("Error saving summary data to localStorage:", error);
         toast({ title: "Błąd zapisu", description: "Nie udało się zapisać danych do podsumowania.", variant: "destructive"});
@@ -446,7 +451,7 @@ export default function ActiveWorkoutPage() {
           <Card className="mb-6">
             <CardHeader>
               <CardTitle className="text-2xl flex items-center gap-2">
-                <Target className="h-6 w-6 text-primary" /> 
+                <Target className="h-6 w-6 text-primary" />
                 {currentExercise.name}
               </CardTitle>
               {currentExerciseDetails?.category && (
@@ -519,8 +524,8 @@ export default function ActiveWorkoutPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <ListChecks className="h-6 w-6 text-primary" /> Rejestruj Serię
-                  {currentExercise.defaultSets && setsForCurrentExercise.length < currentExercise.defaultSets ? 
-                    ` (Sugerowana: ${setsForCurrentExercise.length + 1} z ${currentExercise.defaultSets})` : 
+                  {currentExercise.defaultSets && setsForCurrentExercise.length < currentExercise.defaultSets ?
+                    ` (Sugerowana: ${setsForCurrentExercise.length + 1} z ${currentExercise.defaultSets})` :
                     (setsForCurrentExercise.length > 0 ? ` (Seria ${setsForCurrentExercise.length + 1})` : ` (Seria 1)`)
                   }
                 </CardTitle>
@@ -610,9 +615,9 @@ export default function ActiveWorkoutPage() {
                         {set.rpe && <span className="ml-2 text-muted-foreground">(RPE: {set.rpe})</span>}
                         {set.notes && <p className="text-xs text-muted-foreground mt-1 italic">Notatka: {set.notes}</p>}
                       </div>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         className="text-destructive hover:text-destructive-foreground hover:bg-destructive/90 self-start sm:self-center"
                         onClick={() => currentExercise && handleDeleteSet(currentExercise.id, index)}
                         aria-label="Usuń serię"
