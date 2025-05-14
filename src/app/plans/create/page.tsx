@@ -23,7 +23,8 @@ import {
   Edit3,
   Loader2,
   Copy,
-  Menu, // For DropdownMenu trigger
+  Menu, 
+  LayoutDashboard, // For templates
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -65,10 +66,13 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 
 
-// Mock data for available workouts to select from - now state
 const INITIAL_MOCK_AVAILABLE_WORKOUTS: SelectableWorkout[] = [
   { id: "wk1", name: "Poranny Trening Siłowy", type: "Siłowy" },
   { id: "wk2", name: "Szybkie Cardio HIIT", type: "Cardio" },
@@ -80,6 +84,15 @@ const INITIAL_MOCK_AVAILABLE_WORKOUTS: SelectableWorkout[] = [
   { id: "template_pull", name: "Szablon Pull", type: "Siłowy"},
   { id: "template_legs", name: "Szablon Legs", type: "Siłowy"},
 ];
+
+const MOCK_DAY_TEMPLATES = [
+  { id: "tpl_push", name: "Szablon: Dzień Push (Klatka, Barki, Triceps)" },
+  { id: "tpl_pull", name: "Szablon: Dzień Pull (Plecy, Biceps)" },
+  { id: "tpl_legs", name: "Szablon: Dzień Nóg" },
+  { id: "tpl_full_body", name: "Szablon: Full Body Workout" },
+  { id: "tpl_active_rest", name: "Szablon: Odpoczynek Aktywny (np. Joga, Spacer)" },
+];
+
 
 const PLAN_GOALS_OPTIONS = [
   "Budowa siły",
@@ -99,6 +112,8 @@ const planDaySchema = z.object({
   dayName: z.string(),
   assignedWorkoutId: z.string().nullable().default(null),
   assignedWorkoutName: z.string().nullable().default(null),
+  templateId: z.string().nullable().default(null), // New
+  templateName: z.string().nullable().default(null), // New
   isRestDay: z.boolean().default(false),
 });
 
@@ -117,7 +132,14 @@ const planFormSchema = z.object({
 }, {
   message: "Data zakończenia nie może być wcześniejsza niż data rozpoczęcia.",
   path: ["endDate"],
+}).refine(data => {
+    // Ensure at least one day has some assignment (workout, template, or rest)
+    return data.days.some(day => day.assignedWorkoutId || day.templateId || day.isRestDay);
+}, {
+    message: "Plan musi zawierać przynajmniej jeden przypisany trening, szablon lub dzień odpoczynku.",
+    path: ["days"], 
 });
+
 
 type PlanFormValues = z.infer<typeof planFormSchema>;
 
@@ -145,6 +167,8 @@ export default function CreateTrainingPlanPage() {
         dayName,
         assignedWorkoutId: null,
         assignedWorkoutName: null,
+        templateId: null,
+        templateName: null,
         isRestDay: false,
       })),
     },
@@ -172,8 +196,11 @@ export default function CreateTrainingPlanPage() {
         ...currentDay,
         assignedWorkoutId: workout.id,
         assignedWorkoutName: workout.name,
+        templateId: null,
+        templateName: null,
         isRestDay: false,
       });
+       form.trigger("days"); // Manually trigger validation for the 'days' array
     }
     setIsWorkoutSelectionDialogOpen(false);
     setCurrentDayIndexToAssign(null);
@@ -183,10 +210,10 @@ export default function CreateTrainingPlanPage() {
     const newWorkout: SelectableWorkout = {
       id: uuidv4(),
       name: newWorkoutData.name,
-      type: newWorkoutData.workoutType || "Mieszany", // Default type if not provided
+      type: newWorkoutData.workoutType || "Mieszany", 
     };
 
-    setAvailableWorkouts(prev => [...prev, newWorkout]); // Add to global (mock) list
+    setAvailableWorkouts(prev => [...prev, newWorkout]);
 
     if (currentDayIndexToAssign !== null) {
       const currentDay = fields[currentDayIndexToAssign];
@@ -194,14 +221,16 @@ export default function CreateTrainingPlanPage() {
         ...currentDay,
         assignedWorkoutId: newWorkout.id,
         assignedWorkoutName: newWorkout.name,
+        templateId: null,
+        templateName: null,
         isRestDay: false,
       });
        toast({
         title: "Trening Utworzony i Przypisany!",
         description: `Trening "${newWorkout.name}" został utworzony i przypisany do dnia: ${fields[currentDayIndexToAssign].dayName}.`,
       });
+       form.trigger("days");
     } else {
-      // This case might happen if quick create was initiated globally, not for a specific day
        toast({
         title: "Trening Utworzony!",
         description: `Trening "${newWorkout.name}" został utworzony i dodany do listy dostępnych treningów.`,
@@ -211,6 +240,23 @@ export default function CreateTrainingPlanPage() {
     setCurrentDayIndexToAssign(null);
   };
 
+  const handleAssignTemplate = (dayIndex: number, template: { id: string; name: string }) => {
+    const currentDay = fields[dayIndex];
+    update(dayIndex, {
+      ...currentDay,
+      templateId: template.id,
+      templateName: template.name,
+      assignedWorkoutId: null,
+      assignedWorkoutName: null,
+      isRestDay: false,
+    });
+    toast({
+        title: "Szablon Przypisany",
+        description: `Szablon "${template.name}" został przypisany do dnia: ${fields[dayIndex].dayName}.`
+    });
+    form.trigger("days");
+  };
+
 
   const handleMarkAsRestDay = (dayIndex: number) => {
     const currentDay = fields[dayIndex];
@@ -218,8 +264,11 @@ export default function CreateTrainingPlanPage() {
       ...currentDay,
       assignedWorkoutId: null,
       assignedWorkoutName: null,
+      templateId: null,
+      templateName: null,
       isRestDay: true,
     });
+     form.trigger("days");
   };
 
   const handleRemoveAssignment = (dayIndex: number) => {
@@ -228,8 +277,11 @@ export default function CreateTrainingPlanPage() {
       ...currentDay,
       assignedWorkoutId: null,
       assignedWorkoutName: null,
+      templateId: null,
+      templateName: null,
       isRestDay: false,
     });
+    form.trigger("days");
   };
 
   async function onSubmit(values: PlanFormValues) {
@@ -238,15 +290,15 @@ export default function CreateTrainingPlanPage() {
     console.log("Training Plan data submitted:", values);
     console.log("Current available workouts:", availableWorkouts);
 
-
     await new Promise(resolve => setTimeout(resolve, 1500));
 
-    const hasAnyAssignment = values.days.some(day => day.assignedWorkoutId || day.isRestDay);
-    if (!hasAnyAssignment) {
-        form.setError("days", { type: "manual", message: "Plan musi zawierać przynajmniej jeden trening lub dzień odpoczynku."});
-        setIsLoading(false);
-        return;
-    }
+    // The Zod schema now handles this validation:
+    // const hasAnyAssignment = values.days.some(day => day.assignedWorkoutId || day.templateId || day.isRestDay);
+    // if (!hasAnyAssignment) {
+    //     form.setError("days", { type: "manual", message: "Plan musi zawierać przynajmniej jeden trening, szablon lub dzień odpoczynku."});
+    //     setIsLoading(false);
+    //     return;
+    // }
 
     toast({
       title: "Plan treningowy zapisany!",
@@ -435,7 +487,7 @@ export default function CreateTrainingPlanPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>Struktura Tygodniowa Planu</CardTitle>
-                  <CardDescription>Przypisz treningi do poszczególnych dni tygodnia lub oznacz je jako dni odpoczynku.</CardDescription>
+                  <CardDescription>Przypisz treningi, szablony dni lub oznacz dni odpoczynku.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {fields.map((day, index) => (
@@ -447,12 +499,14 @@ export default function CreateTrainingPlanPage() {
                             </Button>
                         </div>
                       <div className="min-h-[40px] mb-3 p-3 border border-dashed rounded-md bg-background flex items-center justify-center">
-                        {day.isRestDay ? (
+                        {day.templateName ? (
+                          <span className="text-purple-600 dark:text-purple-400 flex items-center"><LayoutDashboard className="mr-2 h-5 w-5"/> {day.templateName}</span>
+                        ) : day.isRestDay ? (
                           <span className="text-green-600 flex items-center"><Coffee className="mr-2 h-5 w-5"/> Dzień Odpoczynku</span>
                         ) : day.assignedWorkoutName ? (
                           <span className="text-primary font-semibold">{day.assignedWorkoutName}</span>
                         ) : (
-                          <span className="text-muted-foreground">Brak przypisanego treningu</span>
+                          <span className="text-muted-foreground">Brak przypisanej aktywności</span>
                         )}
                       </div>
                       <div className="flex flex-wrap gap-2">
@@ -460,36 +514,42 @@ export default function CreateTrainingPlanPage() {
                           <DropdownMenuTrigger asChild>
                             <Button variant="outline" size="sm" disabled={isLoading}>
                               <Menu className="mr-2 h-4 w-4"/> 
-                              {day.assignedWorkoutId || day.isRestDay ? "Zmień Przypisanie" : "Przypisz Aktywność"}
+                              {day.assignedWorkoutId || day.templateId || day.isRestDay ? "Zmień Przypisanie" : "Przypisz Aktywność"}
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent>
                             <DropdownMenuItem onClick={() => handleOpenWorkoutSelectionDialog(index)}>
-                              <PlusCircle className="mr-2 h-4 w-4"/> Wybierz z Istniejących
+                              <PlusCircle className="mr-2 h-4 w-4"/> Wybierz Istniejący Trening
                             </DropdownMenuItem>
+                            <DropdownMenuSub>
+                                <DropdownMenuSubTrigger>
+                                    <LayoutDashboard className="mr-2 h-4 w-4"/> Przypisz Szablon Dnia
+                                </DropdownMenuSubTrigger>
+                                <DropdownMenuSubContent>
+                                    {MOCK_DAY_TEMPLATES.map(template => (
+                                        <DropdownMenuItem key={template.id} onClick={() => handleAssignTemplate(index, template)}>
+                                            {template.name}
+                                        </DropdownMenuItem>
+                                    ))}
+                                    {MOCK_DAY_TEMPLATES.length === 0 && <DropdownMenuItem disabled>Brak zdefiniowanych szablonów</DropdownMenuItem>}
+                                </DropdownMenuSubContent>
+                            </DropdownMenuSub>
                             <DropdownMenuItem onClick={() => handleOpenQuickCreateDialog(index)}>
                               <Edit3 className="mr-2 h-4 w-4"/> Szybkie Stwórz Nowy Trening
                             </DropdownMenuItem>
+                            <DropdownMenuSeparator />
                             {!day.isRestDay && (
                                 <DropdownMenuItem onClick={() => handleMarkAsRestDay(index)}>
                                 <Coffee className="mr-2 h-4 w-4"/> Oznacz jako Dzień Odpoczynku
                                 </DropdownMenuItem>
                             )}
+                             {(day.assignedWorkoutId || day.isRestDay || day.templateId) && (
+                                <DropdownMenuItem onClick={() => handleRemoveAssignment(index)} className="text-destructive focus:text-destructive">
+                                    <Trash2 className="mr-2 h-4 w-4"/> Usuń przypisanie
+                                </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
-                        
-                        {(day.assignedWorkoutId || day.isRestDay) && (
-                          <Button 
-                            type="button" 
-                            variant="ghost" 
-                            size="sm" 
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => handleRemoveAssignment(index)}
-                            disabled={isLoading}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4"/> Usuń przypisanie
-                          </Button>
-                        )}
                       </div>
                     </Card>
                   ))}
@@ -532,7 +592,7 @@ export default function CreateTrainingPlanPage() {
       <SelectWorkoutDialog
         isOpen={isWorkoutSelectionDialogOpen}
         onOpenChange={setIsWorkoutSelectionDialogOpen}
-        availableWorkouts={availableWorkouts} // Pass state variable
+        availableWorkouts={availableWorkouts}
         onWorkoutSelected={handleWorkoutSelected}
       />
       <QuickCreateWorkoutDialog
