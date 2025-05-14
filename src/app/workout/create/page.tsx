@@ -68,7 +68,7 @@ type WorkoutFormValues = z.infer<typeof workoutFormSchema>;
 // type ExerciseInForm = z.infer<typeof exerciseSchema>; // This is the type for exercises *within the form*
 
 // Simulated available exercises for the selection dialog
-const MOCK_EXERCISES_DATABASE: SelectableExercise[] = [
+export const MOCK_EXERCISES_DATABASE: SelectableExercise[] = [
   { id: "ex1", name: "Wyciskanie sztangi na ławce płaskiej", category: "Klatka" },
   { id: "ex2", name: "Przysiady ze sztangą", category: "Nogi" },
   { id: "ex3", name: "Martwy ciąg", category: "Plecy" },
