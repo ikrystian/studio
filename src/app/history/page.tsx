@@ -109,9 +109,8 @@ const MOCK_HISTORY_SESSIONS: HistoricalWorkoutSession[] = [
    {
     id: "hist3",
     workoutId: "wk1",
-    workoutName: "Poranny Trening Siłowy",
-    workoutType: "Siłowy",
-    startTime: "2024-07-29T08:15:00.000Z",
+    workoutName: "Poranny Trening Siłowy", // Same name, different date
+    startTime: "2024-07-29T08:15:00.000Z", // Problematic date from error log
     endTime: "2024-07-29T09:20:00.000Z",
     totalTimeSeconds: 3900,
     recordedSets: {
@@ -125,6 +124,7 @@ const MOCK_HISTORY_SESSIONS: HistoricalWorkoutSession[] = [
       { id: "ex4", name: "Podciąganie na drążku" },
     ],
     difficulty: DifficultyRating.Sredni,
+    workoutType: "Siłowy",
     calculatedTotalVolume: (65*10) + (70*8) + (70*7) + (100*6) + (105*5), // Assuming BW is not numeric volume
   },
 ];
@@ -138,6 +138,22 @@ const formatTime = (totalSeconds: number) => {
   const seconds = totalSeconds % 60;
   if (hours > 0) return `${String(hours).padStart(2, "0")}h ${String(minutes).padStart(2, "0")}m`;
   return `${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
+};
+
+// Small component to handle client-side date formatting
+const ClientFormattedDate = ({ isoDateString, formatString }: { isoDateString: string, formatString: string }) => {
+  const [formattedDate, setFormattedDate] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    try {
+      setFormattedDate(format(parseISO(isoDateString), formatString, { locale: pl }));
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      setFormattedDate("Nieprawidłowa data");
+    }
+  }, [isoDateString, formatString]);
+
+  return <>{formattedDate || "Ładowanie daty..."}</>; // Show loading or placeholder
 };
 
 
@@ -318,7 +334,7 @@ export default function WorkoutHistoryPage() {
                     <CardHeader>
                       <CardTitle className="text-xl">{session.workoutName}</CardTitle>
                       <CardDescription>
-                        Data: {format(parseISO(session.startTime), "PPPp", { locale: pl })}
+                        Data: <ClientFormattedDate isoDateString={session.startTime} formatString="PPPp" />
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-2 text-sm">
