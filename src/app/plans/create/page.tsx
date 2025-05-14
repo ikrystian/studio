@@ -23,8 +23,9 @@ import {
   Edit3,
   Loader2,
   Copy,
-  Menu, 
-  LayoutDashboard, // For templates
+  Menu,
+  LayoutDashboard,
+  ClipboardPaste, // New icon for paste
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -112,10 +113,12 @@ const planDaySchema = z.object({
   dayName: z.string(),
   assignedWorkoutId: z.string().nullable().default(null),
   assignedWorkoutName: z.string().nullable().default(null),
-  templateId: z.string().nullable().default(null), // New
-  templateName: z.string().nullable().default(null), // New
+  templateId: z.string().nullable().default(null),
+  templateName: z.string().nullable().default(null),
   isRestDay: z.boolean().default(false),
 });
+export type PlanDayFormValues = z.infer<typeof planDaySchema>;
+
 
 const planFormSchema = z.object({
   planName: z.string().min(1, "Nazwa planu jest wymagana."),
@@ -133,11 +136,10 @@ const planFormSchema = z.object({
   message: "Data zakończenia nie może być wcześniejsza niż data rozpoczęcia.",
   path: ["endDate"],
 }).refine(data => {
-    // Ensure at least one day has some assignment (workout, template, or rest)
     return data.days.some(day => day.assignedWorkoutId || day.templateId || day.isRestDay);
 }, {
     message: "Plan musi zawierać przynajmniej jeden przypisany trening, szablon lub dzień odpoczynku.",
-    path: ["days"], 
+    path: ["days"],
 });
 
 
@@ -148,12 +150,16 @@ export default function CreateTrainingPlanPage() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = React.useState(false);
   const [serverError, setServerError] = React.useState<string | null>(null);
-  
+
   const [isWorkoutSelectionDialogOpen, setIsWorkoutSelectionDialogOpen] = React.useState(false);
   const [isQuickCreateWorkoutDialogOpen, setIsQuickCreateWorkoutDialogOpen] = React.useState(false);
   const [currentDayIndexToAssign, setCurrentDayIndexToAssign] = React.useState<number | null>(null);
 
   const [availableWorkouts, setAvailableWorkouts] = React.useState<SelectableWorkout[]>(INITIAL_MOCK_AVAILABLE_WORKOUTS);
+
+  const [copiedDayConfig, setCopiedDayConfig] = React.useState<Omit<PlanDayFormValues, 'dayName'> | null>(null);
+  const [isPastingModeActive, setIsPastingModeActive] = React.useState(false);
+
 
   const form = useForm<PlanFormValues>({
     resolver: zodResolver(planFormSchema),
@@ -200,17 +206,17 @@ export default function CreateTrainingPlanPage() {
         templateName: null,
         isRestDay: false,
       });
-       form.trigger("days"); // Manually trigger validation for the 'days' array
+       form.trigger("days");
     }
     setIsWorkoutSelectionDialogOpen(false);
     setCurrentDayIndexToAssign(null);
   };
-  
+
   const handleQuickWorkoutCreated = (newWorkoutData: QuickCreateWorkoutFormData) => {
     const newWorkout: SelectableWorkout = {
       id: uuidv4(),
       name: newWorkoutData.name,
-      type: newWorkoutData.workoutType || "Mieszany", 
+      type: newWorkoutData.workoutType || "Mieszany",
     };
 
     setAvailableWorkouts(prev => [...prev, newWorkout]);
@@ -284,6 +290,43 @@ export default function CreateTrainingPlanPage() {
     form.trigger("days");
   };
 
+  const handleCopyDay = (sourceDayIndex: number) => {
+    const dayToCopy = { ...form.getValues(`days.${sourceDayIndex}`) };
+    // We don't want to copy the dayName itself, just its config
+    const { dayName, ...configToCopy } = dayToCopy; 
+    setCopiedDayConfig(configToCopy as Omit<PlanDayFormValues, 'dayName'>);
+    setIsPastingModeActive(true);
+    toast({
+      title: "Dzień Skopiowany",
+      description: `Konfiguracja dnia "${dayName}" została skopiowana. Wybierz dzień docelowy, aby wkleić.`,
+    });
+  };
+
+  const handlePasteDay = (targetDayIndex: number) => {
+    if (copiedDayConfig) {
+      const targetDayName = form.getValues(`days.${targetDayIndex}.dayName`);
+      const newDayData = { ...copiedDayConfig, dayName: targetDayName } as PlanDayFormValues;
+      update(targetDayIndex, newDayData);
+      setCopiedDayConfig(null);
+      setIsPastingModeActive(false);
+      toast({
+        title: "Konfiguracja Wklejona",
+        description: `Skopiowana konfiguracja została wklejona do dnia "${targetDayName}".`,
+      });
+      form.trigger("days");
+    }
+  };
+
+  const handleCancelPasting = () => {
+    setCopiedDayConfig(null);
+    setIsPastingModeActive(false);
+    toast({
+      title: "Anulowano Wklejanie",
+      description: "Operacja wklejania konfiguracji dnia została anulowana.",
+    });
+  };
+
+
   async function onSubmit(values: PlanFormValues) {
     setIsLoading(true);
     setServerError(null);
@@ -291,14 +334,6 @@ export default function CreateTrainingPlanPage() {
     console.log("Current available workouts:", availableWorkouts);
 
     await new Promise(resolve => setTimeout(resolve, 1500));
-
-    // The Zod schema now handles this validation:
-    // const hasAnyAssignment = values.days.some(day => day.assignedWorkoutId || day.templateId || day.isRestDay);
-    // if (!hasAnyAssignment) {
-    //     form.setError("days", { type: "manual", message: "Plan musi zawierać przynajmniej jeden trening, szablon lub dzień odpoczynku."});
-    //     setIsLoading(false);
-    //     return;
-    // }
 
     toast({
       title: "Plan treningowy zapisany!",
@@ -323,10 +358,16 @@ export default function CreateTrainingPlanPage() {
             <ClipboardEdit className="h-8 w-8 text-primary" />
             <h1 className="text-2xl font-bold">Stwórz Nowy Plan Treningowy</h1>
           </div>
-          <Button form="training-plan-form" type="submit" disabled={isLoading}>
-            {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
-            Zapisz Plan
-          </Button>
+          {isPastingModeActive ? (
+            <Button variant="destructive" onClick={handleCancelPasting} size="sm">
+              <XCircle className="mr-2 h-4 w-4" /> Anuluj Wklejanie
+            </Button>
+          ) : (
+            <Button form="training-plan-form" type="submit" disabled={isLoading}>
+              {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
+              Zapisz Plan
+            </Button>
+          )}
         </div>
       </header>
 
@@ -404,8 +445,8 @@ export default function CreateTrainingPlanPage() {
                                 disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) || isLoading}
                                 initialFocus
                                 locale={pl}
-                                captionLayout="dropdown-buttons" 
-                                fromYear={new Date().getFullYear() - 5} 
+                                captionLayout="dropdown-buttons"
+                                fromYear={new Date().getFullYear() - 5}
                                 toYear={new Date().getFullYear() + 5}
                               />
                             </PopoverContent>
@@ -441,14 +482,14 @@ export default function CreateTrainingPlanPage() {
                                 mode="single"
                                 selected={field.value}
                                 onSelect={field.onChange}
-                                disabled={(date) => 
-                                  (form.getValues("startDate") ? date < form.getValues("startDate")! : date < new Date(new Date().setHours(0,0,0,0))) 
+                                disabled={(date) =>
+                                  (form.getValues("startDate") ? date < form.getValues("startDate")! : date < new Date(new Date().setHours(0,0,0,0)))
                                   || isLoading
                                 }
                                 initialFocus
                                 locale={pl}
-                                captionLayout="dropdown-buttons" 
-                                fromYear={new Date().getFullYear() - 5} 
+                                captionLayout="dropdown-buttons"
+                                fromYear={new Date().getFullYear() - 5}
                                 toYear={new Date().getFullYear() + 5}
                               />
                             </PopoverContent>
@@ -487,16 +528,22 @@ export default function CreateTrainingPlanPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>Struktura Tygodniowa Planu</CardTitle>
-                  <CardDescription>Przypisz treningi, szablony dni lub oznacz dni odpoczynku.</CardDescription>
+                  <CardDescription>
+                    {isPastingModeActive
+                      ? "Wybierz dzień, do którego chcesz wkleić skopiowaną konfigurację."
+                      : "Przypisz treningi, szablony dni lub oznacz dni odpoczynku."}
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {fields.map((day, index) => (
                     <Card key={day.id} className="p-4 bg-muted/20">
                         <div className="flex justify-between items-start mb-2">
                             <CardTitle className="text-lg">{day.dayName}</CardTitle>
-                            <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-primary" onClick={() => toast({title: "Funkcja 'Kopiuj dzień' wkrótce!", description: "Możliwość kopiowania konfiguracji dnia będzie dostępna w przyszłości."})}>
-                               <Copy className="mr-1 h-3 w-3"/> Kopiuj dzień (Wkrótce)
-                            </Button>
+                            {!isPastingModeActive && (
+                              <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-primary" onClick={() => handleCopyDay(index)} disabled={isLoading}>
+                                 <Copy className="mr-1 h-3 w-3"/> Kopiuj ten dzień
+                              </Button>
+                            )}
                         </div>
                       <div className="min-h-[40px] mb-3 p-3 border border-dashed rounded-md bg-background flex items-center justify-center">
                         {day.templateName ? (
@@ -510,46 +557,57 @@ export default function CreateTrainingPlanPage() {
                         )}
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm" disabled={isLoading}>
-                              <Menu className="mr-2 h-4 w-4"/> 
-                              {day.assignedWorkoutId || day.templateId || day.isRestDay ? "Zmień Przypisanie" : "Przypisz Aktywność"}
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent>
-                            <DropdownMenuItem onClick={() => handleOpenWorkoutSelectionDialog(index)}>
-                              <PlusCircle className="mr-2 h-4 w-4"/> Wybierz Istniejący Trening
-                            </DropdownMenuItem>
-                            <DropdownMenuSub>
-                                <DropdownMenuSubTrigger>
-                                    <LayoutDashboard className="mr-2 h-4 w-4"/> Przypisz Szablon Dnia
-                                </DropdownMenuSubTrigger>
-                                <DropdownMenuSubContent>
-                                    {MOCK_DAY_TEMPLATES.map(template => (
-                                        <DropdownMenuItem key={template.id} onClick={() => handleAssignTemplate(index, template)}>
-                                            {template.name}
-                                        </DropdownMenuItem>
-                                    ))}
-                                    {MOCK_DAY_TEMPLATES.length === 0 && <DropdownMenuItem disabled>Brak zdefiniowanych szablonów</DropdownMenuItem>}
-                                </DropdownMenuSubContent>
-                            </DropdownMenuSub>
-                            <DropdownMenuItem onClick={() => handleOpenQuickCreateDialog(index)}>
-                              <Edit3 className="mr-2 h-4 w-4"/> Szybkie Stwórz Nowy Trening
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            {!day.isRestDay && (
-                                <DropdownMenuItem onClick={() => handleMarkAsRestDay(index)}>
-                                <Coffee className="mr-2 h-4 w-4"/> Oznacz jako Dzień Odpoczynku
-                                </DropdownMenuItem>
-                            )}
-                             {(day.assignedWorkoutId || day.isRestDay || day.templateId) && (
-                                <DropdownMenuItem onClick={() => handleRemoveAssignment(index)} className="text-destructive focus:text-destructive">
-                                    <Trash2 className="mr-2 h-4 w-4"/> Usuń przypisanie
-                                </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        {isPastingModeActive ? (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => handlePasteDay(index)}
+                            disabled={isLoading}
+                          >
+                            <ClipboardPaste className="mr-2 h-4 w-4" /> Wklej konfigurację tutaj
+                          </Button>
+                        ) : (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="outline" size="sm" disabled={isLoading}>
+                                <Menu className="mr-2 h-4 w-4"/>
+                                {day.assignedWorkoutId || day.templateId || day.isRestDay ? "Zmień Przypisanie" : "Przypisz Aktywność"}
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                              <DropdownMenuItem onClick={() => handleOpenWorkoutSelectionDialog(index)}>
+                                <PlusCircle className="mr-2 h-4 w-4"/> Wybierz Istniejący Trening
+                              </DropdownMenuItem>
+                              <DropdownMenuSub>
+                                  <DropdownMenuSubTrigger>
+                                      <LayoutDashboard className="mr-2 h-4 w-4"/> Przypisz Szablon Dnia
+                                  </DropdownMenuSubTrigger>
+                                  <DropdownMenuSubContent>
+                                      {MOCK_DAY_TEMPLATES.map(template => (
+                                          <DropdownMenuItem key={template.id} onClick={() => handleAssignTemplate(index, template)}>
+                                              {template.name}
+                                          </DropdownMenuItem>
+                                      ))}
+                                      {MOCK_DAY_TEMPLATES.length === 0 && <DropdownMenuItem disabled>Brak zdefiniowanych szablonów</DropdownMenuItem>}
+                                  </DropdownMenuSubContent>
+                              </DropdownMenuSub>
+                              <DropdownMenuItem onClick={() => handleOpenQuickCreateDialog(index)}>
+                                <Edit3 className="mr-2 h-4 w-4"/> Szybkie Stwórz Nowy Trening
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              {!day.isRestDay && (
+                                  <DropdownMenuItem onClick={() => handleMarkAsRestDay(index)}>
+                                  <Coffee className="mr-2 h-4 w-4"/> Oznacz jako Dzień Odpoczynku
+                                  </DropdownMenuItem>
+                              )}
+                               {(day.assignedWorkoutId || day.isRestDay || day.templateId) && (
+                                  <DropdownMenuItem onClick={() => handleRemoveAssignment(index)} className="text-destructive focus:text-destructive">
+                                      <Trash2 className="mr-2 h-4 w-4"/> Usuń przypisanie
+                                  </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
                       </div>
                     </Card>
                   ))}
@@ -575,15 +633,19 @@ export default function CreateTrainingPlanPage() {
                     </Alert>
                 </CardContent>
                </Card>
-              
+
               <div className="flex justify-end space-x-4">
-                <Button type="button" variant="outline" onClick={() => router.push('/plans')} disabled={isLoading}>
-                  Anuluj
-                </Button>
-                <Button type="submit" disabled={isLoading}>
-                   {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
-                  Zapisz Plan
-                </Button>
+                 {!isPastingModeActive && (
+                    <Button type="button" variant="outline" onClick={() => router.push('/plans')} disabled={isLoading}>
+                    Anuluj
+                    </Button>
+                 )}
+                {!isPastingModeActive && (
+                    <Button type="submit" disabled={isLoading}>
+                    {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
+                    Zapisz Plan
+                    </Button>
+                )}
               </div>
             </form>
           </Form>
@@ -603,4 +665,3 @@ export default function CreateTrainingPlanPage() {
     </div>
   );
 }
-
