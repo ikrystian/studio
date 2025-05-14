@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation"; // Removed useSearchParams as it's not used here
 import { format } from "date-fns";
 import {
   User,
@@ -20,7 +20,7 @@ import {
   TrendingUp,
   Loader2,
   AlertCircle,
-  CheckCircle2,
+  // CheckCircle2, // Not used directly for server success message here
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -141,21 +141,21 @@ export function RegistrationForm() {
 
     // Simulate backend validation and user creation
     // In a real app, you would make an API call here
+    
+    // Simulate email conflict with the test user from login form
+    if (values.email === "test@example.com") {
+      setServerError("This email address is already registered.");
+      form.setError("email", { type: "manual", message: "This email address is already registered." });
+      setIsLoading(false);
+      return;
+    }
+
     // For demonstration, let's assume registration is successful
-    // and there's no email conflict.
-
-    // Example of simulated email conflict:
-    // if (values.email === "taken@example.com") {
-    //   setServerError("This email address is already registered.");
-    //   form.setError("email", { type: "manual", message: "This email address is already registered." });
-    //   setIsLoading(false);
-    //   return;
-    // }
-
+    // and there's no other email conflict.
     toast({
       title: "Registration Successful!",
       description: "Your account has been created. Please log in.",
-      variant: "default", // Shadcn toast doesn't have an explicit 'success' variant, default works well.
+      variant: "default", 
     });
     router.push("/login?registered=true"); // Redirect to login page with a success indicator
 
@@ -478,4 +478,3 @@ export function RegistrationForm() {
   );
 }
 
-    
