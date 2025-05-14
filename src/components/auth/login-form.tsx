@@ -6,8 +6,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation"; // Added useSearchParams
-import { Facebook, AlertCircle, Loader2, CheckCircle2 } from "lucide-react"; // Added CheckCircle2
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { Facebook, AlertCircle, Loader2, CheckCircle2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -42,7 +42,8 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 export function LoginForm() {
   const router = useRouter();
-  const searchParams = useSearchParams(); // Get search params
+  const searchParams = useSearchParams();
+  const pathname = usePathname(); // Get current pathname
   const { toast } = useToast();
   const [isLoading, setIsLoading] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
@@ -50,55 +51,68 @@ export function LoginForm() {
 
 
   React.useEffect(() => {
-    if (searchParams?.get("registered") === "true") {
-      setSuccessMessage("Registration successful! Please log in to continue.");
-      // Optionally, clear the query param from URL if desired, though not strictly necessary
-      // router.replace('/login', { scroll: false }); // This would remove the query param
+    const currentSearchParams = new URLSearchParams(searchParams.toString());
+    let paramsModified = false;
 
-      // Or use a toast for a less permanent message
+    if (currentSearchParams.get("registered") === "true") {
+      setSuccessMessage("Rejestracja zakończona sukcesem! Możesz się teraz zalogować.");
       toast({
-        title: "Registration Successful!",
-        description: "You can now log in with your new account.",
-        variant: "default", // Using default as a positive feedback, Shadcn doesn't have explicit 'success'
-        duration: 5000,
-      });
-    }
-     if (searchParams?.get("verified") === "true") {
-      toast({
-        title: "Email Verified!",
-        description: "Your email has been successfully verified. Please log in.",
+        title: "Rejestracja Zakończona Sukcesem!",
+        description: "Możesz teraz zalogować się na swoje nowe konto.",
         variant: "default",
-        duration: 5000,
+        duration: 6000,
       });
+      currentSearchParams.delete("registered");
+      paramsModified = true;
     }
-  }, [searchParams, router, toast]);
+    if (currentSearchParams.get("verified") === "true") {
+      // Ensure successMessage for registration isn't overwritten if both params were present
+      if (!successMessage) {
+         toast({
+            title: "Email Zweryfikowany!",
+            description: "Twój email został pomyślnie zweryfikowany. Proszę się zalogować.",
+            variant: "default",
+            duration: 6000,
+        });
+      }
+      currentSearchParams.delete("verified");
+      paramsModified = true;
+    }
 
+    if (paramsModified && pathname === "/login") {
+      // Only replace history if we are indeed on the login page and params were changed
+      const newQuery = currentSearchParams.toString();
+      router.replace(`/login${newQuery ? `?${newQuery}` : ''}`, { scroll: false });
+    }
+  }, [searchParams, router, toast, pathname, successMessage]); // Added pathname and successMessage to dependencies
 
-  const form = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-    },
-  });
 
   async function onSubmit(values: LoginFormValues) {
     setIsLoading(true);
     setErrorMessage(null);
-    setSuccessMessage(null); // Clear success message on new attempt
+    setSuccessMessage(null);
 
     // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Shortened for quicker testing
 
-    // Simulate authentication logic
+    let navigated = false;
     if (values.email === "test@example.com" && values.password === "password") {
-      // On successful login:
-      router.push("/dashboard");
+      try {
+        await router.push("/dashboard");
+        navigated = true;
+        // If router.push is successful, this component should unmount.
+        // No need to setIsLoading(false) here if navigation succeeds.
+      } catch (e) {
+        console.error("Navigation to dashboard failed:", e);
+        setErrorMessage("Błąd nawigacji do panelu głównego. Spróbuj ponownie.");
+      }
     } else {
-      setErrorMessage("Invalid email or password. Please try again.");
+      setErrorMessage("Nieprawidłowy email lub hasło. Spróbuj ponownie.");
     }
 
-    setIsLoading(false);
+    if (!navigated) {
+      setIsLoading(false); // If navigation didn't occur or failed, reset loading state
+    }
   }
 
   const handleSocialLogin = (provider: "google" | "facebook") => {
@@ -118,20 +132,20 @@ export function LoginForm() {
     <Card className="w-full max-w-md shadow-2xl">
       <CardHeader className="space-y-1 text-center">
         <CardTitle className="text-3xl font-bold">WorkoutWise Login</CardTitle>
-        <CardDescription>Enter your credentials to access your account</CardDescription>
+        <CardDescription>Wprowadź swoje dane, aby uzyskać dostęp do konta</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {errorMessage && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Login Failed</AlertTitle>
+            <AlertTitle>Logowanie Nieudane</AlertTitle>
             <AlertDescription>{errorMessage}</AlertDescription>
           </Alert>
         )}
-        {successMessage && !errorMessage && ( // Only show if no error
+        {successMessage && !errorMessage && (
           <Alert variant="default" className="border-green-500 dark:border-green-400">
             <CheckCircle2 className="h-4 w-4 text-green-500 dark:text-green-400" />
-            <AlertTitle className="text-green-700 dark:text-green-300">Success</AlertTitle>
+            <AlertTitle className="text-green-700 dark:text-green-300">Sukces</AlertTitle>
             <AlertDescription className="text-green-700 dark:text-green-300">
               {successMessage}
             </AlertDescription>
@@ -148,7 +162,7 @@ export function LoginForm() {
                   <FormControl>
                     <Input 
                       type="email" 
-                      placeholder="yourname@example.com" 
+                      placeholder="twojemail@example.com" 
                       {...field} 
                       disabled={isLoading}
                       aria-describedby="email-error"
@@ -163,7 +177,7 @@ export function LoginForm() {
               name="password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Password</FormLabel>
+                  <FormLabel>Hasło</FormLabel>
                   <FormControl>
                     <Input 
                       type="password" 
@@ -181,7 +195,7 @@ export function LoginForm() {
               {isLoading ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
-                "Login"
+                "Zaloguj się"
               )}
             </Button>
           </form>
@@ -193,7 +207,7 @@ export function LoginForm() {
           </div>
           <div className="relative flex justify-center text-xs uppercase">
             <span className="bg-card px-2 text-muted-foreground">
-              Or continue with
+              Lub kontynuuj przez
             </span>
           </div>
         </div>
@@ -211,12 +225,12 @@ export function LoginForm() {
       </CardContent>
       <CardFooter className="flex flex-col items-center space-y-2 text-sm">
         <Link href="#" className="font-medium text-primary hover:underline">
-          Forgot your password?
+          Zapomniałeś hasła?
         </Link>
         <p className="text-muted-foreground">
-          Don&apos;t have an account?{" "}
+          Nie masz konta?{" "}
           <Link href="/register" className="font-medium text-primary hover:underline">
-            Sign up
+            Zarejestruj się
           </Link>
         </p>
       </CardFooter>
