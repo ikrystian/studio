@@ -17,6 +17,7 @@ import {
   ClipboardList,
   Dumbbell,
   Flame,
+  HeartPulse, // Added for Wellness Journal
   History,
   MessageSquare,
   PlayCircle,
@@ -75,6 +76,7 @@ const navItems = [
   { href: '/community', label: 'Społeczność', icon: Users, description: 'Connect with others' },
   { href: '/measurements', label: 'Pomiary', icon: Scale, description: 'Log your metrics' },
   { href: '/progress-photos', label: 'Zdjęcia Postępu', icon: Camera, description: 'Track visual changes' },
+  { href: '/wellness-journal', label: 'Dziennik Samopoczucia', icon: HeartPulse, description: 'Log your well-being' },
   { href: `/profile/${userData.id}`, label: 'Mój Profil', icon: UserIcon, description: 'View & edit your profile' },
   { href: '/settings', label: 'Ustawienia', icon: Settings, description: 'Manage app settings' },
   { href: '/tools/rest-timer', label: 'Timer Odpoczynku', icon: Timer, description: 'Standalone rest timer' },
