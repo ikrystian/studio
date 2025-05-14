@@ -46,8 +46,8 @@ import {
   ResponsiveContainer,
   Tooltip as RechartsTooltip,
 } from "recharts";
-import { useToast } from "@/hooks/use-toast"; 
-import { DatePicker } from "@/components/ui/date-picker"; 
+import { useToast } from "@/hooks/use-toast";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -64,6 +64,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger, // Added AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 
@@ -190,7 +191,7 @@ export interface UserGoal extends AddGoalFormData {
 }
 
 const INITIAL_USER_GOALS: UserGoal[] = [
-  { id: "goal1", goalName: "Przysiad 120kg x 5", metric: "Przysiady ze sztangą - Objętość", currentValue: 110 * 5, targetValue: 120 * 5, deadline: parseISO("2024-12-31"), notes: "Cel na koniec roku" },
+  { id: "goal1", goalName: "Przysiad 120kg x 5", metric: "Przysiady ze sztangą - Objętość", currentValue: (110 * 5), targetValue: (120 * 5), deadline: parseISO("2024-12-31"), notes: "Cel na koniec roku" },
   { id: "goal2", goalName: "Wyciskanie 80kg", metric: "Wyciskanie sztangi na ławce płaskiej - Max Ciężar", currentValue: 75, targetValue: 80, deadline: parseISO("2024-10-30"), notes: "Cel na jesień" },
   { id: "goal3", goalName: "Trenuj 4x w tygodniu", metric: "Częstotliwość treningów", currentValue: 3, targetValue: 4, deadline: undefined, notes: "Cel regularności" },
 ];
@@ -256,10 +257,8 @@ export default function StatisticsPage() {
      if (exerciseIdFromQuery && volumeChartExercises.some(ex => ex.id === exerciseIdFromQuery)) {
       setSelectedExerciseIdForVolume(exerciseIdFromQuery);
     } else if (!exerciseIdFromQuery && volumeChartExercises.length > 0) {
-      // If no query param, and we have exercises, default to the first one
       setSelectedExerciseIdForVolume(volumeChartExercises[0].id);
     } else if (volumeChartExercises.length === 0) {
-      // If no exercises available for this chart, set to an empty string or a placeholder
       setSelectedExerciseIdForVolume("");
     }
   }, [exerciseIdFromQuery, volumeChartExercises]);
@@ -271,10 +270,10 @@ export default function StatisticsPage() {
         const element = document.getElementById('exercise-volume-chart-card');
         if (element) {
           element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-           const selectedExercise = volumeChartExercises.find(ex => ex.id === selectedExerciseIdForVolume); // Use current selection
+           const selectedExercise = MOCK_EXERCISES_FOR_STATS_FILTER.find(ex => ex.id === selectedExerciseIdForVolume); 
            const messageExerciseName = exerciseNameFromQuery || selectedExercise?.name || "wybranego ćwiczenia";
            
-           if (volumeChartExercises.some(ex => ex.id === exerciseIdFromQuery)) {
+           if (MOCK_EXERCISES_FOR_STATS_FILTER.some(ex => ex.id === exerciseIdFromQuery)) {
              toast({
                 title: "Analiza Ćwiczenia",
                 description: `Wyświetlanie trendu objętości dla: ${messageExerciseName}.`,
@@ -291,7 +290,7 @@ export default function StatisticsPage() {
       }, 150);
       return () => clearTimeout(timer);
     }
-  }, [exerciseIdFromQuery, exerciseNameFromQuery, toast, selectedExerciseIdForVolume, volumeChartExercises]);
+  }, [exerciseIdFromQuery, exerciseNameFromQuery, toast, selectedExerciseIdForVolume]);
 
   const handleApplyGlobalFilters = React.useCallback(() => {
     let filteredSessions = MOCK_HISTORY_SESSIONS_STATS;
@@ -344,9 +343,8 @@ export default function StatisticsPage() {
   }, [selectedGlobalStartDate, selectedGlobalEndDate, toast]);
   
   React.useEffect(() => {
-    // Apply filters on initial load or when they change
     handleApplyGlobalFilters();
-  }, [handleApplyGlobalFilters]); // Removed selectedGlobalStartDate, selectedGlobalEndDate to avoid loop if toast causes re-render
+  }, [handleApplyGlobalFilters]);
 
 
   const workoutFrequencyData = React.useMemo(() => {
@@ -437,7 +435,6 @@ export default function StatisticsPage() {
           if (selectedWellnessMetrics.includes('energyLevel') && wellnessEntry.energyLevel !== undefined) dataPoint.energyLevel = wellnessEntry.energyLevel;
           if (selectedWellnessMetrics.includes('sleepQuality') && wellnessEntry.sleepQuality !== undefined) dataPoint.sleepQuality = wellnessEntry.sleepQuality;
         }
-        // Only add data point if it has Volume or any selected wellness metric
         if (dataPoint.Volume !== undefined || 
             (selectedWellnessMetrics.includes('wellBeing') && dataPoint.wellBeing !== undefined) ||
             (selectedWellnessMetrics.includes('energyLevel') && dataPoint.energyLevel !== undefined) ||
@@ -528,32 +525,33 @@ export default function StatisticsPage() {
   };
 
   const handleAddGoal = (data: AddGoalFormData) => {
-    setIsAddGoalDialogOpen(false); // Close dialog first
     const newGoal: UserGoal = {
       id: uuidv4(),
       goalName: data.goalName,
       metric: data.metric,
       currentValue: data.currentValue === "" || data.currentValue === undefined ? 0 : Number(data.currentValue),
-      targetValue: data.targetValue,
+      targetValue: data.targetValue, // Assuming targetValue is always a number from the form
       deadline: data.deadline,
       notes: data.notes,
     };
     setUserGoals(prev => [...prev, newGoal].sort((a,b) => {
-        if (a.deadline && b.deadline) return parseISO(String(a.deadline)).getTime() - parseISO(String(b.deadline)).getTime();
-        if (a.deadline) return -1;
-        if (b.deadline) return 1;
-        return 0;
+        // Sort by deadline, undefined deadlines last
+        if (a.deadline && b.deadline) return a.deadline.getTime() - b.deadline.getTime();
+        if (a.deadline) return -1; // a has deadline, b does not, so a comes first
+        if (b.deadline) return 1;  // b has deadline, a does not, so b comes first
+        return 0; // both undefined
     }));
     toast({
       title: "Cel Dodany!",
       description: `Cel "${newGoal.goalName}" został pomyślnie dodany.`
     });
+    setIsAddGoalDialogOpen(false);
   };
 
   const handleDeleteGoal = async () => {
     if (!goalToDelete) return;
     setIsDeletingGoal(true);
-    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 500)); 
     setUserGoals(prev => prev.filter(goal => goal.id !== goalToDelete.id));
     toast({
       title: "Cel Usunięty",
@@ -622,7 +620,6 @@ export default function StatisticsPage() {
         exportableData = data.map(row => {
             const newRow: {[key: string]: any} = {};
             chartHeaders.forEach(h => {
-                // Ensure the key exists in the row, or provide an empty string
                 newRow[h.label] = row.hasOwnProperty(h.key) ? row[h.key] : "";
             });
             return newRow;
@@ -791,7 +788,7 @@ export default function StatisticsPage() {
                         </SelectContent>
                     </Select>
                 </div>
-                <Card className="p-4 print-hide">
+                <Card className="p-4 print-hide mb-4">
                     <Label className="text-sm font-medium mb-2 block">Nakładka Danych z Dziennika Samopoczucia:</Label>
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2">
                         {['wellBeing', 'energyLevel', 'sleepQuality'].map(metricKey => (
@@ -902,15 +899,10 @@ export default function StatisticsPage() {
 
           <Card className="print-hide">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><ArrowRightLeft className="h-6 w-6 text-primary" />Porównaj Okresy (Wkrótce)</CardTitle>
+              <CardTitle className="flex items-center gap-2"><ArrowRightLeft className="h-6 w-6 text-primary" />Porównaj Okresy</CardTitle>
               <CardDescription>Porównaj swoje statystyki między dwoma wybranymi okresami.</CardDescription>
             </CardHeader>
             <CardContent>
-              <Alert>
-                <Info className="h-4 w-4" />
-                <AlertTitle>Funkcja w budowie</AlertTitle>
-                <AlertDescription>Możliwość porównywania różnych okresów czasowych zostanie dodana w przyszłości.</AlertDescription>
-              </Alert>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4 mt-4">
                 <div className="space-y-2 p-4 border rounded-lg bg-muted/30">
                     <h4 className="font-semibold text-center">Okres A</h4>
@@ -918,7 +910,7 @@ export default function StatisticsPage() {
                         date={periodAStartDate}
                         onDateChange={setPeriodAStartDate}
                         label="Data od (Okres A)"
-                        disabled={(date) => periodAEndDate ? isBefore(date, periodAEndDate) : false}
+                        disabled={(date) => periodAEndDate ? isAfter(date, periodAEndDate) : false}
                     />
                     <DatePicker
                         date={periodAEndDate}
@@ -933,7 +925,7 @@ export default function StatisticsPage() {
                         date={periodBStartDate}
                         onDateChange={setPeriodBStartDate}
                         label="Data od (Okres B)"
-                        disabled={(date) => periodBEndDate ? isBefore(date, periodBEndDate) : false}
+                        disabled={(date) => periodBEndDate ? isAfter(date, periodBEndDate) : false}
                     />
                     <DatePicker
                         date={periodBEndDate}
@@ -1008,7 +1000,7 @@ export default function StatisticsPage() {
 
           <Card className="print-hide">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Target className="h-6 w-6 text-primary"/>Moje Cele (Wkrótce)</CardTitle>
+              <CardTitle className="flex items-center gap-2"><Target className="h-6 w-6 text-primary"/>Moje Cele</CardTitle>
               <CardDescription>Definiuj i śledź swoje cele treningowe i pomiarowe.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -1023,8 +1015,7 @@ export default function StatisticsPage() {
                     <p className="text-sm text-muted-foreground text-center py-4">Nie zdefiniowano jeszcze żadnych celów.</p>
                 )}
                 {userGoals.map(goal => (
-                    <AlertDialog key={goal.id}>
-                      <Card className="p-4 bg-muted/30">
+                      <Card key={goal.id} className="p-4 bg-muted/30">
                         <div className="flex justify-between items-start">
                             <div>
                                 <h4 className="font-semibold">{goal.goalName}</h4>
@@ -1053,31 +1044,25 @@ export default function StatisticsPage() {
                         </div>
                         {goal.notes && <p className="text-xs text-muted-foreground mt-2 italic">Notatka: {goal.notes}</p>}
                       </Card>
-                       {goalToDelete && goalToDelete.id === goal.id && (
-                          <AlertDialogContent>
-                              <AlertDialogHeader>
-                                  <AlertDialogTitle>Usunąć cel?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                      Czy na pewno chcesz usunąć cel "{goalToDelete.goalName}"?
-                                  </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                  <AlertDialogCancel onClick={() => setGoalToDelete(null)} disabled={isDeletingGoal}>Anuluj</AlertDialogCancel>
-                                  <AlertDialogAction onClick={handleDeleteGoal} disabled={isDeletingGoal} className="bg-destructive hover:bg-destructive/90">
-                                      {isDeletingGoal ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Trash2 className="mr-2 h-4 w-4" />}
-                                      Usuń
-                                  </AlertDialogAction>
-                              </AlertDialogFooter>
-                          </AlertDialogContent>
-                      )}
-                    </AlertDialog>
                   ))}
                 </div>
-                <Alert className="mt-4">
-                    <Info className="h-4 w-4" />
-                    <AlertTitle>Funkcja w Rozwoju</AlertTitle>
-                    <AlertDescription>Pełne zarządzanie celami, w tym automatyczne śledzenie postępów na podstawie danych treningowych i pomiarowych, zostanie dodane w przyszłości.</AlertDescription>
-                </Alert>
+                 {goalToDelete && (
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Usunąć cel?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Czy na pewno chcesz usunąć cel "{goalToDelete.goalName}"?
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel onClick={() => setGoalToDelete(null)} disabled={isDeletingGoal}>Anuluj</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleDeleteGoal} disabled={isDeletingGoal} className="bg-destructive hover:bg-destructive/90">
+                                {isDeletingGoal ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                                Usuń
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                )}
             </CardContent>
           </Card>
           <AddGoalDialog 
