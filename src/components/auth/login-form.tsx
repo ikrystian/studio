@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -5,8 +6,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Facebook, AlertCircle, Loader2 } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation"; // Added useSearchParams
+import { Facebook, AlertCircle, Loader2, CheckCircle2 } from "lucide-react"; // Added CheckCircle2
 
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +30,8 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { GoogleIcon } from "@/components/icons/google-icon";
 import { Separator } from "@/components/ui/separator";
+import { useToast } from "@/hooks/use-toast";
+
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email address.").min(1, "Email is required."),
@@ -39,8 +42,37 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 export function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams(); // Get search params
+  const { toast } = useToast();
   const [isLoading, setIsLoading] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = React.useState<string | null>(null);
+
+
+  React.useEffect(() => {
+    if (searchParams?.get("registered") === "true") {
+      setSuccessMessage("Registration successful! Please log in to continue.");
+      // Optionally, clear the query param from URL if desired, though not strictly necessary
+      // router.replace('/login', { scroll: false }); // This would remove the query param
+
+      // Or use a toast for a less permanent message
+      toast({
+        title: "Registration Successful!",
+        description: "You can now log in with your new account.",
+        variant: "default", // Using default as a positive feedback, Shadcn doesn't have explicit 'success'
+        duration: 5000,
+      });
+    }
+     if (searchParams?.get("verified") === "true") {
+      toast({
+        title: "Email Verified!",
+        description: "Your email has been successfully verified. Please log in.",
+        variant: "default",
+        duration: 5000,
+      });
+    }
+  }, [searchParams, router, toast]);
+
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -53,6 +85,7 @@ export function LoginForm() {
   async function onSubmit(values: LoginFormValues) {
     setIsLoading(true);
     setErrorMessage(null);
+    setSuccessMessage(null); // Clear success message on new attempt
 
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1500));
@@ -71,6 +104,7 @@ export function LoginForm() {
   const handleSocialLogin = (provider: "google" | "facebook") => {
     setIsLoading(true);
     setErrorMessage(null);
+    setSuccessMessage(null);
     // Simulate social login initiation
     console.log(`Attempting ${provider} login...`);
     // In a real app, this would redirect to an OAuth provider
@@ -92,6 +126,15 @@ export function LoginForm() {
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Login Failed</AlertTitle>
             <AlertDescription>{errorMessage}</AlertDescription>
+          </Alert>
+        )}
+        {successMessage && !errorMessage && ( // Only show if no error
+          <Alert variant="default" className="border-green-500 dark:border-green-400">
+            <CheckCircle2 className="h-4 w-4 text-green-500 dark:text-green-400" />
+            <AlertTitle className="text-green-700 dark:text-green-300">Success</AlertTitle>
+            <AlertDescription className="text-green-700 dark:text-green-300">
+              {successMessage}
+            </AlertDescription>
           </Alert>
         )}
         <Form {...form}>
@@ -180,3 +223,5 @@ export function LoginForm() {
     </Card>
   );
 }
+
+    
