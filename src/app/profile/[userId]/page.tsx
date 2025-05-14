@@ -4,7 +4,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import Image from "next/image";
+// Removed Image from next/image as it's not directly used here, AvatarImage is.
 import {
   ArrowLeft,
   Edit3,
@@ -16,11 +16,12 @@ import {
   PlusCircle,
   Eye,
   Settings2,
-  BookOpen, // For shared plans
-  MessageSquare, // For activity posts
-  Dumbbell, // For shared workouts activity
-  Award, // For achieved PBs activity
+  BookOpen, 
+  MessageSquare, 
+  Dumbbell, 
+  Award, 
   Trash2, // For remove friend
+  Loader2, // For AlertDialog loading
 } from "lucide-react";
 import { format, parseISO, formatDistanceToNow } from "date-fns";
 import { pl } from "date-fns/locale";
@@ -39,8 +40,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { EditProfilePictureDialog } from "@/components/profile/edit-profile-picture-dialog";
 import { ProfilePrivacySettingsDialog } from "@/components/profile/profile-privacy-settings-dialog";
-import { Separator } from "@/components/ui/separator"; // Added Separator
-import { ScrollArea } from "@/components/ui/scroll-area"; // Added ScrollArea
+import { Separator } from "@/components/ui/separator"; 
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 // Mock data structures
 interface MockActivityItem {
@@ -72,7 +84,7 @@ interface MockUserProfile {
   id: string;
   fullName: string;
   username: string;
-  email: string; // For pre-filling edit form, not usually public
+  email: string; 
   avatarUrl: string;
   bio?: string;
   fitnessLevel: "Początkujący" | "Średniozaawansowany" | "Zaawansowany";
@@ -88,9 +100,9 @@ interface MockUserProfile {
 }
 
 // Mock user data
-const MOCK_USER_PROFILES: MockUserProfile[] = [
+const MOCK_USER_PROFILES_DB: MockUserProfile[] = [
   {
-    id: "current_user_id", // Simulate logged-in user
+    id: "current_user_id", 
     fullName: "Jan Kowalski",
     username: "jankowalski_fit",
     email: "jan.kowalski@example.com",
@@ -107,6 +119,7 @@ const MOCK_USER_PROFILES: MockUserProfile[] = [
     friends: [
       { id: "user2", name: "Anna Fit", username: "annafit_active", avatarUrl: "https://placehold.co/100x100.png?text=AF" },
       { id: "user3", name: "Piotr Trener", username: "piotr_coach", avatarUrl: "https://placehold.co/100x100.png?text=PT" },
+      { id: "user4", name: "Kasia Biegaczka", username: "kasiaruns", avatarUrl: "https://placehold.co/100x100.png?text=KB" },
     ],
     sharedPlans: [
       { id: "plan1", name: "Mój Plan Siłowy na Masę", goal: "Budowa masy mięśniowej", description: "Sprawdzony plan na 8 tygodni, skupiony na progresji siłowej.", icon: Dumbbell },
@@ -131,7 +144,7 @@ const MOCK_USER_PROFILES: MockUserProfile[] = [
   },
 ];
 
-const LOGGED_IN_USER_ID = "current_user_id"; // Simulate this
+const LOGGED_IN_USER_ID = "current_user_id"; 
 
 export default function UserProfilePage() {
   const router = useRouter();
@@ -141,26 +154,33 @@ export default function UserProfilePage() {
 
   const [profileData, setProfileData] = React.useState<MockUserProfile | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
-  const [isFollowing, setIsFollowing] = React.useState(false); // For "Follow" button simulation
+  const [isFollowing, setIsFollowing] = React.useState(false); 
+  const [isSubmitting, setIsSubmitting] = React.useState(false); // For dialog actions
 
   const [isEditAvatarOpen, setIsEditAvatarOpen] = React.useState(false);
   const [isPrivacySettingsOpen, setIsPrivacySettingsOpen] = React.useState(false);
   const [currentAvatarUrl, setCurrentAvatarUrl] = React.useState<string | undefined>(undefined);
+  
+  const [friendToRemove, setFriendToRemove] = React.useState<MockFriend | null>(null);
+
 
   React.useEffect(() => {
     setIsLoading(true);
-    const foundProfile = MOCK_USER_PROFILES.find((p) => p.id === userId);
-    if (foundProfile) {
-      setProfileData(foundProfile);
-      setCurrentAvatarUrl(foundProfile.avatarUrl);
-      // Simulate checking if already following (for demo purposes)
-      if (userId !== LOGGED_IN_USER_ID && Math.random() > 0.5) {
-        setIsFollowing(true);
+    // Simulate API call
+    setTimeout(() => {
+      const foundProfile = MOCK_USER_PROFILES_DB.find((p) => p.id === userId);
+      if (foundProfile) {
+        // Deep copy to avoid mutating the mock DB directly if it's complex
+        setProfileData(JSON.parse(JSON.stringify(foundProfile))); 
+        setCurrentAvatarUrl(foundProfile.avatarUrl);
+        if (userId !== LOGGED_IN_USER_ID && Math.random() > 0.5) { // Simulating if already following
+          setIsFollowing(true);
+        }
+      } else {
+        setProfileData(null);
       }
-    } else {
-      setProfileData(null);
-    }
-    setIsLoading(false);
+      setIsLoading(false);
+    }, 500);
   }, [userId]);
 
   const handleFollowToggle = () => {
@@ -172,22 +192,28 @@ export default function UserProfilePage() {
   };
 
   const handleAvatarChange = (newAvatarUrl: string) => {
-    // In a real app, this would involve uploading the image and getting the URL from the backend
-    setCurrentAvatarUrl(newAvatarUrl); // Update UI immediately
-    setProfileData(prev => prev ? {...prev, avatarUrl: newAvatarUrl} : null); // Update main profile data if needed
+    setCurrentAvatarUrl(newAvatarUrl); 
+    setProfileData(prev => prev ? {...prev, avatarUrl: newAvatarUrl} : null);
     toast({ title: "Zdjęcie profilowe zaktualizowane (symulacja)!" });
   };
 
-  const handleRemoveFriend = (friendId: string, friendName: string) => {
-    // Simulate removing a friend
+  const handleRemoveFriend = async () => {
+    if (!friendToRemove || !profileData || !profileData.friends) return;
+    setIsSubmitting(true);
+    
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 750));
+
     setProfileData(prev => {
         if (!prev || !prev.friends) return prev;
         return {
             ...prev,
-            friends: prev.friends.filter(f => f.id !== friendId)
+            friends: prev.friends.filter(f => f.id !== friendToRemove.id)
         };
     });
-    toast({ title: "Znajomy usunięty (symulacja)", description: `Usunięto ${friendName} z listy znajomych.`});
+    toast({ title: "Znajomy usunięty", description: `Usunięto ${friendToRemove.name} z listy znajomych.`});
+    setFriendToRemove(null);
+    setIsSubmitting(false);
   };
 
   const getActivityIcon = (type: MockActivityItem['type']) => {
@@ -198,7 +224,6 @@ export default function UserProfilePage() {
         default: return <ClipboardList className="h-5 w-5 text-muted-foreground"/>;
     }
   }
-
 
   if (isLoading) {
     return <div className="flex justify-center items-center min-h-screen"><UserCircle2 className="h-16 w-16 animate-pulse text-primary" /></div>;
@@ -240,9 +265,14 @@ export default function UserProfilePage() {
             </h1>
           </div>
           {isOwnProfile && (
-             <Button variant="outline" size="sm" onClick={() => router.push('/profile/edit')}>
-                <Edit3 className="mr-2 h-4 w-4" /> Edytuj Profil
-            </Button>
+             <div className="flex items-center gap-2">
+                 <Button variant="outline" size="sm" onClick={() => setIsPrivacySettingsOpen(true)}>
+                    <ShieldCheck className="mr-2 h-4 w-4"/> Prywatność
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => router.push('/profile/edit')}>
+                    <Edit3 className="mr-2 h-4 w-4" /> Edytuj Profil
+                </Button>
+             </div>
           )}
         </div>
       </header>
@@ -252,7 +282,7 @@ export default function UserProfilePage() {
           <Card className="mb-6">
             <CardHeader className="flex flex-col items-center space-y-4 sm:flex-row sm:space-y-0 sm:space-x-6">
               <Avatar className="h-24 w-24 sm:h-32 sm:w-32 cursor-pointer" onClick={() => isOwnProfile && setIsEditAvatarOpen(true)}>
-                <AvatarImage src={currentAvatarUrl} alt={profileData.fullName} data-ai-hint="profile avatar large" />
+                <AvatarImage src={currentAvatarUrl} alt={profileData.fullName} data-ai-hint="profile avatar large"/>
                 <AvatarFallback className="text-4xl">{profileData.fullName?.substring(0,1).toUpperCase()}{profileData.fullName?.split(' ')[1]?.substring(0,1).toUpperCase()}</AvatarFallback>
               </Avatar>
               <div className="flex-1 text-center sm:text-left">
@@ -292,7 +322,7 @@ export default function UserProfilePage() {
 
           <Tabs defaultValue="activity" className="w-full">
             <TabsList className="grid w-full grid-cols-3 mb-6">
-              <TabsTrigger value="activity"><ClipboardList className="mr-2 h-4 w-4"/>Aktywność</TabsTrigger>
+              <TabsTrigger value="activity"><ClipboardList className="mr-2 h-4 w-4"/>Aktywność ({profileData.activities?.length || 0})</TabsTrigger>
               <TabsTrigger value="friends"><Users className="mr-2 h-4 w-4"/>Znajomi ({profileData.friends?.length || 0})</TabsTrigger>
               <TabsTrigger value="shared-plans"><BookOpen className="mr-2 h-4 w-4"/>Plany ({profileData.sharedPlans?.length || 0})</TabsTrigger>
             </TabsList>
@@ -361,9 +391,11 @@ export default function UserProfilePage() {
                                     <Link href={`/profile/${friend.id}`}><Eye className="mr-1 h-3 w-3"/> Profil</Link>
                                 </Button>
                                {isOwnProfile && (
-                                 <Button variant="destructive" size="sm" className="flex-1" onClick={() => handleRemoveFriend(friend.id, friend.name)}>
-                                    <Trash2 className="mr-1 h-3 w-3"/> Usuń
-                                 </Button>
+                                 <AlertDialogTrigger asChild>
+                                    <Button variant="destructive" size="sm" className="flex-1" onClick={() => setFriendToRemove(friend)}>
+                                        <Trash2 className="mr-1 h-3 w-3"/> Usuń
+                                    </Button>
+                                 </AlertDialogTrigger>
                                )}
                             </CardFooter>
                           </Card>
@@ -415,6 +447,8 @@ export default function UserProfilePage() {
           </Tabs>
         </div>
       </main>
+
+      {/* Dialogs */}
       <EditProfilePictureDialog
         isOpen={isEditAvatarOpen}
         onOpenChange={setIsEditAvatarOpen}
@@ -424,13 +458,30 @@ export default function UserProfilePage() {
        <ProfilePrivacySettingsDialog
         isOpen={isPrivacySettingsOpen}
         onOpenChange={setIsPrivacySettingsOpen}
-        // Pass initial settings if available
         onSave={(settings) => {
             console.log("Privacy settings saved (simulated):", settings);
             toast({title: "Ustawienia prywatności zapisane (symulacja)"});
         }}
       />
+      {friendToRemove && (
+        <AlertDialog open={!!friendToRemove} onOpenChange={() => setFriendToRemove(null)}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Usunąć znajomego?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Czy na pewno chcesz usunąć {friendToRemove.name} (@{friendToRemove.username}) ze swojej listy znajomych?
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel disabled={isSubmitting}>Anuluj</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleRemoveFriend} disabled={isSubmitting} className="bg-destructive hover:bg-destructive/90">
+                        {isSubmitting ? <Loader2 className="animate-spin mr-2"/> : <Trash2 className="mr-2 h-4 w-4"/>}
+                        Potwierdź i usuń
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 }
-
