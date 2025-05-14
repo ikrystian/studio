@@ -14,9 +14,9 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
-  CardFooter
 } from "@/components/ui/card";
 import {
   Select,
@@ -64,7 +64,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger, // Added AlertDialogTrigger
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 
@@ -530,16 +530,15 @@ export default function StatisticsPage() {
       goalName: data.goalName,
       metric: data.metric,
       currentValue: data.currentValue === "" || data.currentValue === undefined ? 0 : Number(data.currentValue),
-      targetValue: data.targetValue, // Assuming targetValue is always a number from the form
+      targetValue: data.targetValue, 
       deadline: data.deadline,
       notes: data.notes,
     };
     setUserGoals(prev => [...prev, newGoal].sort((a,b) => {
-        // Sort by deadline, undefined deadlines last
         if (a.deadline && b.deadline) return a.deadline.getTime() - b.deadline.getTime();
-        if (a.deadline) return -1; // a has deadline, b does not, so a comes first
-        if (b.deadline) return 1;  // b has deadline, a does not, so b comes first
-        return 0; // both undefined
+        if (a.deadline) return -1; 
+        if (b.deadline) return 1; 
+        return 0; 
     }));
     toast({
       title: "Cel Dodany!",
@@ -570,7 +569,7 @@ export default function StatisticsPage() {
       const printTimeout = setTimeout(() => { 
         window.print();
         setPrintingChartId(null); 
-      }, 100);
+      }, 100); // Reduced delay to ensure class is applied before print dialog
       return () => clearTimeout(printTimeout);
     }
   }, [printingChartId]);
@@ -693,11 +692,11 @@ export default function StatisticsPage() {
                 />
               </div>
               <div className="space-y-2 print-hide">
-                <Label>Wybierz ćwiczenia (placeholder)</Label>
+                <Label>Wybierz ćwiczenia (Wkrótce)</Label>
                 <p className="text-sm text-muted-foreground">Tu pojawi się multiselect/checkboxy do wyboru ćwiczeń (funkcja wkrótce).</p>
               </div>
               <div className="space-y-2 print-hide">
-                <Label>Wybierz grupy mięśniowe (placeholder)</Label>
+                <Label>Wybierz grupy mięśniowe (Wkrótce)</Label>
                 <p className="text-sm text-muted-foreground">Tu pojawi się multiselect/checkboxy do wyboru grup mięśniowych (funkcja wkrótce).</p>
               </div>
                <Button onClick={handleApplyGlobalFilters} className="print-hide">Zastosuj Filtry</Button>
@@ -1003,67 +1002,69 @@ export default function StatisticsPage() {
               <CardTitle className="flex items-center gap-2"><Target className="h-6 w-6 text-primary"/>Moje Cele</CardTitle>
               <CardDescription>Definiuj i śledź swoje cele treningowe i pomiarowe.</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Lista Celów</h3>
-                <Button onClick={() => setIsAddGoalDialogOpen(true)} >
-                    <PlusCircle className="mr-2 h-4 w-4"/> Dodaj Nowy Cel
-                </Button>
-              </div>
-              <div className="space-y-3">
-                {userGoals.length === 0 && (
-                    <p className="text-sm text-muted-foreground text-center py-4">Nie zdefiniowano jeszcze żadnych celów.</p>
-                )}
-                {userGoals.map(goal => (
-                      <Card key={goal.id} className="p-4 bg-muted/30">
-                        <div className="flex justify-between items-start">
-                            <div>
-                                <h4 className="font-semibold">{goal.goalName}</h4>
-                                <p className="text-xs text-muted-foreground">Metryka: {goal.metric}</p>
-                                {goal.deadline && <p className="text-xs text-muted-foreground">Termin: {format(goal.deadline, "PPP", {locale: pl})}</p>}
-                            </div>
-                            <div className="flex items-center gap-1 print-hide">
-                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toast({title: "Edycja Celu (Wkrótce)", description: "Możliwość edycji celów zostanie dodana w przyszłości."})}>
-                                    <Edit className="h-4 w-4"/>
-                                    <span className="sr-only">Edytuj cel</span>
-                                </Button>
-                                <AlertDialogTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setGoalToDelete(goal)}>
-                                        <Trash2 className="h-4 w-4"/>
-                                        <span className="sr-only">Usuń cel</span>
-                                    </Button>
-                                </AlertDialogTrigger>
-                            </div>
-                        </div>
-                        <div className="mt-2">
-                            <div className="flex justify-between text-xs mb-1">
-                                <span>Postęp</span>
-                                <span>{goal.currentValue.toLocaleString('pl-PL')} / {goal.targetValue.toLocaleString('pl-PL')} {(goal.metric.includes('(kg)') || goal.metric.includes('Objętość')) ? 'kg' : (goal.metric.includes('(cm)') ? 'cm' : '')}</span>
-                            </div>
-                            <Progress value={(goal.currentValue / goal.targetValue) * 100} className="h-2" />
-                        </div>
-                        {goal.notes && <p className="text-xs text-muted-foreground mt-2 italic">Notatka: {goal.notes}</p>}
-                      </Card>
-                  ))}
+            <AlertDialog open={!!goalToDelete} onOpenChange={(isOpen) => !isOpen && setGoalToDelete(null)}>
+                <CardContent>
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold">Lista Celów</h3>
+                    <Button onClick={() => setIsAddGoalDialogOpen(true)} >
+                        <PlusCircle className="mr-2 h-4 w-4"/> Dodaj Nowy Cel
+                    </Button>
                 </div>
-                 {goalToDelete && (
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Usunąć cel?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                Czy na pewno chcesz usunąć cel "{goalToDelete.goalName}"?
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel onClick={() => setGoalToDelete(null)} disabled={isDeletingGoal}>Anuluj</AlertDialogCancel>
-                            <AlertDialogAction onClick={handleDeleteGoal} disabled={isDeletingGoal} className="bg-destructive hover:bg-destructive/90">
-                                {isDeletingGoal ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Trash2 className="mr-2 h-4 w-4" />}
-                                Usuń
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                )}
-            </CardContent>
+                <div className="space-y-3">
+                    {userGoals.length === 0 && (
+                        <p className="text-sm text-muted-foreground text-center py-4">Nie zdefiniowano jeszcze żadnych celów.</p>
+                    )}
+                    {userGoals.map(goal => (
+                        <Card key={goal.id} className="p-4 bg-muted/30">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h4 className="font-semibold">{goal.goalName}</h4>
+                                    <p className="text-xs text-muted-foreground">Metryka: {goal.metric}</p>
+                                    {goal.deadline && <p className="text-xs text-muted-foreground">Termin: {format(goal.deadline, "PPP", {locale: pl})}</p>}
+                                </div>
+                                <div className="flex items-center gap-1 print-hide">
+                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toast({title: "Edycja Celu (Wkrótce)", description: "Możliwość edycji celów zostanie dodana w przyszłości."})}>
+                                        <Edit className="h-4 w-4"/>
+                                        <span className="sr-only">Edytuj cel</span>
+                                    </Button>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setGoalToDelete(goal)}>
+                                            <Trash2 className="h-4 w-4"/>
+                                            <span className="sr-only">Usuń cel</span>
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                </div>
+                            </div>
+                            <div className="mt-2">
+                                <div className="flex justify-between text-xs mb-1">
+                                    <span>Postęp</span>
+                                    <span>{goal.currentValue.toLocaleString('pl-PL')} / {goal.targetValue.toLocaleString('pl-PL')} {(goal.metric.includes('(kg)') || goal.metric.includes('Objętość')) ? 'kg' : (goal.metric.includes('(cm)') ? 'cm' : '')}</span>
+                                </div>
+                                <Progress value={(goal.currentValue / goal.targetValue) * 100} className="h-2" />
+                            </div>
+                            {goal.notes && <p className="text-xs text-muted-foreground mt-2 italic">Notatka: {goal.notes}</p>}
+                        </Card>
+                    ))}
+                    </div>
+                    {goalToDelete && (
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Usunąć cel?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    Czy na pewno chcesz usunąć cel "{goalToDelete.goalName}"?
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel onClick={() => setGoalToDelete(null)} disabled={isDeletingGoal}>Anuluj</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleDeleteGoal} disabled={isDeletingGoal} className="bg-destructive hover:bg-destructive/90">
+                                    {isDeletingGoal ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                                    Usuń
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    )}
+                </CardContent>
+            </AlertDialog>
           </Card>
           <AddGoalDialog 
             isOpen={isAddGoalDialogOpen} 
