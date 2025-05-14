@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import Link from "next/link";
-import { useRouter } from "next/navigation"; // Removed useSearchParams as it's not used here
+import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import {
   User,
@@ -20,7 +20,7 @@ import {
   TrendingUp,
   Loader2,
   AlertCircle,
-  // CheckCircle2, // Not used directly for server success message here
+  Image as ImageIcon, // Added for profile picture placeholder
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -56,6 +56,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"; // For placeholder
 
 const registrationSchema = z
   .object({
@@ -136,13 +137,8 @@ export function RegistrationForm() {
     setServerError(null);
     console.log("Form submitted:", values);
 
-    // Simulate API call for registration
     await new Promise(resolve => setTimeout(resolve, 1500));
-
-    // Simulate backend validation and user creation
-    // In a real app, you would make an API call here
     
-    // Simulate email conflict with the test user from login form
     if (values.email === "test@example.com") {
       setServerError("This email address is already registered.");
       form.setError("email", { type: "manual", message: "This email address is already registered." });
@@ -150,14 +146,12 @@ export function RegistrationForm() {
       return;
     }
 
-    // For demonstration, let's assume registration is successful
-    // and there's no other email conflict.
     toast({
       title: "Registration Successful!",
       description: "Your account has been created. Please log in.",
       variant: "default", 
     });
-    router.push("/login?registered=true"); // Redirect to login page with a success indicator
+    router.push("/login?registered=true"); 
 
     setIsLoading(false);
   }
@@ -180,6 +174,22 @@ export function RegistrationForm() {
         )}
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            
+            <div className="flex flex-col items-center space-y-2 mb-6">
+              <FormLabel>Zdjęcie Profilowe (opcjonalnie)</FormLabel>
+              <Avatar className="h-24 w-24">
+                <AvatarImage src="" alt="Profile picture placeholder" data-ai-hint="profile avatar placeholder" />
+                <AvatarFallback>
+                  <ImageIcon className="h-12 w-12 text-muted-foreground" />
+                </AvatarFallback>
+              </Avatar>
+              <Button type="button" variant="outline" size="sm" disabled>
+                <ImageIcon className="mr-2 h-4 w-4" />
+                Dodaj zdjęcie (wkrótce)
+              </Button>
+              <FormDescription className="text-xs text-center">Możliwość dodania zdjęcia będzie dostępna wkrótce.</FormDescription>
+            </div>
+
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <FormField
                 control={form.control}
@@ -477,4 +487,3 @@ export function RegistrationForm() {
     </Card>
   );
 }
-

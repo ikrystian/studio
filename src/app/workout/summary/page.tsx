@@ -17,7 +17,8 @@ import {
   CalendarDays,
   Flame,
   Weight,
-  Loader2
+  Loader2,
+  Edit2, // For exercise notes icon
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -61,6 +62,7 @@ interface WorkoutSummaryData {
   totalTimeSeconds: number;
   recordedSets: Record<string, RecordedSet[]>; // exerciseId -> sets
   exercises: ExerciseInWorkout[];
+  exerciseNotes?: Record<string, string>; // Added for exercise-specific notes
 }
 
 enum DifficultyRating {
@@ -87,15 +89,14 @@ export default function WorkoutSummaryPage() {
       try {
         const parsedData: WorkoutSummaryData = JSON.parse(dataString);
         setSummaryData(parsedData);
-        // localStorage.removeItem('workoutSummaryData'); // Clear after reading for one-time use
       } catch (error) {
         console.error("Error parsing summary data from localStorage:", error);
         toast({ title: "Błąd", description: "Nie udało się załadować podsumowania treningu.", variant: "destructive" });
-        router.replace("/dashboard"); // Or /workout/start
+        router.replace("/dashboard"); 
       }
     } else {
       toast({ title: "Brak danych", description: "Nie znaleziono danych do podsumowania treningu.", variant: "destructive" });
-      router.replace("/dashboard"); // Or /workout/start
+      router.replace("/dashboard"); 
     }
     setIsLoading(false);
   }, [router, toast]);
@@ -125,14 +126,16 @@ export default function WorkoutSummaryPage() {
   const handleSaveWorkout = async () => {
     if (!summaryData) return;
     setIsSaving(true);
-    console.log("Saving workout summary:", {
+    const fullSummaryToSave = {
       ...summaryData,
       difficulty,
-      generalNotes,
+      generalNotes, // General notes for the whole workout
+      exerciseNotes: summaryData.exerciseNotes, // Exercise specific notes are already in summaryData
       calculatedTotalVolume: calculateTotalVolume(),
-    });
+    };
+    console.log("Saving workout summary:", fullSummaryToSave);
 
-    // Simulate API call
+
     await new Promise(resolve => setTimeout(resolve, 1500));
 
     toast({
@@ -146,15 +149,14 @@ export default function WorkoutSummaryPage() {
   };
 
   const handleDiscardWorkout = async () => {
-    setIsSaving(true); // Use same loading state
-    // Simulate API call if needed, or just local cleanup
+    setIsSaving(true); 
     await new Promise(resolve => setTimeout(resolve, 500));
     
     localStorage.removeItem('workoutSummaryData');
     toast({
       title: "Trening Odrzucony",
       description: "Podsumowanie treningu zostało odrzucone.",
-      variant: "default" // Or a different variant if preferred
+      variant: "default" 
     });
     router.push("/dashboard");
     setIsSaving(false);
@@ -171,7 +173,6 @@ export default function WorkoutSummaryPage() {
   }
 
   if (!summaryData) {
-    // This case should ideally be handled by the redirect in useEffect, but as a fallback:
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
         <Alert variant="destructive" className="max-w-md">
@@ -236,17 +237,24 @@ export default function WorkoutSummaryPage() {
                 <ul className="space-y-4">
                   {summaryData.exercises.map((exercise) => {
                     const sets = summaryData.recordedSets[exercise.id];
+                    const exerciseNote = summaryData.exerciseNotes?.[exercise.id];
                     if (!sets || sets.length === 0) return null;
 
                     return (
                       <li key={exercise.id}>
                         <h3 className="font-semibold text-lg mb-1">{exercise.name}</h3>
+                        {exerciseNote && (
+                          <div className="mb-2 p-2 text-sm bg-blue-500/10 border border-blue-500/30 rounded-md">
+                            <p className="flex items-center gap-1 font-medium text-blue-700 dark:text-blue-400"><Edit2 className="h-4 w-4"/>Notatka do ćwiczenia:</p>
+                            <p className="text-muted-foreground italic whitespace-pre-wrap">{exerciseNote}</p>
+                          </div>
+                        )}
                         <ul className="space-y-1 pl-4 text-sm text-muted-foreground">
                           {sets.map((set, index) => (
                             <li key={index} className="list-disc list-inside">
                               Seria {set.setNumber}: {set.weight} x {set.reps} powt.
                               {set.rpe && ` (RPE: ${set.rpe})`}
-                              {set.notes && <span className="italic"> - Notatka: {set.notes}</span>}
+                              {set.notes && <span className="italic"> - Notatka do serii: {set.notes}</span>}
                             </li>
                           ))}
                         </ul>
@@ -265,7 +273,7 @@ export default function WorkoutSummaryPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><TrendingUp className="h-6 w-6 text-primary"/>Ocena i Notatki</CardTitle>
+              <CardTitle className="flex items-center gap-2"><TrendingUp className="h-6 w-6 text-primary"/>Ocena i Notatki Ogólne</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
@@ -283,7 +291,7 @@ export default function WorkoutSummaryPage() {
               </div>
               <div>
                 <label htmlFor="generalNotes" className="block text-sm font-medium mb-1 flex items-center gap-1">
-                    <StickyNote className="h-4 w-4"/>Notatki do Treningu (opcjonalne)
+                    <StickyNote className="h-4 w-4"/>Notatki Ogólne do Treningu (opcjonalne)
                 </label>
                 <Textarea
                   id="generalNotes"
@@ -329,4 +337,3 @@ export default function WorkoutSummaryPage() {
     </div>
   );
 }
-

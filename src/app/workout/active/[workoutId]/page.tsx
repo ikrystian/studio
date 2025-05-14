@@ -31,7 +31,8 @@ import {
   ArrowLeft,
   Trash2, 
   StickyNote,
-  Lightbulb, // Added for progression suggestion
+  Lightbulb,
+  Edit2, // For exercise notes icon
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -168,6 +169,7 @@ export default function ActiveWorkoutPage() {
   const [currentExerciseIndex, setCurrentExerciseIndex] = React.useState(0);
   
   const [recordedSets, setRecordedSets] = React.useState<Record<string, RecordedSet[]>>({});
+  const [exerciseNotes, setExerciseNotes] = React.useState<Record<string, string>>({}); // For exercise-specific notes
   
   const [workoutStartTime, setWorkoutStartTime] = React.useState<Date | null>(null);
   const [elapsedTime, setElapsedTime] = React.useState(0); // in seconds
@@ -224,7 +226,6 @@ export default function ActiveWorkoutPage() {
   const currentExercise = currentWorkout?.exercises[currentExerciseIndex];
   const currentExerciseDetails = currentExercise ? MOCK_EXERCISES_DATABASE.find(ex => ex.id === currentExercise.id) : null;
 
-  // Effect for progression suggestion
   React.useEffect(() => {
     if (currentExercise) {
       const getSuggestion = (exerciseId: string, history: MockPastSession[]): string | null => {
@@ -234,7 +235,7 @@ export default function ActiveWorkoutPage() {
 
         if (relevantSessions.length > 0) {
           const lastSession = relevantSessions[0];
-          const lastSet = lastSession.setsPerformed[0]; // Simplification: use the first set of the last session
+          const lastSet = lastSession.setsPerformed[0]; 
 
           if (lastSet) {
             const lastWeight = lastSet.weight;
@@ -254,16 +255,8 @@ export default function ActiveWorkoutPage() {
         return "Pierwszy raz to ćwiczenie? Daj z siebie wszystko i zanotuj wyniki!";
       };
       setProgressionSuggestion(getSuggestion(currentExercise.id, MOCK_WORKOUT_HISTORY_FOR_SUGGESTIONS));
-       // Reset form field for weight to potentially pre-fill from suggestion, or leave blank
-      const suggestionParts = progressionSuggestion?.match(/sugeruj ([0-9.]+)kg/i);
-      if (suggestionParts && suggestionParts[1]) {
-        // setForm.setValue("weight", suggestionParts[1]); // Example: prefill weight
-      } else {
-        // setForm.setValue("weight", ""); // Or set to previous if not suggesting new weight
-      }
-
     }
-  }, [currentExercise, setForm, progressionSuggestion]); // Added setForm and progressionSuggestion to deps
+  }, [currentExercise]);
 
   const formatTime = (totalSeconds: number) => {
     const hours = Math.floor(totalSeconds / 3600);
@@ -315,6 +308,10 @@ export default function ActiveWorkoutPage() {
       variant: "default",
     });
   };
+  
+  const handleExerciseNotesChange = (exerciseId: string, notes: string) => {
+    setExerciseNotes(prev => ({ ...prev, [exerciseId]: notes }));
+  };
 
   const handleSkipRest = () => {
     if (restIntervalRef.current) clearInterval(restIntervalRef.current);
@@ -358,7 +355,8 @@ export default function ActiveWorkoutPage() {
         endTime: new Date().toISOString(),
         totalTimeSeconds: elapsedTime,
         recordedSets: recordedSets,
-        exercises: currentWorkout.exercises 
+        exercises: currentWorkout.exercises,
+        exerciseNotes: exerciseNotes, // Add exercise-specific notes
     };
 
     try {
@@ -480,6 +478,20 @@ export default function ActiveWorkoutPage() {
                   <AlertDescription>{progressionSuggestion}</AlertDescription>
                 </Alert>
               )}
+               <div className="space-y-2">
+                <Label htmlFor={`exercise-notes-${currentExercise.id}`} className="flex items-center gap-1 text-sm font-medium">
+                  <Edit2 className="h-4 w-4 text-muted-foreground" />
+                  Notatki do ćwiczenia (opcjonalne)
+                </Label>
+                <Textarea
+                  id={`exercise-notes-${currentExercise.id}`}
+                  placeholder="Np. jak czułeś to ćwiczenie, na co zwrócić uwagę następnym razem..."
+                  value={exerciseNotes[currentExercise.id] || ""}
+                  onChange={(e) => handleExerciseNotesChange(currentExercise.id, e.target.value)}
+                  rows={3}
+                  className="text-sm"
+                />
+              </div>
             </CardContent>
           </Card>
 
@@ -563,7 +575,7 @@ export default function ActiveWorkoutPage() {
                         name="notes"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="flex items-center"><StickyNote className="mr-1 h-4 w-4"/>Notatki (opcjonalne)</FormLabel>
+                            <FormLabel className="flex items-center"><StickyNote className="mr-1 h-4 w-4"/>Notatki do serii (opcjonalne)</FormLabel>
                             <FormControl>
                               <Textarea placeholder="Np. Zapas 2 powtórzeń, dobra technika" {...field} />
                             </FormControl>
@@ -657,4 +669,3 @@ export default function ActiveWorkoutPage() {
     </div>
   );
 }
-
