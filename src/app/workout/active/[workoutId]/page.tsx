@@ -30,7 +30,8 @@ import {
   Loader2,
   ArrowLeft,
   Trash2, 
-  StickyNote, 
+  StickyNote,
+  Lightbulb, // Added for progression suggestion
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -72,7 +73,7 @@ import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@/components/ui/accordion"; // Using the global accordion
+} from "@/components/ui/accordion"; 
 import { cn } from "@/lib/utils";
 
 
@@ -129,6 +130,22 @@ export interface RecordedSet {
   notes?: string; 
 }
 
+// Simplified mock history for progression suggestions
+interface MockSetRecord { weight: string | number; reps: string | number; }
+interface MockPastSession {
+  sessionId: string;
+  exerciseId: string;
+  date: string; // ISO
+  setsPerformed: MockSetRecord[];
+}
+const MOCK_WORKOUT_HISTORY_FOR_SUGGESTIONS: MockPastSession[] = [
+  { sessionId: 's1', exerciseId: 'ex1', date: '2024-07-15T09:00:00Z', setsPerformed: [{ weight: 60, reps: 10 }, { weight: 60, reps: 10 }, { weight: 60, reps: 9 }] },
+  { sessionId: 's2', exerciseId: 'ex1', date: '2024-07-22T09:00:00Z', setsPerformed: [{ weight: 62.5, reps: 8 }, { weight: 62.5, reps: 8 }, { weight: 62.5, reps: 7 }] },
+  { sessionId: 's3', exerciseId: 'ex2', date: '2024-07-15T10:00:00Z', setsPerformed: [{ weight: 100, reps: 10 }, { weight: 100, reps: 10 }] },
+  { sessionId: 's4', exerciseId: 'ex4', date: '2024-07-15T11:00:00Z', setsPerformed: [{ weight: 'BW', reps: 8 }, { weight: 'BW', reps: 7 }] },
+];
+
+
 const setFormSchema = z.object({
   weight: z.string().min(1, "Waga jest wymagana."),
   reps: z.string().min(1, "Liczba powtórzeń jest wymagana."),
@@ -159,6 +176,8 @@ export default function ActiveWorkoutPage() {
   const [isResting, setIsResting] = React.useState(false);
   const restIntervalRef = React.useRef<NodeJS.Timeout | null>(null);
 
+  const [progressionSuggestion, setProgressionSuggestion] = React.useState<string | null>(null);
+
   const setForm = useForm<SetFormValues>({
     resolver: zodResolver(setFormSchema),
     defaultValues: { weight: "", reps: "", rpe: "", notes: "" }, 
@@ -166,12 +185,11 @@ export default function ActiveWorkoutPage() {
 
   React.useEffect(() => {
     setIsLoading(true);
-    // Simulate API call to fetch workout
     setTimeout(() => {
       const foundWorkout = MOCK_WORKOUTS.find((w) => w.id === workoutId);
       if (foundWorkout) {
         setCurrentWorkout(foundWorkout);
-        setWorkoutStartTime(new Date()); // Start timer when workout is loaded
+        setWorkoutStartTime(new Date()); 
       } else {
         toast({ title: "Błąd", description: "Nie znaleziono treningu.", variant: "destructive" });
         router.push("/workout/start");
@@ -203,6 +221,50 @@ export default function ActiveWorkoutPage() {
     };
   }, [isResting, restTimer, toast]);
 
+  const currentExercise = currentWorkout?.exercises[currentExerciseIndex];
+  const currentExerciseDetails = currentExercise ? MOCK_EXERCISES_DATABASE.find(ex => ex.id === currentExercise.id) : null;
+
+  // Effect for progression suggestion
+  React.useEffect(() => {
+    if (currentExercise) {
+      const getSuggestion = (exerciseId: string, history: MockPastSession[]): string | null => {
+        const relevantSessions = history
+          .filter(session => session.exerciseId === exerciseId)
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+        if (relevantSessions.length > 0) {
+          const lastSession = relevantSessions[0];
+          const lastSet = lastSession.setsPerformed[0]; // Simplification: use the first set of the last session
+
+          if (lastSet) {
+            const lastWeight = lastSet.weight;
+            const lastReps = lastSet.reps;
+            const datePerformed = new Date(lastSession.date).toLocaleDateString('pl-PL');
+
+            if (typeof lastWeight === 'number' && typeof lastReps === 'number') {
+              const suggestedWeight = lastWeight + 2.5;
+              return `Ostatnio (${datePerformed}): ${lastWeight}kg x ${lastReps} powt. Sugestia: spróbuj dziś ${suggestedWeight}kg na ${lastReps} powt. lub podobną liczbę powtórzeń.`;
+            } else if (lastWeight === 'BW') {
+              return `Ostatnio (${datePerformed}): ${lastWeight} x ${lastReps} powt. Sugestia: spróbuj dziś więcej powtórzeń lub rozważ dodanie obciążenia.`;
+            } else {
+               return `Ostatnio (${datePerformed}): ${lastWeight} x ${lastReps} powt. Skup się na technice i liczbie powtórzeń.`;
+            }
+          }
+        }
+        return "Pierwszy raz to ćwiczenie? Daj z siebie wszystko i zanotuj wyniki!";
+      };
+      setProgressionSuggestion(getSuggestion(currentExercise.id, MOCK_WORKOUT_HISTORY_FOR_SUGGESTIONS));
+       // Reset form field for weight to potentially pre-fill from suggestion, or leave blank
+      const suggestionParts = progressionSuggestion?.match(/sugeruj ([0-9.]+)kg/i);
+      if (suggestionParts && suggestionParts[1]) {
+        // setForm.setValue("weight", suggestionParts[1]); // Example: prefill weight
+      } else {
+        // setForm.setValue("weight", ""); // Or set to previous if not suggesting new weight
+      }
+
+    }
+  }, [currentExercise, setForm, progressionSuggestion]); // Added setForm and progressionSuggestion to deps
+
   const formatTime = (totalSeconds: number) => {
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -210,16 +272,13 @@ export default function ActiveWorkoutPage() {
     return `${hours > 0 ? String(hours).padStart(2, "0") + ":" : ""}${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
   };
 
-  const currentExercise = currentWorkout?.exercises[currentExerciseIndex];
-  const currentExerciseDetails = currentExercise ? MOCK_EXERCISES_DATABASE.find(ex => ex.id === currentExercise.id) : null;
-
   const handleAddSet = (values: SetFormValues) => {
     if (!currentExercise) return;
 
     const newSet: RecordedSet = {
       setNumber: (recordedSets[currentExercise.id]?.length || 0) + 1,
-      weight: values.weight, // Could be number or string like "BW"
-      reps: values.reps, // Could be number or string like "Max"
+      weight: isNaN(parseFloat(values.weight)) ? values.weight : parseFloat(values.weight),
+      reps: isNaN(parseInt(values.reps, 10)) ? values.reps : parseInt(values.reps, 10),
       rpe: values.rpe ? Number(values.rpe) : undefined,
       notes: values.notes || undefined,
     };
@@ -229,8 +288,7 @@ export default function ActiveWorkoutPage() {
       [currentExercise.id]: [...(prev[currentExercise.id] || []), newSet],
     }));
 
-    // Keep weight for next set, clear reps, rpe, and notes
-    setForm.reset({ weight: values.weight, reps: "", rpe: "", notes: "" }); 
+    setForm.reset({ weight: String(newSet.weight), reps: "", rpe: "", notes: "" }); 
 
     const restDuration = currentExercise.defaultRest || DEFAULT_REST_TIME;
     setRestTimer(restDuration);
@@ -245,7 +303,7 @@ export default function ActiveWorkoutPage() {
     setRecordedSets((prev) => {
       const setsForExercise = prev[exerciseId] || [];
       const updatedSets = setsForExercise.filter((_, index) => index !== setIndexToDelete)
-                                       .map((s, i) => ({ ...s, setNumber: i + 1 })); // Re-number sets
+                                       .map((s, i) => ({ ...s, setNumber: i + 1 })); 
       return {
         ...prev,
         [exerciseId]: updatedSets,
@@ -286,7 +344,7 @@ export default function ActiveWorkoutPage() {
   };
 
   const handleFinishWorkout = () => {
-    setIsLoading(true); // Use a loading state for the finish action
+    setIsLoading(true); 
     if (!currentWorkout || !workoutStartTime) {
         toast({ title: "Błąd", description: "Nie można zakończyć treningu.", variant: "destructive"});
         setIsLoading(false);
@@ -300,7 +358,7 @@ export default function ActiveWorkoutPage() {
         endTime: new Date().toISOString(),
         totalTimeSeconds: elapsedTime,
         recordedSets: recordedSets,
-        exercises: currentWorkout.exercises // Pass exercise list for summary context
+        exercises: currentWorkout.exercises 
     };
 
     try {
@@ -397,25 +455,32 @@ export default function ActiveWorkoutPage() {
                 <CardDescription>Kategoria: {currentExerciseDetails.category}</CardDescription>
               )}
             </CardHeader>
-            {currentExerciseDetails?.instructions && (
-                 <CardContent className="pt-0">
-                    <Accordion type="single" collapsible className="w-full">
-                        <AccordionItem value="item-1" className="border-b-0">
-                            <AccordionTrigger className="text-sm hover:no-underline py-2">
-                                <Info className="mr-2 h-4 w-4"/> Pokaż instrukcje
-                            </AccordionTrigger>
-                            <AccordionContent className="text-muted-foreground text-sm pb-2">
-                                {currentExerciseDetails.instructions}
-                                {currentExerciseDetails.videoUrl && (
-                                    <a href={currentExerciseDetails.videoUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline block mt-2">
-                                        Zobacz wideo
-                                    </a>
-                                )}
-                            </AccordionContent>
-                        </AccordionItem>
-                    </Accordion>
-                </CardContent>
-            )}
+            <CardContent className="pt-0 space-y-4">
+              {currentExerciseDetails?.instructions && (
+                  <Accordion type="single" collapsible className="w-full">
+                      <AccordionItem value="item-1" className="border-b-0">
+                          <AccordionTrigger className="text-sm hover:no-underline py-2">
+                              <Info className="mr-2 h-4 w-4"/> Pokaż instrukcje
+                          </AccordionTrigger>
+                          <AccordionContent className="text-muted-foreground text-sm pb-2">
+                              {currentExerciseDetails.instructions}
+                              {currentExerciseDetails.videoUrl && (
+                                  <a href={currentExerciseDetails.videoUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline block mt-2">
+                                      Zobacz wideo
+                                  </a>
+                              )}
+                          </AccordionContent>
+                      </AccordionItem>
+                  </Accordion>
+              )}
+               {progressionSuggestion && (
+                <Alert variant="default" className="border-primary/50">
+                  <Lightbulb className="h-4 w-4 text-primary" />
+                  <AlertTitle className="text-primary">Sugestia Progresji</AlertTitle>
+                  <AlertDescription>{progressionSuggestion}</AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
           </Card>
 
           {isResting && (
@@ -592,3 +657,4 @@ export default function ActiveWorkoutPage() {
     </div>
   );
 }
+
