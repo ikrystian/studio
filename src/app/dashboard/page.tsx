@@ -21,8 +21,9 @@ import {
   CalendarDays,
   Flame,
   Repeat,
-  BookOpen, // Added for Plany Treningowe consistency
-  User as UserIcon, // For Profile
+  BookOpen,
+  User as UserIcon,
+  Camera, // Added for Progress Photos
 } from 'lucide-react';
 import type { Metadata } from 'next';
 
@@ -70,8 +71,8 @@ const navItems = [
   { href: '/history', label: 'Historia', icon: History, description: 'Track your progress' },
   { href: '/community', label: 'Społeczność', icon: Users, description: 'Connect with others' },
   { href: '/measurements', label: 'Pomiary', icon: Scale, description: 'Log your metrics' },
+  { href: '/progress-photos', label: 'Zdjęcia Postępu', icon: Camera, description: 'Track visual changes' },
   { href: `/profile/${userData.id}`, label: 'Mój Profil', icon: UserIcon, description: 'View & edit your profile' },
-  // { href: '/settings', label: 'Ustawienia', icon: Settings, description: 'Manage your account' }, // Settings can be part of profile or separate
 ];
 
 export default function DashboardPage() {
@@ -235,5 +236,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
