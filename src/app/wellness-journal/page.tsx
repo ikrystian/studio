@@ -12,7 +12,7 @@ import { v4 as uuidv4 } from "uuid";
 import {
   ArrowLeft,
   HeartPulse,
-  CalendarIcon,
+  CalendarIcon as CalendarDays, // Renamed to avoid conflict with Calendar component
   Smile,
   Zap,
   Bed,
@@ -22,9 +22,9 @@ import {
   Loader2,
   ListChecks,
   XCircle,
-  Brain, // Icon for Stress
-  Accessibility, // Icon for DOMS (Muscle Soreness)
-  Users, // Placeholder for Context
+  Brain, 
+  Accessibility, 
+  Users, 
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -71,7 +71,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger, // Added AlertDialogTrigger
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -85,7 +85,7 @@ export interface WellnessEntry {
   sleepQuality: number; // 1-5 scale
   stressLevel?: number; // 1-5 scale
   muscleSoreness?: number; // 1-5 scale
-  context?: string; // e.g., "Przed treningiem", "Po treningu"
+  context?: string; 
   notes?: string;
 }
 
@@ -209,12 +209,12 @@ export default function WellnessJournalPage() {
     await new Promise(resolve => setTimeout(resolve, 500));
     setEntries(prev => prev.filter(e => e.id !== entryToDelete.id));
     toast({ title: "Wpis usunięty", description: "Wpis został pomyślnie usunięty z dziennika." });
-    setEntryToDelete(null);
+    setEntryToDelete(null); // This will also close the dialog via onOpenChange on AlertDialog root
     setIsSaving(false);
   };
 
   const getRatingLabel = (value: number | undefined, type: 'general' | 'soreness' = 'general'): string => {
-    if (value === undefined) return "-";
+    if (value === undefined || value === null || value === "" as any) return "-";
     const options = type === 'soreness' ? SORENESS_RATING_OPTIONS : RATING_OPTIONS;
     return options.find(opt => opt.value === value)?.label || String(value);
   };
@@ -271,7 +271,7 @@ export default function WellnessJournalPage() {
                                 )}
                                 disabled={isSaving}
                               >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                <CalendarDays className="mr-2 h-4 w-4" />
                                 {field.value ? format(field.value, "PPP", { locale: pl }) : <span>Wybierz datę</span>}
                               </Button>
                             </FormControl>
@@ -390,7 +390,7 @@ export default function WellnessJournalPage() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="flex items-center"><Users className="mr-2 h-4 w-4"/>Kontekst wpisu (opcjonalnie)</FormLabel>
-                           <Select onValueChange={field.onChange} value={field.value} disabled={isSaving}>
+                           <Select onValueChange={field.onChange} value={field.value || "general"} disabled={isSaving}>
                             <FormControl>
                               <SelectTrigger><SelectValue placeholder="Wybierz kontekst..." /></SelectTrigger>
                             </FormControl>
@@ -427,68 +427,72 @@ export default function WellnessJournalPage() {
             </Form>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CalendarIcon className="h-6 w-6 text-primary" /> Historia Wpisów
-              </CardTitle>
-              <CardDescription>Przeglądaj swoje poprzednie wpisy w dzienniku samopoczucia.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {entries.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-10 text-center">
-                  <HeartPulse className="h-16 w-16 text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">Brak zapisanych wpisów w dzienniku.</p>
-                  <p className="text-sm text-muted-foreground">Dodaj swój pierwszy wpis powyżej.</p>
-                </div>
-              ) : (
-                <ScrollArea className="max-h-[400px] w-full">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Data</TableHead>
-                        <TableHead>Samopoczucie</TableHead>
-                        <TableHead>Energia</TableHead>
-                        <TableHead>Sen</TableHead>
-                        <TableHead className="hidden sm:table-cell">Stres</TableHead>
-                        <TableHead className="hidden sm:table-cell">DOMS</TableHead>
-                        <TableHead className="hidden md:table-cell">Kontekst</TableHead>
-                        <TableHead className="hidden lg:table-cell">Notatki</TableHead>
-                        <TableHead className="text-right">Akcje</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {entries.map((entry) => (
-                        <TableRow key={entry.id}>
-                          <TableCell>{format(parseISO(entry.date), "PPP", { locale: pl })}</TableCell>
-                          <TableCell>{getRatingLabel(entry.wellBeing)}</TableCell>
-                          <TableCell>{getRatingLabel(entry.energyLevel)}</TableCell>
-                          <TableCell>{getRatingLabel(entry.sleepQuality)}</TableCell>
-                          <TableCell className="hidden sm:table-cell">{getRatingLabel(entry.stressLevel)}</TableCell>
-                          <TableCell className="hidden sm:table-cell">{getRatingLabel(entry.muscleSoreness, 'soreness')}</TableCell>
-                          <TableCell className="hidden md:table-cell">{getContextLabel(entry.context)}</TableCell>
-                          <TableCell className="text-xs text-muted-foreground hidden lg:table-cell max-w-[150px] truncate" title={entry.notes}>
-                            {entry.notes || "-"}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon" onClick={() => setEntryToDelete(entry)} className="text-destructive hover:text-destructive">
-                                    <Trash2 className="h-4 w-4" />
-                                    <span className="sr-only">Usuń</span>
-                                </Button>
-                            </AlertDialogTrigger>
-                          </TableCell>
+          <AlertDialog open={!!entryToDelete} onOpenChange={(isOpen) => {
+            if (!isOpen) {
+              setEntryToDelete(null);
+            }
+          }}>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CalendarDays className="h-6 w-6 text-primary" /> Historia Wpisów
+                </CardTitle>
+                <CardDescription>Przeglądaj swoje poprzednie wpisy w dzienniku samopoczucia.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {entries.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-10 text-center">
+                    <HeartPulse className="h-16 w-16 text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground">Brak zapisanych wpisów w dzienniku.</p>
+                    <p className="text-sm text-muted-foreground">Dodaj swój pierwszy wpis powyżej.</p>
+                  </div>
+                ) : (
+                  <ScrollArea className="max-h-[400px] w-full">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Data</TableHead>
+                          <TableHead>Samopoczucie</TableHead>
+                          <TableHead>Energia</TableHead>
+                          <TableHead>Sen</TableHead>
+                          <TableHead className="hidden sm:table-cell">Stres</TableHead>
+                          <TableHead className="hidden sm:table-cell">DOMS</TableHead>
+                          <TableHead className="hidden md:table-cell">Kontekst</TableHead>
+                          <TableHead className="hidden lg:table-cell">Notatki</TableHead>
+                          <TableHead className="text-right">Akcje</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </ScrollArea>
-              )}
-            </CardContent>
-          </Card>
-          
-           {entryToDelete && (
-            <AlertDialog open={!!entryToDelete} onOpenChange={() => setEntryToDelete(null)}>
+                      </TableHeader>
+                      <TableBody>
+                        {entries.map((entry) => (
+                          <TableRow key={entry.id}>
+                            <TableCell>{format(parseISO(entry.date), "PPP", { locale: pl })}</TableCell>
+                            <TableCell>{getRatingLabel(entry.wellBeing)}</TableCell>
+                            <TableCell>{getRatingLabel(entry.energyLevel)}</TableCell>
+                            <TableCell>{getRatingLabel(entry.sleepQuality)}</TableCell>
+                            <TableCell className="hidden sm:table-cell">{getRatingLabel(entry.stressLevel)}</TableCell>
+                            <TableCell className="hidden sm:table-cell">{getRatingLabel(entry.muscleSoreness, 'soreness')}</TableCell>
+                            <TableCell className="hidden md:table-cell">{getContextLabel(entry.context)}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground hidden lg:table-cell max-w-[150px] truncate" title={entry.notes || undefined}>
+                              {entry.notes || "-"}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <AlertDialogTrigger asChild>
+                                  <Button variant="ghost" size="icon" onClick={() => setEntryToDelete(entry)} className="text-destructive hover:text-destructive">
+                                      <Trash2 className="h-4 w-4" />
+                                      <span className="sr-only">Usuń</span>
+                                  </Button>
+                              </AlertDialogTrigger>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </ScrollArea>
+                )}
+              </CardContent>
+            </Card>
+            
+            {entryToDelete && ( // Content is only rendered if entryToDelete is not null
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Usunąć wpis z dziennika?</AlertDialogTitle>
@@ -504,12 +508,10 @@ export default function WellnessJournalPage() {
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
-            </AlertDialog>
-          )}
-
+            )}
+          </AlertDialog>
         </div>
       </main>
     </div>
   );
 }
-
