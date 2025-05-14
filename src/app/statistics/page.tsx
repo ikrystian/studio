@@ -4,9 +4,10 @@
 import * as React from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, BarChart3, LineChart as LineChartIcon, CalendarDays, TrendingUp, WeightIcon, DumbbellIcon, AlertTriangle, PieChartIcon, ImageIcon, FileDown, Filter, Info, CompareArrows } from "lucide-react";
-import { format, parseISO, getWeek, getYear, startOfDay, endOfDay, isValid, isWithinInterval } from "date-fns";
+import { ArrowLeft, BarChart3, LineChart as LineChartIcon, CalendarDays, TrendingUp, WeightIcon, DumbbellIcon, AlertTriangle, PieChartIcon, ImageIcon, FileDown, Filter, Info, ArrowRightLeft, Target, Edit, Trash2, PlusCircle, Save } from "lucide-react";
+import { format, parseISO, getWeek, getYear, startOfDay, endOfDay, isValid, isWithinInterval, isBefore } from "date-fns";
 import { pl } from "date-fns/locale";
+import { v4 as uuidv4 } from "uuid";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -51,9 +52,19 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AddGoalDialog } from "@/components/statistics/add-goal-dialog";
+import { AddGoalDialog, type AddGoalFormData } from "@/components/statistics/add-goal-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 
 // Mock data (ideally imported from a shared location or fetched)
@@ -172,11 +183,17 @@ const MOCK_WELLNESS_ENTRIES_FOR_STATS: WellnessEntryForStats[] = [
   { date: "2024-06-20", wellBeing: 4, energyLevel: 4, sleepQuality: 4 },
 ];
 
-const MOCK_USER_GOALS = [
-  { id: "goal1", name: "Przysiad 120kg x 5", metric: "Przysiady ze sztangą - Objętość", currentValue: 110 * 5, targetValue: 120 * 5, unit: "kg*powt", deadline: "2024-12-31" },
-  { id: "goal2", name: "Wyciskanie 80kg", metric: "Wyciskanie sztangi na ławce płaskiej - Max Ciężar", currentValue: 75, targetValue: 80, unit: "kg", deadline: "2024-10-30" },
-  { id: "goal3", name: "Trenuj 4x w tygodniu", metric: "Częstotliwość treningów", currentValue: 3, targetValue: 4, unit: "treningi/tydz.", deadline: null },
+export interface UserGoal extends AddGoalFormData {
+  id: string;
+  currentValue: number;
+}
+
+const INITIAL_USER_GOALS: UserGoal[] = [
+  { id: "goal1", goalName: "Przysiad 120kg x 5", metric: "Przysiady ze sztangą - Objętość", currentValue: 110 * 5, targetValue: 120 * 5, deadline: parseISO("2024-12-31"), notes: "Cel na koniec roku" },
+  { id: "goal2", goalName: "Wyciskanie 80kg", metric: "Wyciskanie sztangi na ławce płaskiej - Max Ciężar", currentValue: 75, targetValue: 80, deadline: parseISO("2024-10-30"), notes: "Cel na jesień" },
+  { id: "goal3", goalName: "Trenuj 4x w tygodniu", metric: "Częstotliwość treningów", currentValue: 3, targetValue: 4, deadline: undefined, notes: "Cel regularności" },
 ];
+
 
 interface ComparisonMetrics {
   workoutCount: number;
@@ -202,8 +219,7 @@ export default function StatisticsPage() {
 
   const [selectedGlobalStartDate, setSelectedGlobalStartDate] = React.useState<Date | undefined>();
   const [selectedGlobalEndDate, setSelectedGlobalEndDate] = React.useState<Date | undefined>();
-  const [isAddGoalDialogOpen, setIsAddGoalDialogOpen] = React.useState(false);
-
+  
   const [processedHistorySessions, setProcessedHistorySessions] = React.useState<SimpleHistoricalWorkoutSession[]>(MOCK_HISTORY_SESSIONS_STATS);
   const [processedMeasurements, setProcessedMeasurements] = React.useState<SimpleMeasurement[]>(MOCK_MEASUREMENTS_STATS);
   const [processedWellnessEntries, setProcessedWellnessEntries] = React.useState<WellnessEntryForStats[]>(MOCK_WELLNESS_ENTRIES_FOR_STATS);
@@ -213,10 +229,14 @@ export default function StatisticsPage() {
   const [periodBStartDate, setPeriodBStartDate] = React.useState<Date | undefined>();
   const [periodBEndDate, setPeriodBEndDate] = React.useState<Date | undefined>();
   const [comparisonResults, setComparisonResults] = React.useState<ComparisonResults | null>(null);
+  
+  const [isAddGoalDialogOpen, setIsAddGoalDialogOpen] = React.useState(false);
+  const [userGoals, setUserGoals] = React.useState<UserGoal[]>(INITIAL_USER_GOALS);
+  const [goalToDelete, setGoalToDelete] = React.useState<UserGoal | null>(null);
 
 
   const volumeChartExercises = React.useMemo(() =>
-    MOCK_EXERCISES_FOR_STATS_FILTER.filter(ex => ex.id !== "all"),
+    MOCK_EXERCISES_FOR_STATS_FILTER.filter(ex => ex.id !== "all"), // Assuming "all" might be a filter option elsewhere
     []
   );
 
@@ -230,8 +250,15 @@ export default function StatisticsPage() {
   const [selectedExerciseIdForVolume, setSelectedExerciseIdForVolume] = React.useState<string>(initialSelectedExerciseId);
   
   React.useEffect(() => {
-     setSelectedExerciseIdForVolume(initialSelectedExerciseId);
-  }, [initialSelectedExerciseId]);
+     if (exerciseIdFromQuery && volumeChartExercises.some(ex => ex.id === exerciseIdFromQuery)) {
+      setSelectedExerciseIdForVolume(exerciseIdFromQuery);
+    } else if (!exerciseIdFromQuery && volumeChartExercises.length > 0) {
+      // If no query param, but list exists, set to first valid exercise
+      setSelectedExerciseIdForVolume(volumeChartExercises[0].id);
+    } else if (volumeChartExercises.length === 0) {
+      setSelectedExerciseIdForVolume(""); // Or handle "no exercises" state
+    }
+  }, [exerciseIdFromQuery, volumeChartExercises]);
 
 
   React.useEffect(() => {
@@ -240,19 +267,22 @@ export default function StatisticsPage() {
         const element = document.getElementById('exercise-volume-chart-card');
         if (element) {
           element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+           const selectedExercise = volumeChartExercises.find(ex => ex.id === selectedExerciseIdForVolume);
+           const messageExerciseName = exerciseNameFromQuery || selectedExercise?.name || "wybranego ćwiczenia";
+           
            if (volumeChartExercises.some(ex => ex.id === exerciseIdFromQuery)) {
-            toast({
-              title: "Analiza Ćwiczenia",
-              description: `Wyświetlanie trendu objętości dla: ${exerciseNameFromQuery || exerciseIdFromQuery}.`,
-            });
-          } else if (volumeChartExercises.length > 0 && selectedExerciseIdForVolume) {
+             toast({
+                title: "Analiza Ćwiczenia",
+                description: `Wyświetlanie trendu objętości dla: ${messageExerciseName}.`,
+             });
+           } else {
              toast({
                 title: "Uwaga",
-                description: `Nie można było automatycznie wybrać ćwiczenia '${exerciseNameFromQuery || exerciseIdFromQuery}' dla wykresu objętości. Wyświetlono statystyki dla '${volumeChartExercises.find(ex => ex.id === selectedExerciseIdForVolume)?.name || 'domyślnego ćwiczenia'}'.`,
+                description: `Nie można było automatycznie wybrać ćwiczenia '${exerciseNameFromQuery || exerciseIdFromQuery}' dla wykresu objętości. Wyświetlono statystyki dla '${selectedExercise?.name || 'domyślnego ćwiczenia'}'.`,
                 variant: "default",
                 duration: 7000,
             });
-          }
+           }
         }
       }, 150);
       return () => clearTimeout(timer);
@@ -307,8 +337,9 @@ export default function StatisticsPage() {
   }, [selectedGlobalStartDate, selectedGlobalEndDate, toast]);
   
   React.useEffect(() => {
+    // Apply filters on initial load or when date range changes
     handleApplyGlobalFilters();
-  }, [handleApplyGlobalFilters]);
+  }, [handleApplyGlobalFilters]); // Dependencies: selectedGlobalStartDate, selectedGlobalEndDate
 
 
   const workoutFrequencyData = React.useMemo(() => {
@@ -359,7 +390,8 @@ export default function StatisticsPage() {
 
     const wellnessDataMap = new Map<string, WellnessEntryForStats>();
     processedWellnessEntries.forEach(entry => {
-      const entryDate = parseISO(entry.date);
+      // Ensure wellness entry dates are parsed correctly, assuming they are 'yyyy-MM-dd'
+      const entryDate = parseISO(entry.date); 
       if(isValid(entryDate)) {
         wellnessDataMap.set(format(entryDate, "yyyy-MM-dd"), entry);
       }
@@ -389,15 +421,22 @@ export default function StatisticsPage() {
         const dataPoint: any = {
           date: displayDateStr,
           sessionDate: sessionDateObj,
-          Volume: volume > 0 ? volume : undefined,
         };
+        if (volume > 0) { // Only add volume if it's calculated
+            dataPoint.Volume = volume;
+        }
 
         if (wellnessEntry) {
           if (selectedWellnessMetrics.includes('wellBeing') && wellnessEntry.wellBeing !== undefined) dataPoint.wellBeing = wellnessEntry.wellBeing;
           if (selectedWellnessMetrics.includes('energyLevel') && wellnessEntry.energyLevel !== undefined) dataPoint.energyLevel = wellnessEntry.energyLevel;
           if (selectedWellnessMetrics.includes('sleepQuality') && wellnessEntry.sleepQuality !== undefined) dataPoint.sleepQuality = wellnessEntry.sleepQuality;
         }
-        if (dataPoint.Volume !== undefined) {
+        // Only add data point if it has Volume or at least one selected wellness metric
+        if (dataPoint.Volume !== undefined || 
+            (selectedWellnessMetrics.includes('wellBeing') && dataPoint.wellBeing !== undefined) ||
+            (selectedWellnessMetrics.includes('energyLevel') && dataPoint.energyLevel !== undefined) ||
+            (selectedWellnessMetrics.includes('sleepQuality') && dataPoint.sleepQuality !== undefined)
+           ) {
              mergedData.push(dataPoint);
         }
       }
@@ -421,12 +460,14 @@ export default function StatisticsPage() {
     let workoutCount = 0;
     let totalVolume = 0;
 
-    const periodSessions = MOCK_HISTORY_SESSIONS_STATS.filter(session => {
+    const periodSessions = MOCK_HISTORY_SESSIONS_STATS.filter(session => { // Use the original mock data for comparison, not the globally filtered one
         const sessionDate = parseISO(session.startTime);
         if (!isValid(sessionDate)) return false;
-        if (startDate && sessionDate < startOfDay(startDate)) return false;
-        if (endDate && sessionDate > endOfDay(endDate)) return false;
-        return true;
+
+        let withinPeriod = true;
+        if (startDate && sessionDate < startOfDay(startDate)) withinPeriod = false;
+        if (endDate && sessionDate > endOfDay(endDate)) withinPeriod = false;
+        return withinPeriod;
     });
 
     workoutCount = periodSessions.length;
@@ -456,7 +497,7 @@ export default function StatisticsPage() {
         setComparisonResults(null);
         return;
     }
-    if (periodAEndDate < periodAStartDate || periodBEndDate < periodBStartDate) {
+     if (isBefore(periodAEndDate, periodAStartDate) || isBefore(periodBEndDate, periodBStartDate)) {
         toast({
             title: "Błąd Zakresu Dat",
             description: "Data końcowa nie może być wcześniejsza niż data początkowa dla okresu.",
@@ -478,6 +519,34 @@ export default function StatisticsPage() {
         title: "Porównanie Wygenerowane",
         description: "Wyniki porównania okresów są gotowe.",
     });
+  };
+
+  const handleAddGoal = (data: AddGoalFormData) => {
+    const newGoal: UserGoal = {
+      id: uuidv4(),
+      goalName: data.goalName,
+      metric: data.metric,
+      currentValue: data.currentValue === "" || data.currentValue === undefined ? 0 : Number(data.currentValue),
+      targetValue: data.targetValue,
+      deadline: data.deadline,
+      notes: data.notes,
+    };
+    setUserGoals(prev => [...prev, newGoal].sort((a,b) => (a.deadline && b.deadline) ? parseISO(String(a.deadline)).getTime() - parseISO(String(b.deadline)).getTime() : (a.deadline ? -1 : 1) ));
+    setIsAddGoalDialogOpen(false);
+    toast({
+      title: "Cel Dodany!",
+      description: `Cel "${newGoal.goalName}" został pomyślnie dodany.`
+    });
+  };
+
+  const handleDeleteGoal = () => {
+    if (!goalToDelete) return;
+    setUserGoals(prev => prev.filter(goal => goal.id !== goalToDelete.id));
+    toast({
+      title: "Cel Usunięty",
+      description: `Cel "${goalToDelete.goalName}" został usunięty.`
+    });
+    setGoalToDelete(null);
   };
 
 
@@ -530,13 +599,13 @@ export default function StatisticsPage() {
                   date={selectedGlobalStartDate}
                   onDateChange={setSelectedGlobalStartDate}
                   label="Data od"
-                  disabled={(date) => selectedGlobalEndDate ? date > selectedGlobalEndDate : false}
+                  disabled={(date) => selectedGlobalEndDate ? isBefore(selectedGlobalEndDate,date) : false}
                 />
                 <DatePicker
                   date={selectedGlobalEndDate}
                   onDateChange={setSelectedGlobalEndDate}
                   label="Data do"
-                  disabled={(date) => selectedGlobalStartDate ? date < selectedGlobalStartDate : false}
+                  disabled={(date) => selectedGlobalStartDate ? isBefore(date, selectedGlobalStartDate) : false}
                 />
               </div>
               <div className="space-y-2">
@@ -639,13 +708,13 @@ export default function StatisticsPage() {
                   <LineChart data={exerciseVolumeData} margin={{ top: 5, right: 30, left: -10, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} />
-                    <YAxis yAxisId="left" dataKey="Volume" domain={['auto', 'auto']} tickLine={false} axisLine={false} tickMargin={8} />
+                    <YAxis yAxisId="left" dataKey="Volume" domain={['auto', 'auto']} tickLine={false} axisLine={false} tickMargin={8} name="Objętość" />
                     {selectedWellnessMetrics.length > 0 && (
-                       <YAxis yAxisId="right" orientation="right" domain={[1,5]} allowDecimals={false} tickCount={5} tickLine={false} axisLine={false} tickMargin={8} />
+                       <YAxis yAxisId="right" orientation="right" domain={[1,5]} allowDecimals={false} tickCount={5} tickLine={false} axisLine={false} tickMargin={8} name="Ocena (1-5)" />
                     )}
                     <ChartTooltip cursor={true} content={<ChartTooltipContent indicator="dot" />} />
                     <ChartLegend content={<ChartLegendContent />} />
-                    <Line yAxisId="left" type="monotone" dataKey="Volume" name={`Objętość (${MOCK_EXERCISES_FOR_STATS_FILTER.find(ex => ex.id === selectedExerciseIdForVolume)?.name})`} stroke="var(--color-Volume)" strokeWidth={2} dot={{ fill: "var(--color-Volume)" }} activeDot={{ r: 6 }} connectNulls={false}/>
+                    <Line yAxisId="left" type="monotone" dataKey="Volume" name={chartConfig.Volume.label} stroke="var(--color-Volume)" strokeWidth={2} dot={{ fill: "var(--color-Volume)" }} activeDot={{ r: 6 }} connectNulls={false}/>
                     {selectedWellnessMetrics.includes('wellBeing') && <Line yAxisId="right" type="monotone" dataKey="wellBeing" name="Samopoczucie" stroke={chartConfig.wellBeing.color} strokeWidth={2} dot={{ fill: chartConfig.wellBeing.color }} activeDot={{ r: 6 }} connectNulls={false} />}
                     {selectedWellnessMetrics.includes('energyLevel') && <Line yAxisId="right" type="monotone" dataKey="energyLevel" name="Energia" stroke={chartConfig.energyLevel.color} strokeWidth={2} dot={{ fill: chartConfig.energyLevel.color }} activeDot={{ r: 6 }} connectNulls={false} />}
                     {selectedWellnessMetrics.includes('sleepQuality') && <Line yAxisId="right" type="monotone" dataKey="sleepQuality" name="Sen" stroke={chartConfig.sleepQuality.color} strokeWidth={2} dot={{ fill: chartConfig.sleepQuality.color }} activeDot={{ r: 6 }} connectNulls={false} />}
@@ -743,7 +812,7 @@ export default function StatisticsPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><CompareArrows className="h-6 w-6 text-primary" />Porównaj Okresy</CardTitle>
+              <CardTitle className="flex items-center gap-2"><ArrowRightLeft className="h-6 w-6 text-primary" />Porównaj Okresy</CardTitle>
               <CardDescription>Porównaj swoje statystyki między dwoma wybranymi okresami.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -754,13 +823,13 @@ export default function StatisticsPage() {
                         date={periodAStartDate}
                         onDateChange={setPeriodAStartDate}
                         label="Data od (Okres A)"
-                        disabled={(date) => periodAEndDate ? date > periodAEndDate : false}
+                        disabled={(date) => periodAEndDate ? isBefore(periodAEndDate,date) : false}
                     />
                     <DatePicker
                         date={periodAEndDate}
                         onDateChange={setPeriodAEndDate}
                         label="Data do (Okres A)"
-                        disabled={(date) => periodAStartDate ? date < periodAStartDate : false}
+                        disabled={(date) => periodAStartDate ? isBefore(date, periodAStartDate) : false}
                     />
                 </div>
                  <div className="space-y-2 p-4 border rounded-lg">
@@ -769,18 +838,18 @@ export default function StatisticsPage() {
                         date={periodBStartDate}
                         onDateChange={setPeriodBStartDate}
                         label="Data od (Okres B)"
-                        disabled={(date) => periodBEndDate ? date > periodBEndDate : false}
+                        disabled={(date) => periodBEndDate ? isBefore(periodBEndDate,date) : false}
                     />
                     <DatePicker
                         date={periodBEndDate}
                         onDateChange={setPeriodBEndDate}
                         label="Data do (Okres B)"
-                        disabled={(date) => periodBStartDate ? date < periodBStartDate : false}
+                        disabled={(date) => periodBStartDate ? isBefore(date, periodBStartDate) : false}
                     />
                 </div>
               </div>
               <Button onClick={handleComparePeriods} className="w-full sm:w-auto">
-                <CompareArrows className="mr-2 h-4 w-4" /> Porównaj Okresy
+                <ArrowRightLeft className="mr-2 h-4 w-4" /> Porównaj Okresy
               </Button>
 
               {comparisonResults && (
@@ -820,7 +889,7 @@ export default function StatisticsPage() {
                             }
                         ].map(item => {
                             const diff = item.valueB - item.valueA;
-                            const percentageChange = item.valueA !== 0 ? ((diff / item.valueA) * 100).toFixed(1) : (item.valueB > 0 ? "∞" : "0.0");
+                            const percentageChange = item.valueA !== 0 ? ((diff / item.valueA) * 100).toFixed(1) : (item.valueB !== 0 ? (diff > 0 ? "∞" : "-∞") : "0.0"); // Handle division by zero
                             return (
                                 <TableRow key={item.label}>
                                     <TableCell className="font-medium">{item.label}</TableCell>
@@ -844,38 +913,77 @@ export default function StatisticsPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><TrendingUp className="h-6 w-6 text-primary"/>Moje Cele</CardTitle>
+              <CardTitle className="flex items-center gap-2"><Target className="h-6 w-6 text-primary"/>Moje Cele</CardTitle>
               <CardDescription>Definiuj i śledź swoje cele treningowe i pomiarowe.</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold">Lista Celów</h3>
-                <Button onClick={() => setIsAddGoalDialogOpen(true)} >+ Dodaj Nowy Cel</Button>
+                <Button onClick={() => setIsAddGoalDialogOpen(true)} >
+                    <PlusCircle className="mr-2 h-4 w-4"/> Dodaj Nowy Cel
+                </Button>
               </div>
-               <Alert variant="default" className="mb-4">
-                <Info className="h-4 w-4" />
-                <AlertTitle>Funkcja w Budowie</AlertTitle>
-                <AlertDescription>
-                  Pełne zarządzanie celami, ich śledzenie i wizualizacja postępów są w trakcie rozwoju.
-                </AlertDescription>
-              </Alert>
               <div className="space-y-3">
-                {MOCK_USER_GOALS.map(goal => (
-                  <div key={goal.id} className="p-3 border rounded-md bg-muted/30">
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium">{goal.name}</span>
-                      <span className="text-xs text-muted-foreground">Cel: {goal.targetValue.toLocaleString('pl-PL')}{goal.unit}</span>
+                {userGoals.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-4">Nie zdefiniowano jeszcze żadnych celów.</p>
+                )}
+                {userGoals.map(goal => (
+                  <AlertDialog key={goal.id}>
+                    <div className="p-4 border rounded-lg bg-muted/30">
+                      <div className="flex justify-between items-start">
+                          <div>
+                              <h4 className="font-semibold">{goal.goalName}</h4>
+                              <p className="text-xs text-muted-foreground">Metryka: {goal.metric}</p>
+                              {goal.deadline && <p className="text-xs text-muted-foreground">Termin: {format(parseISO(String(goal.deadline)), "PPP", {locale: pl})}</p>}
+                          </div>
+                          <div className="flex items-center gap-1">
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toast({title: "Edycja Celu (Wkrótce)", description: "Możliwość edycji celów zostanie dodana w przyszłości."})}>
+                                  <Edit className="h-4 w-4"/>
+                                  <span className="sr-only">Edytuj cel</span>
+                              </Button>
+                              <AlertDialogTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setGoalToDelete(goal)}>
+                                      <Trash2 className="h-4 w-4"/>
+                                      <span className="sr-only">Usuń cel</span>
+                                  </Button>
+                              </AlertDialogTrigger>
+                          </div>
+                      </div>
+                      <div className="mt-2">
+                          <div className="flex justify-between text-xs mb-1">
+                              <span>Postęp</span>
+                              <span>{goal.currentValue.toLocaleString('pl-PL')} / {goal.targetValue.toLocaleString('pl-PL')} {(goal.metric.includes('(kg)') || goal.metric.includes('Objętość')) ? 'kg' : (goal.metric.includes('(cm)') ? 'cm' : '')}</span>
+                          </div>
+                          <Progress value={(goal.currentValue / goal.targetValue) * 100} className="h-2" />
+                      </div>
+                      {goal.notes && <p className="text-xs text-muted-foreground mt-2 italic">Notatka: {goal.notes}</p>}
                     </div>
-                    <Progress value={(goal.currentValue / goal.targetValue) * 100} className="h-2 mt-1" />
-                    <p className="text-xs text-muted-foreground mt-1">Aktualnie: {goal.currentValue.toLocaleString('pl-PL')}{goal.unit} {goal.deadline ? `(do: ${format(parseISO(goal.deadline), "PPP", {locale: pl})})` : ''}</p>
-                  </div>
+                     {goalToDelete && goalToDelete.id === goal.id && (
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Usunąć cel?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    Czy na pewno chcesz usunąć cel "{goalToDelete.goalName}"?
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel onClick={() => setGoalToDelete(null)}>Anuluj</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleDeleteGoal} className="bg-destructive hover:bg-destructive/90">
+                                    Usuń
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    )}
+                  </AlertDialog>
                 ))}
-                 {MOCK_USER_GOALS.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nie zdefiniowano jeszcze żadnych celów.</p>}
               </div>
             </CardContent>
           </Card>
-          <AddGoalDialog isOpen={isAddGoalDialogOpen} onOpenChange={setIsAddGoalDialogOpen} />
-
+          <AddGoalDialog 
+            isOpen={isAddGoalDialogOpen} 
+            onOpenChange={setIsAddGoalDialogOpen}
+            onSave={handleAddGoal} 
+          />
         </div>
       </main>
     </div>
