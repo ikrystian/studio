@@ -18,8 +18,8 @@ import {
   ChevronDown,
   XCircle,
   Loader2,
-  Edit3, // For editing exercise parameters
-  PlusSquare, // For quick add exercise button
+  PlusSquare,
+  Edit3, // Keep Edit3 if used for general edit icons, but not for the dialog
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -51,8 +52,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ExerciseSelectionDialog, type Exercise as SelectableExercise } from "@/components/workout/exercise-selection-dialog";
-import { EditExerciseParametersDialog, type ExerciseParametersFormValues } from "@/components/workout/edit-exercise-parameters-dialog";
-import { QuickAddExerciseDialog, type QuickAddExerciseFormData } from "@/components/workout/quick-add-exercise-dialog"; // Updated import
+// Removed import for EditExerciseParametersDialog
+import { QuickAddExerciseDialog, type QuickAddExerciseFormData } from "@/components/workout/quick-add-exercise-dialog";
 
 // Initial mock database - will be turned into state
 const INITIAL_MOCK_EXERCISES_DATABASE: SelectableExercise[] = [
@@ -75,14 +76,16 @@ const INITIAL_MOCK_EXERCISES_DATABASE: SelectableExercise[] = [
   { id: "ex17", name: "Przysiad bułgarski", category: "Nogi" },
   { id: "ex18", name: "Wyciskanie hantli na ławce skośnej", category: "Klatka"},
 ];
+export { INITIAL_MOCK_EXERCISES_DATABASE as MOCK_EXERCISES_DATABASE };
+
 
 // Schema for an individual exercise in the workout form
 const exerciseInWorkoutSchema = z.object({
-  id: z.string(),
+  id: z.string(), // Keep as string if UUIDs are generated on client or come from mock
   name: z.string().min(1, "Nazwa ćwiczenia jest wymagana."),
-  sets: z.coerce.number().positive("Liczba serii musi być dodatnia.").optional(),
+  sets: z.coerce.number({invalid_type_error: "Serie muszą być liczbą."}).positive("Liczba serii musi być dodatnia.").optional().or(z.literal("")),
   reps: z.string().optional(), // e.g., "8-10", "Max", "30s"
-  restTimeSeconds: z.coerce.number().positive("Czas odpoczynku musi być dodatni.").optional(),
+  restTimeSeconds: z.coerce.number({invalid_type_error: "Czas odpoczynku musi być liczbą."}).int("Czas odpoczynku musi być liczbą całkowitą.").min(0, "Czas odpoczynku nie może być ujemny.").optional().or(z.literal("")),
   targetRpe: z.string().optional(), // e.g., "7-8"
   exerciseNotes: z.string().optional(),
 });
@@ -105,11 +108,8 @@ export default function CreateWorkoutPage() {
   const [serverError, setServerError] = React.useState<string | null>(null);
   
   const [isExerciseSelectionDialogOpen, setIsExerciseSelectionDialogOpen] = React.useState(false);
-  const [isEditParamsDialogOpen, setIsEditParamsDialogOpen] = React.useState(false);
-  const [editingExerciseIndex, setEditingExerciseIndex] = React.useState<number | null>(null);
   const [isQuickAddExerciseDialogOpen, setIsQuickAddExerciseDialogOpen] = React.useState(false);
 
-  // Manage the master list of exercises in state
   const [masterExerciseList, setMasterExerciseList] = React.useState<SelectableExercise[]>(INITIAL_MOCK_EXERCISES_DATABASE);
 
   const form = useForm<WorkoutFormValues>({
@@ -121,7 +121,7 @@ export default function CreateWorkoutPage() {
     },
   });
 
-  const { fields, append, remove, move, update } = useFieldArray({
+  const { fields, append, remove, move } = useFieldArray({
     control: form.control,
     name: "exercises",
   });
@@ -134,36 +134,17 @@ export default function CreateWorkoutPage() {
     const exercisesToAppend = selectedExercises.map(ex => ({
         id: ex.id,
         name: ex.name,
-        // Initialize with undefined or default parameters
-        sets: undefined, 
-        reps: undefined,
-        restTimeSeconds: undefined,
+        sets: undefined, // Default to undefined or a sensible default like 3
+        reps: undefined, // Default to undefined or "8-12"
+        restTimeSeconds: undefined, // Default to undefined or 60
         targetRpe: undefined,
         exerciseNotes: undefined,
     }));
     append(exercisesToAppend);
-    if (form.formState.errors.exercises) {
+    if (form.formState.errors.exercises && typeof form.formState.errors.exercises.message === 'string') {
+        form.clearErrors("exercises.root.message" as any); // Clear general array error
         form.clearErrors("exercises");
     }
-  };
-
-  const handleOpenEditParamsDialog = (index: number) => {
-    setEditingExerciseIndex(index);
-    setIsEditParamsDialogOpen(true);
-  };
-
-  const handleSaveExerciseParameters = (index: number, params: ExerciseParametersFormValues) => {
-    const currentExercise = fields[index];
-    update(index, {
-      ...currentExercise,
-      sets: params.sets,
-      reps: params.reps,
-      restTimeSeconds: params.restTimeSeconds,
-      targetRpe: params.targetRpe,
-      exerciseNotes: params.exerciseNotes,
-    });
-    setIsEditParamsDialogOpen(false);
-    setEditingExerciseIndex(null);
   };
 
   const handleRemoveExercise = (index: number) => {
@@ -184,12 +165,12 @@ export default function CreateWorkoutPage() {
 
   const handleQuickExerciseCreated = (newExerciseData: { name: string; category: string }) => {
     const newDbExercise: SelectableExercise = {
-      id: uuidv4(), // Generate a unique ID for the "database"
+      id: uuidv4(), // Generate unique ID for the new exercise
       name: newExerciseData.name,
       category: newExerciseData.category,
     };
-
-    // Simulate adding to global exercise DB
+    
+    // Add to master list (simulating save to DB)
     setMasterExerciseList(prev => [...prev, newDbExercise]);
 
     // Add to current workout form
@@ -207,7 +188,11 @@ export default function CreateWorkoutPage() {
       title: "Ćwiczenie Dodane!",
       description: `"${newDbExercise.name}" zostało dodane do bazy i obecnego treningu.`,
     });
-    setIsQuickAddExerciseDialogOpen(false); // Close dialog after adding
+    setIsQuickAddExerciseDialogOpen(false); // Close the dialog
+    if (form.formState.errors.exercises && typeof form.formState.errors.exercises.message === 'string') {
+        form.clearErrors("exercises.root.message" as any);
+        form.clearErrors("exercises");
+    }
   };
 
 
@@ -215,8 +200,9 @@ export default function CreateWorkoutPage() {
     setIsLoading(true);
     setServerError(null);
     console.log("Workout data submitted:", values);
-    console.log("Current Master Exercise List:", masterExerciseList); // Log updated master list
+    console.log("Current Master Exercise List:", masterExerciseList); // To verify quick-adds
 
+    // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1500));
 
     toast({
@@ -224,16 +210,23 @@ export default function CreateWorkoutPage() {
       description: (
         <div>
           <p>Trening "{values.workoutName}" został pomyślnie utworzony (symulacja).</p>
+          {/* 
+          <p className="mt-2">Co chcesz teraz zrobić?</p>
+          <div className="flex gap-2 mt-1">
+            <Button size="sm" onClick={() => router.push(`/workout/active/${'mock-new-id'}`)}>Rozpocznij ten trening</Button>
+            <Button size="sm" variant="outline" onClick={() => router.push('/workout/start')}>Wróć do listy</Button>
+          </div>
+          */}
         </div>
       ),
       variant: "default",
+      duration: 5000, // Longer duration for the example with buttons
     });
-    router.push("/workout/start"); 
+    router.push("/workout/start"); // Or wherever appropriate after saving
 
     setIsLoading(false);
   }
 
-  const currentEditingExerciseData = editingExerciseIndex !== null ? fields[editingExerciseIndex] : undefined;
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -341,31 +334,16 @@ export default function CreateWorkoutPage() {
                       <p>Kliknij "+ Dodaj z Bazy" lub "Szybkie Dodaj Ćwiczenie", aby rozpocząć.</p>
                     </div>
                   ) : (
-                    <ul className="space-y-4">
+                    <ul className="space-y-6">
                       {fields.map((item, index) => (
                         <li key={item.id}> 
                           <Card className="bg-muted/30 p-4">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex-grow">
-                                <span className="font-medium">{item.name}</span>
-                                <div className="text-xs text-muted-foreground space-x-2 mt-1">
-                                  {item.sets && <span>Serie: {item.sets}</span>}
-                                  {item.reps && <span>Powt: {item.reps}</span>}
-                                  {item.restTimeSeconds && <span>Odp: {item.restTimeSeconds}s</span>}
-                                </div>
+                            <div className="flex items-start justify-between gap-2 mb-4">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-lg pt-1">{index + 1}.</span>
+                                <span className="font-medium text-lg pt-1">{item.name}</span>
                               </div>
                               <div className="flex items-center space-x-1 flex-shrink-0">
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleOpenEditParamsDialog(index)}
-                                  disabled={isLoading}
-                                  aria-label="Edytuj parametry ćwiczenia"
-                                  className="h-8 w-8"
-                                >
-                                  <Edit3 className="h-4 w-4" />
-                                </Button>
                                 <Button
                                   type="button"
                                   variant="ghost"
@@ -401,6 +379,68 @@ export default function CreateWorkoutPage() {
                                 </Button>
                               </div>
                             </div>
+                            
+                            <div className="space-y-4">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <FormField
+                                  control={form.control}
+                                  name={`exercises.${index}.sets`}
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Serie</FormLabel>
+                                      <FormControl><Input type="number" placeholder="Np. 3" {...field} onChange={e => field.onChange(e.target.value === '' ? "" : Number(e.target.value))} value={field.value === undefined ? "" : field.value} disabled={isLoading} /></FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                                <FormField
+                                  control={form.control}
+                                  name={`exercises.${index}.reps`}
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Powtórzenia/Czas</FormLabel>
+                                      <FormControl><Input placeholder="Np. 8-10 lub 30s" {...field} value={field.value ?? ""} disabled={isLoading} /></FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <FormField
+                                  control={form.control}
+                                  name={`exercises.${index}.restTimeSeconds`}
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Odpoczynek (s)</FormLabel>
+                                      <FormControl><Input type="number" placeholder="Np. 60" {...field} onChange={e => field.onChange(e.target.value === '' ? "" : Number(e.target.value))} value={field.value === undefined ? "" : field.value} disabled={isLoading} /></FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                                <FormField
+                                  control={form.control}
+                                  name={`exercises.${index}.targetRpe`}
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Docelowe RPE (opcjonalne)</FormLabel>
+                                      <FormControl><Input placeholder="Np. 7-8" {...field} value={field.value ?? ""} disabled={isLoading} /></FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+                              <FormField
+                                control={form.control}
+                                name={`exercises.${index}.exerciseNotes`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Notatki do ćwiczenia (opcjonalne)</FormLabel>
+                                    <FormControl><Textarea rows={2} placeholder="Np. skup się na technice, wolna faza negatywna" {...field} value={field.value ?? ""} disabled={isLoading} /></FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
                           </Card>
                         </li>
                       ))}
@@ -430,24 +470,9 @@ export default function CreateWorkoutPage() {
       <ExerciseSelectionDialog
         isOpen={isExerciseSelectionDialogOpen}
         onOpenChange={setIsExerciseSelectionDialogOpen}
-        availableExercises={masterExerciseList} // Use state managed list
+        availableExercises={masterExerciseList}
         onExercisesSelected={handleExercisesSelected}
       />
-      {editingExerciseIndex !== null && currentEditingExerciseData && (
-         <EditExerciseParametersDialog
-            isOpen={isEditParamsDialogOpen}
-            onOpenChange={setIsEditParamsDialogOpen}
-            exerciseData={{
-                name: currentEditingExerciseData.name,
-                sets: currentEditingExerciseData.sets,
-                reps: currentEditingExerciseData.reps,
-                restTimeSeconds: currentEditingExerciseData.restTimeSeconds,
-                targetRpe: currentEditingExerciseData.targetRpe,
-                exerciseNotes: currentEditingExerciseData.exerciseNotes,
-            }}
-            onSave={(params) => handleSaveExerciseParameters(editingExerciseIndex, params)}
-         />
-      )}
       <QuickAddExerciseDialog
         isOpen={isQuickAddExerciseDialogOpen}
         onOpenChange={setIsQuickAddExerciseDialogOpen}
