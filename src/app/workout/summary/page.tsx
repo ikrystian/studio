@@ -21,7 +21,7 @@ import {
   Edit2,
   Trophy,
   Share2,
-  BarChartHorizontalBig, // For charts icon
+  BarChartHorizontalBig,
   CheckCircle,
   XCircle,
 } from "lucide-react";
@@ -34,9 +34,8 @@ import {
   YAxis,
   CartesianGrid,
   ResponsiveContainer,
-  Tooltip as RechartsTooltip, // Renamed to avoid conflict
+  Tooltip as RechartsTooltip,
 } from "recharts";
-
 
 import { Button } from "@/components/ui/button";
 import {
@@ -78,15 +77,14 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 
-
 interface WorkoutSummaryData {
   workoutId: string;
   workoutName: string;
   startTime: string; // ISO string
   endTime: string;   // ISO string
   totalTimeSeconds: number;
-  recordedSets: Record<string, RecordedSet[]>; // exerciseId -> sets
-  exercises: ExerciseInWorkout[]; // Full exercise definitions from the plan
+  recordedSets: Record<string, RecordedSet[]>;
+  exercises: ExerciseInWorkout[];
   exerciseNotes?: Record<string, string>;
 }
 
@@ -99,21 +97,20 @@ enum DifficultyRating {
   Ekstremalny = "Ekstremalny",
 }
 
-// Mock existing PBs for demonstration
 interface MockPB {
-  value: number | string; // Could be weight for reps, or just reps, or time in seconds
-  reps?: number; // For weight_reps type
+  value: number | string;
+  reps?: number;
 }
 const MOCK_EXISTING_PBS: Record<string, MockPB> = {
-  "ex1": { value: 95, reps: 5 }, // Wyciskanie sztangi, np. 95kg x 5
-  "ex2": { value: 130, reps: 5 }, // Przysiady
-  "ex4": { value: "BW", reps: 12 }, // Podciąganie
+  "ex1": { value: 95, reps: 5 },
+  "ex2": { value: 130, reps: 5 },
+  "ex4": { value: "BW", reps: 12 },
 };
 
 interface PBSuggestion {
   exerciseId: string;
   exerciseName: string;
-  achievedValue: string; // e.g., "100kg x 5powt"
+  achievedValue: string;
   status: 'suggested' | 'accepted' | 'rejected';
 }
 
@@ -125,87 +122,74 @@ export default function WorkoutSummaryPage() {
   const [generalNotes, setGeneralNotes] = React.useState("");
   const [difficulty, setDifficulty] = React.useState<DifficultyRating | undefined>(undefined);
   const [isSaving, setIsSaving] = React.useState(false);
-
+  const [showDiscardDialog, setShowDiscardDialog] = React.useState(false);
   const [pbSuggestions, setPbSuggestions] = React.useState<PBSuggestion[]>([]);
   const [shareToCommunity, setShareToCommunity] = React.useState(false);
   const [communityPostComment, setCommunityPostComment] = React.useState("");
+  const [showShareConfirmDialog, setShowShareConfirmDialog] = React.useState(false);
 
   React.useEffect(() => {
     const dataString = localStorage.getItem('workoutSummaryData');
     if (dataString) {
       try {
         const parsedData: WorkoutSummaryData = JSON.parse(dataString);
-        
-        // Recalculate totalTimeSeconds if it wasn't stored correctly or to ensure accuracy
         if (parsedData.startTime && parsedData.endTime) {
             parsedData.totalTimeSeconds = differenceInSeconds(parseISO(parsedData.endTime), parseISO(parsedData.startTime));
         }
-
         setSummaryData(parsedData);
 
-        // Simulate PB check
         const suggestions: PBSuggestion[] = [];
         parsedData.exercises.forEach(exercise => {
           const sets = parsedData.recordedSets[exercise.id];
           if (sets && sets.length > 0) {
             const bestSetForExercise = sets.reduce((best, current) => {
-              const currentWeight = parseFloat(String(current.weight));
-              const currentReps = parseInt(String(current.reps), 10);
-              if (!isNaN(currentWeight) && !isNaN(currentReps)) {
-                const bestWeight = parseFloat(String(best.weight)); // May be NaN if best.weight is "BW" or similar
-                const bestReps = parseInt(String(best.reps), 10);   // May be NaN
-                
-                let isCurrentBetter = false;
-                if (!isNaN(currentWeight) && !isNaN(currentReps)) {
-                    if (isNaN(bestWeight) || currentWeight > bestWeight) {
-                        isCurrentBetter = true;
-                    } else if (currentWeight === bestWeight && (isNaN(bestReps) || currentReps > bestReps)) {
-                        isCurrentBetter = true;
-                    }
-                }
-                return isCurrentBetter ? current : best;
-              }
+              const currentWeightNum = parseFloat(String(current.weight));
+              const currentRepsNum = parseInt(String(current.reps), 10);
+              
+              if (isNaN(currentWeightNum) || isNaN(currentRepsNum)) return best;
+
+              const bestWeightNum = parseFloat(String(best.weight));
+              const bestRepsNum = parseInt(String(best.reps), 10);
+
+              if (isNaN(bestWeightNum) || currentWeightNum > bestWeightNum) return current;
+              if (currentWeightNum === bestWeightNum && (isNaN(bestRepsNum) || currentRepsNum > bestRepsNum)) return current;
               return best;
-            }, { weight: 0, reps: 0 } as RecordedSet);
+            }, { weight: 0, reps: 0, setNumber: 0 } as RecordedSet);
 
-            const achievedWeightVal = bestSetForExercise.weight;
-            const achievedRepsVal = bestSetForExercise.reps;
-            
-            const achievedWeight = typeof achievedWeightVal === 'string' && achievedWeightVal.toUpperCase() === 'BW' ? 'BW' : parseFloat(String(achievedWeightVal));
-            const achievedReps = parseInt(String(achievedRepsVal), 10);
+            if (bestSetForExercise.setNumber > 0) { // Check if a valid best set was found
+                const achievedWeight = bestSetForExercise.weight;
+                const achievedReps = bestSetForExercise.reps;
+                const achievedValueStr = `${achievedWeight}${typeof achievedWeight === 'number' ? 'kg' : ''} x ${achievedReps}powt.`;
+                const existingPb = MOCK_EXISTING_PBS[exercise.id];
+                let isNewPb = false;
 
+                if (!existingPb) {
+                    isNewPb = true;
+                } else {
+                    const existingPbWeight = typeof existingPb.value === 'string' && existingPb.value.toUpperCase() === 'BW' ? 'BW' : parseFloat(String(existingPb.value));
+                    const existingPbReps = existingPb.reps ? parseInt(String(existingPb.reps), 10) : 0;
+                    const currentAchievedWeightNum = typeof achievedWeight === 'string' && achievedWeight.toUpperCase() === 'BW' ? 'BW' : parseFloat(String(achievedWeight));
+                    const currentAchievedRepsNum = parseInt(String(achievedReps), 10);
 
-            if ((typeof achievedWeight === 'number' && !isNaN(achievedWeight) && achievedWeight > 0 && !isNaN(achievedReps) && achievedReps > 0) || (achievedWeight === 'BW' && !isNaN(achievedReps) && achievedReps > 0) ) {
-              const existingPb = MOCK_EXISTING_PBS[exercise.id];
-              let isNewPb = false;
-              let achievedValueStr = `${achievedWeightVal}${typeof achievedWeight === 'number' ? 'kg' : ''} x ${achievedRepsVal}powt.`;
-
-              if (!existingPb) {
-                isNewPb = true; 
-              } else {
-                const existingPbWeight = typeof existingPb.value === 'string' && existingPb.value.toUpperCase() === 'BW' ? 'BW' : parseFloat(String(existingPb.value));
-                const existingPbReps = existingPb.reps ? parseInt(String(existingPb.reps), 10) : 0;
-
-                if (achievedWeight === 'BW' && existingPbWeight === 'BW') {
-                    if (achievedReps > existingPbReps) isNewPb = true;
-                } else if (typeof achievedWeight === 'number' && typeof existingPbWeight === 'number') {
-                    if (achievedWeight > existingPbWeight) {
-                        isNewPb = true;
-                    } else if (achievedWeight === existingPbWeight && achievedReps > existingPbReps) {
-                        isNewPb = true;
+                    if(currentAchievedWeightNum === 'BW' && existingPbWeight === 'BW') {
+                        if (!isNaN(currentAchievedRepsNum) && currentAchievedRepsNum > existingPbReps) isNewPb = true;
+                    } else if (typeof currentAchievedWeightNum === 'number' && typeof existingPbWeight === 'number') {
+                        if (!isNaN(currentAchievedWeightNum) && !isNaN(currentAchievedRepsNum)) {
+                             if (currentAchievedWeightNum > existingPbWeight) isNewPb = true;
+                             else if (currentAchievedWeightNum === existingPbWeight && currentAchievedRepsNum > existingPbReps) isNewPb = true;
+                        }
+                    } else if (typeof currentAchievedWeightNum === 'number' && existingPbWeight === 'BW') {
+                         if (!isNaN(currentAchievedWeightNum) && currentAchievedWeightNum > 0) isNewPb = true;
                     }
-                } else if (typeof achievedWeight === 'number' && existingPbWeight === 'BW') { 
-                    isNewPb = true; // Any weighted lift is better than BW for this simple check
                 }
-              }
-              if (isNewPb) {
-                suggestions.push({
-                  exerciseId: exercise.id,
-                  exerciseName: exercise.name,
-                  achievedValue: achievedValueStr,
-                  status: 'suggested',
-                });
-              }
+                if (isNewPb) {
+                    suggestions.push({
+                        exerciseId: exercise.id,
+                        exerciseName: exercise.name,
+                        achievedValue: achievedValueStr,
+                        status: 'suggested',
+                    });
+                }
             }
           }
         });
@@ -244,8 +228,8 @@ export default function WorkoutSummaryPage() {
     const seconds = totalSeconds % 60;
     return `${hours > 0 ? String(hours).padStart(2, "0") + "h " : ""}${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
   };
-
-  const handleSaveWorkout = async () => {
+  
+  const performSaveAndShare = async () => {
     if (!summaryData) return;
     setIsSaving(true);
     const acceptedPbs = pbSuggestions.filter(s => s.status === 'accepted').map(s => ({ exercise: s.exerciseName, value: s.achievedValue }));
@@ -264,26 +248,39 @@ export default function WorkoutSummaryPage() {
 
     await new Promise(resolve => setTimeout(resolve, 1500));
 
-    // Simulate saving the last workout date
     try {
       localStorage.setItem('workoutWiseLastWorkoutDate', new Date().toISOString());
     } catch (e) {
       console.error("Failed to save last workout date to localStorage", e);
     }
 
+    let toastMessage = "Twój trening został pomyślnie zapisany.";
+    if (shareToCommunity) {
+        toastMessage += " Został również udostępniony w Społeczności!";
+    }
 
     toast({
       title: "Trening Zapisany!",
-      description: "Twoje podsumowanie treningu zostało zapisane.",
+      description: toastMessage,
       variant: "default"
     });
     localStorage.removeItem('workoutSummaryData');
     router.push("/dashboard");
     setIsSaving(false);
+    setShowShareConfirmDialog(false);
+  };
+
+
+  const handleSaveWorkout = () => {
+    if (shareToCommunity) {
+      setShowShareConfirmDialog(true);
+    } else {
+      performSaveAndShare();
+    }
   };
 
   const handleDiscardWorkout = async () => {
-    setIsSaving(true);
+    setIsSaving(true); // Use isSaving to disable buttons during discard too
     await new Promise(resolve => setTimeout(resolve, 500));
     
     localStorage.removeItem('workoutSummaryData');
@@ -294,6 +291,7 @@ export default function WorkoutSummaryPage() {
     });
     router.push("/dashboard");
     setIsSaving(false);
+    setShowDiscardDialog(false);
   };
 
   const handlePbSuggestion = (exerciseId: string, newStatus: 'accepted' | 'rejected') => {
@@ -402,7 +400,7 @@ export default function WorkoutSummaryPage() {
               </div>
             </CardContent>
           </Card>
-
+          
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><BarChartHorizontalBig className="h-6 w-6 text-primary"/>Wizualizacja Danych Treningu</CardTitle>
@@ -416,7 +414,7 @@ export default function WorkoutSummaryPage() {
                       <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                       <XAxis type="number" dataKey="volume" />
                       <YAxis type="category" dataKey="name" width={150} interval={0} tick={{ fontSize: 12 }} />
-                      <ChartTooltip cursor={{fill: 'hsl(var(--muted))'}} content={<ChartTooltipContent indicator="dot" />} />
+                      <RechartsTooltip cursor={{fill: 'hsl(var(--muted))'}} content={<ChartTooltipContent indicator="dot" />} />
                       <Bar dataKey="volume" fill="var(--color-volume)" radius={4} barSize={20} />
                     </BarChart>
                   </ChartContainer>
@@ -436,7 +434,7 @@ export default function WorkoutSummaryPage() {
                       <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                       <XAxis type="number" dataKey="sets" allowDecimals={false} />
                       <YAxis type="category" dataKey="name" width={150} interval={0} tick={{ fontSize: 12 }} />
-                      <ChartTooltip cursor={{fill: 'hsl(var(--muted))'}} content={<ChartTooltipContent indicator="dot" />} />
+                      <RechartsTooltip cursor={{fill: 'hsl(var(--muted))'}} content={<ChartTooltipContent indicator="dot" />} />
                       <Bar dataKey="sets" fill="var(--color-sets)" radius={4} barSize={20} />
                     </BarChart>
                   </ChartContainer>
@@ -449,6 +447,15 @@ export default function WorkoutSummaryPage() {
                 </Alert>
               )}
             </CardContent>
+             <CardFooter>
+                <Alert variant="default">
+                    <BarChartHorizontalBig className="h-4 w-4"/>
+                    <AlertTitle>Więcej Wykresów (Wkrótce)</AlertTitle>
+                    <AlertDescription>
+                        Bardziej szczegółowe wizualizacje i analizy (np. porównanie z poprzednim wykonaniem, rozkład na grupy mięśniowe, TUT) będą dostępne w przyszłości.
+                    </AlertDescription>
+                </Alert>
+             </CardFooter>
           </Card>
 
 
@@ -462,24 +469,24 @@ export default function WorkoutSummaryPage() {
                   {summaryData.exercises.map((exercise) => {
                     const sets = summaryData.recordedSets[exercise.id];
                     const exerciseNote = summaryData.exerciseNotes?.[exercise.id];
-                    const pbSuggestion = pbSuggestions.find(s => s.exerciseId === exercise.id);
+                    const suggestion = pbSuggestions.find(s => s.exerciseId === exercise.id);
 
                     if (!sets || sets.length === 0) return null;
 
                     return (
                       <li key={exercise.id}>
                         <h3 className="font-semibold text-lg mb-1">{exercise.name}</h3>
-                        {pbSuggestion && (
-                            <Alert variant={pbSuggestion.status === 'accepted' ? 'default' : 'default'} className={`mb-2 ${pbSuggestion.status === 'accepted' ? 'border-green-500' : 'border-blue-500/50'}`}>
-                                <Trophy className={`h-4 w-4 ${pbSuggestion.status === 'accepted' ? 'text-green-500' : 'text-blue-500'}`} />
-                                <AlertTitle className={`${pbSuggestion.status === 'accepted' ? 'text-green-600' : 'text-blue-600'}`}>
-                                    {pbSuggestion.status === 'accepted' ? "Rekord Zaakceptowany!" : "Potencjalny Nowy Rekord!"}
+                        {suggestion && (
+                            <Alert variant={suggestion.status === 'accepted' ? 'default' : 'default'} className={`mb-2 ${suggestion.status === 'accepted' ? 'border-green-500 bg-green-500/10' : 'border-blue-500/50 bg-blue-500/10'}`}>
+                                <Trophy className={`h-4 w-4 ${suggestion.status === 'accepted' ? 'text-green-500' : 'text-blue-500'}`} />
+                                <AlertTitle className={`${suggestion.status === 'accepted' ? 'text-green-700 dark:text-green-400' : 'text-blue-700 dark:text-blue-400'}`}>
+                                    {suggestion.status === 'accepted' ? "Rekord Zaakceptowany!" : "Potencjalny Nowy Rekord!"}
                                 </AlertTitle>
                                 <AlertDescription>
-                                    Osiągnięto: {pbSuggestion.achievedValue}
-                                    {pbSuggestion.status === 'suggested' && (
+                                    Osiągnięto: {suggestion.achievedValue}
+                                    {suggestion.status === 'suggested' && (
                                         <div className="mt-2 flex gap-2">
-                                            <Button size="sm" onClick={() => handlePbSuggestion(exercise.id, 'accepted')} variant="default">
+                                            <Button size="sm" onClick={() => handlePbSuggestion(exercise.id, 'accepted')} variant="default" className="bg-green-600 hover:bg-green-700 text-white">
                                                 <CheckCircle className="mr-1 h-4 w-4"/>Akceptuj PB
                                             </Button>
                                             <Button size="sm" onClick={() => handlePbSuggestion(exercise.id, 'rejected')} variant="outline">
@@ -491,8 +498,8 @@ export default function WorkoutSummaryPage() {
                             </Alert>
                         )}
                         {exerciseNote && (
-                          <div className="mb-2 p-2 text-sm bg-blue-500/10 border border-blue-500/30 rounded-md">
-                            <p className="flex items-center gap-1 font-medium text-blue-700 dark:text-blue-400"><Edit2 className="h-4 w-4"/>Notatka do ćwiczenia:</p>
+                          <div className="mb-2 p-2 text-sm bg-muted/30 border rounded-md">
+                            <p className="flex items-center gap-1 font-medium"><Edit2 className="h-4 w-4"/>Notatka do ćwiczenia:</p>
                             <p className="text-muted-foreground italic whitespace-pre-wrap">{exerciseNote}</p>
                           </div>
                         )}
@@ -561,6 +568,7 @@ export default function WorkoutSummaryPage() {
                   id="share-community-switch"
                   checked={shareToCommunity}
                   onCheckedChange={setShareToCommunity}
+                  disabled={isSaving}
                 />
                 <Label htmlFor="share-community-switch">Udostępnij ten trening</Label>
               </div>
@@ -574,6 +582,7 @@ export default function WorkoutSummaryPage() {
                     onChange={(e) => setCommunityPostComment(e.target.value)}
                     rows={3}
                     className="mt-1"
+                    disabled={isSaving}
                   />
                 </div>
               )}
@@ -581,36 +590,61 @@ export default function WorkoutSummaryPage() {
           </Card>
 
           <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4">
-            <AlertDialog>
-                <AlertDialogTrigger asChild>
-                    <Button variant="destructive" className="w-full sm:w-auto" disabled={isSaving}>
-                        <Trash2 className="mr-2 h-4 w-4" /> Odrzuć Trening
-                    </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                    <AlertDialogTitle>Odrzucić trening?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        Czy na pewno chcesz odrzucić ten trening? Dane nie zostaną zapisane w historii. Tej akcji nie można cofnąć.
-                    </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                    <AlertDialogCancel disabled={isSaving}>Anuluj</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDiscardWorkout} disabled={isSaving} className="bg-destructive hover:bg-destructive/90">
-                        {isSaving ? <Loader2 className="animate-spin mr-2"/> : null}
-                        Potwierdź i odrzuć
-                    </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <Button variant="destructive" className="w-full sm:w-auto" onClick={() => setShowDiscardDialog(true)} disabled={isSaving}>
+                <Trash2 className="mr-2 h-4 w-4" /> Odrzuć Trening
+            </Button>
             <Button onClick={handleSaveWorkout} className="w-full sm:w-auto" disabled={isSaving}>
               {isSaving ? <Loader2 className="animate-spin mr-2"/> : <Save className="mr-2 h-4 w-4" />}
               Zapisz i Zakończ
             </Button>
           </div>
+
+          <AlertDialog open={showDiscardDialog} onOpenChange={setShowDiscardDialog}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                <AlertDialogTitle>Odrzucić trening?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    Czy na pewno chcesz odrzucić ten trening? Dane nie zostaną zapisane w historii. Tej akcji nie można cofnąć.
+                </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                <AlertDialogCancel disabled={isSaving} onClick={() => setShowDiscardDialog(false)}>Anuluj</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDiscardWorkout} disabled={isSaving} className="bg-destructive hover:bg-destructive/90">
+                    {isSaving ? <Loader2 className="animate-spin mr-2"/> : null}
+                    Potwierdź i odrzuć
+                </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          <AlertDialog open={showShareConfirmDialog} onOpenChange={setShowShareConfirmDialog}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Potwierdź Udostępnienie w Społeczności</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Czy na pewno chcesz udostępnić ten trening: <span className="font-semibold">{summaryData.workoutName}</span>?
+                  <br />
+                  {communityPostComment ? (
+                    <>Twój komentarz: <span className="italic">"{communityPostComment}"</span></>
+                  ) : (
+                    "Udostępnisz bez dodatkowego komentarza."
+                  )}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={isSaving} onClick={() => setShowShareConfirmDialog(false)}>Anuluj</AlertDialogCancel>
+                <AlertDialogAction onClick={performSaveAndShare} disabled={isSaving}>
+                  {isSaving ? <Loader2 className="animate-spin mr-2"/> : <Share2 className="mr-2 h-4 w-4"/>}
+                  Udostępnij i Zapisz
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
         </div>
       </main>
     </div>
   );
 }
 
+    
