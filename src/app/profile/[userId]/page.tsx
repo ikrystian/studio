@@ -20,8 +20,8 @@ import {
   MessageSquare, 
   Dumbbell, 
   Award, 
-  Trash2, // For remove friend
-  Loader2, // For AlertDialog loading
+  Trash2, 
+  Loader2, 
 } from "lucide-react";
 import { format, parseISO, formatDistanceToNow } from "date-fns";
 import { pl } from "date-fns/locale";
@@ -38,8 +38,8 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { EditProfilePictureDialog } from "@/components/profile/edit-profile-picture-dialog";
-import { ProfilePrivacySettingsDialog } from "@/components/profile/profile-privacy-settings-dialog";
+// import { EditProfilePictureDialog } from "@/components/profile/edit-profile-picture-dialog"; // Not used on view page
+// import { ProfilePrivacySettingsDialog } from "@/components/profile/profile-privacy-settings-dialog"; // Not used on view page
 import { Separator } from "@/components/ui/separator"; 
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -97,6 +97,8 @@ interface MockUserProfile {
   activities?: MockActivityItem[];
   friends?: MockFriend[];
   sharedPlans?: MockSharedPlan[];
+  // Conceptual: Privacy settings would be fetched for this user if viewer is not owner
+  // privacySettings?: UserPrivacySettings; 
 }
 
 // Mock user data
@@ -120,6 +122,7 @@ const MOCK_USER_PROFILES_DB: MockUserProfile[] = [
       { id: "user2", name: "Anna Fit", username: "annafit_active", avatarUrl: "https://placehold.co/100x100.png?text=AF" },
       { id: "user3", name: "Piotr Trener", username: "piotr_coach", avatarUrl: "https://placehold.co/100x100.png?text=PT" },
       { id: "user4", name: "Kasia Biegaczka", username: "kasiaruns", avatarUrl: "https://placehold.co/100x100.png?text=KB" },
+      { id: "user5", name: "Marek Siłacz", username: "marek_strong", avatarUrl: "https://placehold.co/100x100.png?text=MS" },
     ],
     sharedPlans: [
       { id: "plan1", name: "Mój Plan Siłowy na Masę", goal: "Budowa masy mięśniowej", description: "Sprawdzony plan na 8 tygodni, skupiony na progresji siłowej.", icon: Dumbbell },
@@ -155,26 +158,22 @@ export default function UserProfilePage() {
   const [profileData, setProfileData] = React.useState<MockUserProfile | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isFollowing, setIsFollowing] = React.useState(false); 
-  const [isSubmitting, setIsSubmitting] = React.useState(false); // For dialog actions
-
-  const [isEditAvatarOpen, setIsEditAvatarOpen] = React.useState(false);
-  const [isPrivacySettingsOpen, setIsPrivacySettingsOpen] = React.useState(false);
-  const [currentAvatarUrl, setCurrentAvatarUrl] = React.useState<string | undefined>(undefined);
+  const [isSubmitting, setIsSubmitting] = React.useState(false); 
   
   const [friendToRemove, setFriendToRemove] = React.useState<MockFriend | null>(null);
 
 
   React.useEffect(() => {
     setIsLoading(true);
-    // Simulate API call
     setTimeout(() => {
       const foundProfile = MOCK_USER_PROFILES_DB.find((p) => p.id === userId);
       if (foundProfile) {
-        // Deep copy to avoid mutating the mock DB directly if it's complex
         setProfileData(JSON.parse(JSON.stringify(foundProfile))); 
-        setCurrentAvatarUrl(foundProfile.avatarUrl);
-        if (userId !== LOGGED_IN_USER_ID && Math.random() > 0.5) { // Simulating if already following
-          setIsFollowing(true);
+        // Simulate fetching follow status if not own profile
+        if (userId !== LOGGED_IN_USER_ID) {
+            // In a real app, fetch this from backend
+            const isActuallyFollowing = MOCK_USER_PROFILES_DB.find(u => u.id === LOGGED_IN_USER_ID)?.friends?.some(f => f.id === userId);
+            setIsFollowing(!!isActuallyFollowing);
         }
       } else {
         setProfileData(null);
@@ -189,19 +188,14 @@ export default function UserProfilePage() {
       title: isFollowing ? "Przestałeś obserwować" : "Zacząłeś obserwować",
       description: `Symulacja (od)obserwowania użytkownika ${profileData?.fullName || profileData?.username}.`,
     });
-  };
-
-  const handleAvatarChange = (newAvatarUrl: string) => {
-    setCurrentAvatarUrl(newAvatarUrl); 
-    setProfileData(prev => prev ? {...prev, avatarUrl: newAvatarUrl} : null);
-    toast({ title: "Zdjęcie profilowe zaktualizowane (symulacja)!" });
+    // In a real app, send API request here
+    // And potentially update follower/following counts
   };
 
   const handleRemoveFriend = async () => {
-    if (!friendToRemove || !profileData || !profileData.friends) return;
+    if (!friendToRemove || !profileData || !profileData.friends || userId !== LOGGED_IN_USER_ID) return;
     setIsSubmitting(true);
     
-    // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 750));
 
     setProfileData(prev => {
@@ -226,7 +220,7 @@ export default function UserProfilePage() {
   }
 
   if (isLoading) {
-    return <div className="flex justify-center items-center min-h-screen"><UserCircle2 className="h-16 w-16 animate-pulse text-primary" /></div>;
+    return <div className="flex justify-center items-center min-h-screen"><Loader2 className="h-16 w-16 animate-spin text-primary" /></div>;
   }
 
   if (!profileData) {
@@ -266,8 +260,8 @@ export default function UserProfilePage() {
           </div>
           {isOwnProfile && (
              <div className="flex items-center gap-2">
-                 <Button variant="outline" size="sm" onClick={() => setIsPrivacySettingsOpen(true)}>
-                    <ShieldCheck className="mr-2 h-4 w-4"/> Prywatność
+                 <Button variant="outline" size="sm" onClick={() => router.push('/account')}>
+                    <Settings2 className="mr-2 h-4 w-4"/> Ustawienia Konta
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => router.push('/profile/edit')}>
                     <Edit3 className="mr-2 h-4 w-4" /> Edytuj Profil
@@ -281,19 +275,22 @@ export default function UserProfilePage() {
         <div className="container mx-auto max-w-4xl">
           <Card className="mb-6">
             <CardHeader className="flex flex-col items-center space-y-4 sm:flex-row sm:space-y-0 sm:space-x-6">
-              <Avatar className="h-24 w-24 sm:h-32 sm:w-32 cursor-pointer" onClick={() => isOwnProfile && setIsEditAvatarOpen(true)}>
-                <AvatarImage src={currentAvatarUrl} alt={profileData.fullName} data-ai-hint="profile avatar large"/>
+              <Avatar className="h-24 w-24 sm:h-32 sm:w-32">
+                <AvatarImage src={profileData.avatarUrl} alt={profileData.fullName} data-ai-hint="profile avatar large"/>
                 <AvatarFallback className="text-4xl">{profileData.fullName?.substring(0,1).toUpperCase()}{profileData.fullName?.split(' ')[1]?.substring(0,1).toUpperCase()}</AvatarFallback>
               </Avatar>
               <div className="flex-1 text-center sm:text-left">
                 <CardTitle className="text-3xl">{profileData.fullName}</CardTitle>
                 <CardDescription className="text-lg text-muted-foreground">@{profileData.username}</CardDescription>
                 <p className="mt-2 text-sm">{profileData.bio || "Brak opisu."}</p>
-                <div className="mt-3 flex flex-wrap justify-center sm:justify-start gap-2 text-xs text-muted-foreground">
+                <div className="mt-3 flex flex-wrap justify-center sm:justify-start gap-x-4 gap-y-1 text-xs text-muted-foreground">
                     <span>Poziom: <span className="font-semibold text-primary">{profileData.fitnessLevel}</span></span>
                     <Separator orientation="vertical" className="h-4 hidden sm:block"/>
                     <span>Dołączył: {format(parseISO(profileData.joinDate), "PPP", { locale: pl })}</span>
                 </div>
+                 <p className="mt-2 text-xs text-muted-foreground">
+                    Widoczność treści w zakładkach zależy od ustawień prywatności właściciela profilu (symulacja).
+                 </p>
               </div>
               {!isOwnProfile && (
                  <Button onClick={handleFollowToggle} variant={isFollowing ? "secondary" : "default"} className="w-full mt-4 sm:w-auto sm:mt-0">
@@ -346,9 +343,9 @@ export default function UserProfilePage() {
                                     </Link>
                                   )}
                                    {activity.type === "achieved_pb" && activity.workoutName && (
-                                    <span className="text-yellow-600 dark:text-yellow-400 ml-1 font-semibold">
+                                    <Link href={activity.link || "#"} className="text-yellow-600 dark:text-yellow-400 hover:underline ml-1 font-semibold">
                                        {activity.workoutName} - {activity.pbValue}
-                                    </span>
+                                    </Link>
                                   )}
                                 </p>
                                 <p className="text-xs text-muted-foreground mt-1">
@@ -366,48 +363,68 @@ export default function UserProfilePage() {
                 </CardContent>
               </Card>
             </TabsContent>
-
-            <TabsContent value="friends">
-              <Card>
-                <CardHeader><CardTitle>Znajomi / Obserwowani</CardTitle></CardHeader>
-                <CardContent>
-                  {profileData.friends && profileData.friends.length > 0 ? (
-                    <ScrollArea className="max-h-[400px]">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pr-3">
-                        {profileData.friends.map(friend => (
-                          <Card key={friend.id} className="p-3">
-                            <div className="flex items-center gap-3">
-                              <Avatar className="h-12 w-12">
-                                <AvatarImage src={friend.avatarUrl} alt={friend.name} data-ai-hint="profile avatar small"/>
-                                <AvatarFallback>{friend.name.substring(0,1)}</AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <Link href={`/profile/${friend.id}`} className="font-semibold hover:underline">{friend.name}</Link>
-                                <p className="text-xs text-muted-foreground">@{friend.username}</p>
-                              </div>
-                            </div>
-                            <CardFooter className="p-0 pt-3 flex gap-2">
-                                <Button variant="outline" size="sm" className="flex-1" asChild>
-                                    <Link href={`/profile/${friend.id}`}><Eye className="mr-1 h-3 w-3"/> Profil</Link>
-                                </Button>
-                               {isOwnProfile && (
-                                 <AlertDialogTrigger asChild>
-                                    <Button variant="destructive" size="sm" className="flex-1" onClick={() => setFriendToRemove(friend)}>
-                                        <Trash2 className="mr-1 h-3 w-3"/> Usuń
+            
+            <AlertDialog open={!!friendToRemove} onOpenChange={(isOpen) => !isOpen && setFriendToRemove(null)}>
+                <TabsContent value="friends">
+                <Card>
+                    <CardHeader><CardTitle>Znajomi / Obserwowani</CardTitle></CardHeader>
+                    <CardContent>
+                    {profileData.friends && profileData.friends.length > 0 ? (
+                        <ScrollArea className="max-h-[400px]">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pr-3">
+                            {profileData.friends.map(friend => (
+                            <Card key={friend.id} className="p-3">
+                                <div className="flex items-center gap-3">
+                                <Avatar className="h-12 w-12">
+                                    <AvatarImage src={friend.avatarUrl} alt={friend.name} data-ai-hint="profile avatar small"/>
+                                    <AvatarFallback>{friend.name.substring(0,1)}</AvatarFallback>
+                                </Avatar>
+                                <div>
+                                    <Link href={`/profile/${friend.id}`} className="font-semibold hover:underline">{friend.name}</Link>
+                                    <p className="text-xs text-muted-foreground">@{friend.username}</p>
+                                </div>
+                                </div>
+                                <CardFooter className="p-0 pt-3 flex gap-2">
+                                    <Button variant="outline" size="sm" className="flex-1" asChild>
+                                        <Link href={`/profile/${friend.id}`}><Eye className="mr-1 h-3 w-3"/> Profil</Link>
                                     </Button>
-                                 </AlertDialogTrigger>
-                               )}
-                            </CardFooter>
-                          </Card>
-                        ))}
-                      </div>
-                    </ScrollArea>
-                  ) : (
-                    <p className="text-muted-foreground text-center py-6">Brak znajomych do wyświetlenia.</p>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
+                                {isOwnProfile && (
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="destructive" size="sm" className="flex-1" onClick={() => setFriendToRemove(friend)}>
+                                            <Trash2 className="mr-1 h-3 w-3"/> Usuń
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                )}
+                                </CardFooter>
+                            </Card>
+                            ))}
+                        </div>
+                        </ScrollArea>
+                    ) : (
+                        <p className="text-muted-foreground text-center py-6">Brak znajomych do wyświetlenia.</p>
+                    )}
+                    </CardContent>
+                </Card>
+                </TabsContent>
+                {friendToRemove && (
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Usunąć znajomego?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Czy na pewno chcesz usunąć {friendToRemove.name} (@{friendToRemove.username}) ze swojej listy znajomych?
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel disabled={isSubmitting} onClick={() => setFriendToRemove(null)}>Anuluj</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleRemoveFriend} disabled={isSubmitting} className="bg-destructive hover:bg-destructive/90">
+                                {isSubmitting ? <Loader2 className="animate-spin mr-2"/> : <Trash2 className="mr-2 h-4 w-4"/>}
+                                Potwierdź i usuń
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                )}
+            </AlertDialog>
+
 
             <TabsContent value="shared-plans">
               <Card>
@@ -447,41 +464,6 @@ export default function UserProfilePage() {
           </Tabs>
         </div>
       </main>
-
-      {/* Dialogs */}
-      <EditProfilePictureDialog
-        isOpen={isEditAvatarOpen}
-        onOpenChange={setIsEditAvatarOpen}
-        currentAvatarUrl={currentAvatarUrl}
-        onSave={handleAvatarChange}
-      />
-       <ProfilePrivacySettingsDialog
-        isOpen={isPrivacySettingsOpen}
-        onOpenChange={setIsPrivacySettingsOpen}
-        onSave={(settings) => {
-            console.log("Privacy settings saved (simulated):", settings);
-            toast({title: "Ustawienia prywatności zapisane (symulacja)"});
-        }}
-      />
-      {friendToRemove && (
-        <AlertDialog open={!!friendToRemove} onOpenChange={() => setFriendToRemove(null)}>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>Usunąć znajomego?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        Czy na pewno chcesz usunąć {friendToRemove.name} (@{friendToRemove.username}) ze swojej listy znajomych?
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel disabled={isSubmitting}>Anuluj</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleRemoveFriend} disabled={isSubmitting} className="bg-destructive hover:bg-destructive/90">
-                        {isSubmitting ? <Loader2 className="animate-spin mr-2"/> : <Trash2 className="mr-2 h-4 w-4"/>}
-                        Potwierdź i usuń
-                    </AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
-      )}
     </div>
   );
 }
