@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm } from "react-hook-form"; // Added useForm import
 import * as z from "zod";
 import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
@@ -43,16 +43,25 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const pathname = usePathname(); // Get current pathname
+  const pathname = usePathname();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [successMessage, setSuccessMessage] = React.useState<string | null>(null);
 
+  const form = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  });
+
 
   React.useEffect(() => {
     const currentSearchParams = new URLSearchParams(searchParams.toString());
     let paramsModified = false;
+    let newPath = pathname;
 
     if (currentSearchParams.get("registered") === "true") {
       setSuccessMessage("Rejestracja zakończona sukcesem! Możesz się teraz zalogować.");
@@ -66,8 +75,7 @@ export function LoginForm() {
       paramsModified = true;
     }
     if (currentSearchParams.get("verified") === "true") {
-      // Ensure successMessage for registration isn't overwritten if both params were present
-      if (!successMessage) {
+      if (!successMessage) { // Avoid overwriting registration success
          toast({
             title: "Email Zweryfikowany!",
             description: "Twój email został pomyślnie zweryfikowany. Proszę się zalogować.",
@@ -80,38 +88,37 @@ export function LoginForm() {
     }
 
     if (paramsModified && pathname === "/login") {
-      // Only replace history if we are indeed on the login page and params were changed
-      const newQuery = currentSearchParams.toString();
-      router.replace(`/login${newQuery ? `?${newQuery}` : ''}`, { scroll: false });
+      const newQueryString = currentSearchParams.toString();
+      newPath = newQueryString ? `/login?${newQueryString}` : "/login";
+      router.replace(newPath, { scroll: false });
     }
-  }, [searchParams, router, toast, pathname, successMessage]); // Added pathname and successMessage to dependencies
+  }, [searchParams, router, toast, pathname, successMessage]);
 
 
   async function onSubmit(values: LoginFormValues) {
     setIsLoading(true);
     setErrorMessage(null);
     setSuccessMessage(null);
+    let navigated = false;
 
     // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Shortened for quicker testing
+    await new Promise(resolve => setTimeout(resolve, 1500));
 
-    let navigated = false;
     if (values.email === "test@example.com" && values.password === "password") {
       try {
         await router.push("/dashboard");
         navigated = true;
-        // If router.push is successful, this component should unmount.
-        // No need to setIsLoading(false) here if navigation succeeds.
-      } catch (e) {
-        console.error("Navigation to dashboard failed:", e);
-        setErrorMessage("Błąd nawigacji do panelu głównego. Spróbuj ponownie.");
+        // setIsLoading(false) will not be called here if navigation is successful and component unmounts
+      } catch (error) {
+        console.error("Navigation to dashboard failed:", error);
+        setErrorMessage("Failed to navigate to dashboard. Please try again.");
       }
     } else {
-      setErrorMessage("Nieprawidłowy email lub hasło. Spróbuj ponownie.");
+      setErrorMessage("Invalid email or password. Please try again.");
     }
-
+    
     if (!navigated) {
-      setIsLoading(false); // If navigation didn't occur or failed, reset loading state
+      setIsLoading(false);
     }
   }
 
@@ -237,5 +244,3 @@ export function LoginForm() {
     </Card>
   );
 }
-
-    
