@@ -5,7 +5,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ArrowLeft, BarChart3, LineChart as LineChartIcon, CalendarDays, TrendingUp, WeightIcon, DumbbellIcon, AlertTriangle, PieChartIcon, ImageIcon, FileDown, Filter, Info, ArrowRightLeft, Target, Edit, Trash2, PlusCircle, Save, Loader2 } from "lucide-react";
-import { format, parseISO, getWeek, getYear, startOfDay, endOfDay, isValid, isWithinInterval, isBefore } from "date-fns";
+import { format, parseISO, getWeek, getYear, startOfDay, endOfDay, isValid, isWithinInterval, isBefore, isAfter } from "date-fns";
 import { pl } from "date-fns/locale";
 import { v4 as uuidv4 } from "uuid";
 
@@ -46,8 +46,8 @@ import {
   ResponsiveContainer,
   Tooltip as RechartsTooltip,
 } from "recharts";
-import { useToast } from "@/hooks/use-toast"; // Import useToast
-import { DatePicker } from "@/components/ui/date-picker"; // Assuming you have this from Shadcn
+import { useToast } from "@/hooks/use-toast"; 
+import { DatePicker } from "@/components/ui/date-picker"; 
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -150,12 +150,12 @@ interface SimpleMeasurement {
   weight: number;
 }
 const MOCK_MEASUREMENTS_STATS: SimpleMeasurement[] = [
-  { id: "m1", date: new Date(2024, 5, 15).toISOString(), weight: 76.0 }, // June 15
-  { id: "m2", date: new Date(2024, 6, 1).toISOString(), weight: 75.5 },  // July 1
-  { id: "m3", date: new Date(2024, 6, 8).toISOString(), weight: 75.0 },  // July 8
-  { id: "m4", date: new Date(2024, 6, 15).toISOString(), weight: 74.8 }, // July 15
-  { id: "m5", date: new Date(2024, 6, 22).toISOString(), weight: 74.5 }, // July 22
-  { id: "m6", date: new Date(2024, 6, 29).toISOString(), weight: 74.0 }, // July 29
+  { id: "m1", date: new Date(2024, 5, 15).toISOString(), weight: 76.0 }, 
+  { id: "m2", date: new Date(2024, 6, 1).toISOString(), weight: 75.5 },  
+  { id: "m3", date: new Date(2024, 6, 8).toISOString(), weight: 75.0 },  
+  { id: "m4", date: new Date(2024, 6, 15).toISOString(), weight: 74.8 }, 
+  { id: "m5", date: new Date(2024, 6, 22).toISOString(), weight: 74.5 }, 
+  { id: "m6", date: new Date(2024, 6, 29).toISOString(), weight: 74.0 }, 
 ];
 
 const MOCK_EXERCISES_FOR_STATS_FILTER = [
@@ -168,7 +168,7 @@ const MOCK_EXERCISES_FOR_STATS_FILTER = [
 ];
 
 interface WellnessEntryForStats {
-  date: string; // ISO string date part only for matching
+  date: string; 
   wellBeing?: number;
   energyLevel?: number;
   sleepQuality?: number;
@@ -234,6 +234,7 @@ export default function StatisticsPage() {
   const [isAddGoalDialogOpen, setIsAddGoalDialogOpen] = React.useState(false);
   const [userGoals, setUserGoals] = React.useState<UserGoal[]>(INITIAL_USER_GOALS);
   const [goalToDelete, setGoalToDelete] = React.useState<UserGoal | null>(null);
+  const [isDeletingGoal, setIsDeletingGoal] = React.useState(false);
   const [printingChartId, setPrintingChartId] = React.useState<string | null>(null);
 
 
@@ -255,8 +256,10 @@ export default function StatisticsPage() {
      if (exerciseIdFromQuery && volumeChartExercises.some(ex => ex.id === exerciseIdFromQuery)) {
       setSelectedExerciseIdForVolume(exerciseIdFromQuery);
     } else if (!exerciseIdFromQuery && volumeChartExercises.length > 0) {
+      // If no query param, and we have exercises, default to the first one
       setSelectedExerciseIdForVolume(volumeChartExercises[0].id);
     } else if (volumeChartExercises.length === 0) {
+      // If no exercises available for this chart, set to an empty string or a placeholder
       setSelectedExerciseIdForVolume("");
     }
   }, [exerciseIdFromQuery, volumeChartExercises]);
@@ -268,7 +271,7 @@ export default function StatisticsPage() {
         const element = document.getElementById('exercise-volume-chart-card');
         if (element) {
           element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-           const selectedExercise = volumeChartExercises.find(ex => ex.id === selectedExerciseIdForVolume);
+           const selectedExercise = volumeChartExercises.find(ex => ex.id === selectedExerciseIdForVolume); // Use current selection
            const messageExerciseName = exerciseNameFromQuery || selectedExercise?.name || "wybranego ćwiczenia";
            
            if (volumeChartExercises.some(ex => ex.id === exerciseIdFromQuery)) {
@@ -298,41 +301,31 @@ export default function StatisticsPage() {
     const sDate = selectedGlobalStartDate ? startOfDay(selectedGlobalStartDate) : null;
     const eDate = selectedGlobalEndDate ? endOfDay(selectedGlobalEndDate) : null;
 
-    if (sDate) {
-      filteredSessions = filteredSessions.filter(session => {
-        const sessionDate = parseISO(session.startTime);
-        return isValid(sessionDate) && sessionDate >= sDate;
-      });
-      filteredMeasurementsData = filteredMeasurementsData.filter(m => {
-        const measurementDate = parseISO(m.date);
-        return isValid(measurementDate) && measurementDate >= sDate;
-      });
-      filteredWellness = filteredWellness.filter(w => {
-          const wellnessDate = parseISO(w.date);
-          return isValid(wellnessDate) && wellnessDate >= sDate;
-      });
-    }
-
-    if (eDate) {
-      filteredSessions = filteredSessions.filter(session => {
-        const sessionDate = parseISO(session.startTime);
-        return isValid(sessionDate) && sessionDate <= eDate;
-      });
-      filteredMeasurementsData = filteredMeasurementsData.filter(m => {
-        const measurementDate = parseISO(m.date);
-        return isValid(measurementDate) && measurementDate <= eDate;
-      });
-       filteredWellness = filteredWellness.filter(w => {
-          const wellnessDate = parseISO(w.date);
-          return isValid(wellnessDate) && wellnessDate <= eDate;
-      });
-    }
-
-    setProcessedHistorySessions(filteredSessions);
-    setProcessedMeasurements(filteredMeasurementsData);
-    setProcessedWellnessEntries(filteredWellness);
-
     if (sDate || eDate) {
+      filteredSessions = MOCK_HISTORY_SESSIONS_STATS.filter(session => {
+        const sessionDate = parseISO(session.startTime);
+        if (!isValid(sessionDate)) return false;
+        let inRange = true;
+        if (sDate && isBefore(sessionDate, sDate)) inRange = false;
+        if (eDate && isAfter(sessionDate, eDate)) inRange = false;
+        return inRange;
+      });
+      filteredMeasurementsData = MOCK_MEASUREMENTS_STATS.filter(m => {
+        const measurementDate = parseISO(m.date);
+        if (!isValid(measurementDate)) return false;
+        let inRange = true;
+        if (sDate && isBefore(measurementDate, sDate)) inRange = false;
+        if (eDate && isAfter(measurementDate, eDate)) inRange = false;
+        return inRange;
+      });
+      filteredWellness = MOCK_WELLNESS_ENTRIES_FOR_STATS.filter(w => {
+          const wellnessDate = parseISO(w.date);
+          if (!isValid(wellnessDate)) return false;
+          let inRange = true;
+          if (sDate && isBefore(wellnessDate, sDate)) inRange = false;
+          if (eDate && isAfter(wellnessDate, eDate)) inRange = false;
+          return inRange;
+      });
         toast({
         title: "Filtry Zastosowane",
         description: `Dane zostały przefiltrowane dla zakresu od ${sDate ? format(sDate, "PPP", {locale: pl}) : " początku"} do ${eDate ? format(eDate, "PPP", {locale: pl}) : " końca"}.`,
@@ -343,11 +336,17 @@ export default function StatisticsPage() {
             description: "Wyświetlanie wszystkich danych.",
         });
     }
+
+    setProcessedHistorySessions(filteredSessions);
+    setProcessedMeasurements(filteredMeasurementsData);
+    setProcessedWellnessEntries(filteredWellness);
+
   }, [selectedGlobalStartDate, selectedGlobalEndDate, toast]);
   
   React.useEffect(() => {
+    // Apply filters on initial load or when they change
     handleApplyGlobalFilters();
-  }, [handleApplyGlobalFilters]); 
+  }, [handleApplyGlobalFilters]); // Removed selectedGlobalStartDate, selectedGlobalEndDate to avoid loop if toast causes re-render
 
 
   const workoutFrequencyData = React.useMemo(() => {
@@ -438,6 +437,7 @@ export default function StatisticsPage() {
           if (selectedWellnessMetrics.includes('energyLevel') && wellnessEntry.energyLevel !== undefined) dataPoint.energyLevel = wellnessEntry.energyLevel;
           if (selectedWellnessMetrics.includes('sleepQuality') && wellnessEntry.sleepQuality !== undefined) dataPoint.sleepQuality = wellnessEntry.sleepQuality;
         }
+        // Only add data point if it has Volume or any selected wellness metric
         if (dataPoint.Volume !== undefined || 
             (selectedWellnessMetrics.includes('wellBeing') && dataPoint.wellBeing !== undefined) ||
             (selectedWellnessMetrics.includes('energyLevel') && dataPoint.energyLevel !== undefined) ||
@@ -528,6 +528,7 @@ export default function StatisticsPage() {
   };
 
   const handleAddGoal = (data: AddGoalFormData) => {
+    setIsAddGoalDialogOpen(false); // Close dialog first
     const newGoal: UserGoal = {
       id: uuidv4(),
       goalName: data.goalName,
@@ -537,22 +538,29 @@ export default function StatisticsPage() {
       deadline: data.deadline,
       notes: data.notes,
     };
-    setUserGoals(prev => [...prev, newGoal].sort((a,b) => (a.deadline && b.deadline) ? parseISO(String(a.deadline)).getTime() - parseISO(String(b.deadline)).getTime() : (a.deadline ? -1 : 1) ));
-    setIsAddGoalDialogOpen(false);
+    setUserGoals(prev => [...prev, newGoal].sort((a,b) => {
+        if (a.deadline && b.deadline) return parseISO(String(a.deadline)).getTime() - parseISO(String(b.deadline)).getTime();
+        if (a.deadline) return -1;
+        if (b.deadline) return 1;
+        return 0;
+    }));
     toast({
       title: "Cel Dodany!",
       description: `Cel "${newGoal.goalName}" został pomyślnie dodany.`
     });
   };
 
-  const handleDeleteGoal = () => {
+  const handleDeleteGoal = async () => {
     if (!goalToDelete) return;
+    setIsDeletingGoal(true);
+    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API call
     setUserGoals(prev => prev.filter(goal => goal.id !== goalToDelete.id));
     toast({
       title: "Cel Usunięty",
       description: `Cel "${goalToDelete.goalName}" został usunięty.`
     });
     setGoalToDelete(null);
+    setIsDeletingGoal(false);
   };
 
   const handlePrintChart = (chartCardId: string) => {
@@ -561,7 +569,7 @@ export default function StatisticsPage() {
 
   React.useEffect(() => {
     if (printingChartId) {
-      const printTimeout = setTimeout(() => { // Delay to allow DOM update with class
+      const printTimeout = setTimeout(() => { 
         window.print();
         setPrintingChartId(null); 
       }, 100);
@@ -574,10 +582,10 @@ export default function StatisticsPage() {
     if (!data || data.length === 0) {
         return "";
     }
-    const aHeaders = headers || Object.keys(data[0]);
-    const csvRows = [aHeaders.join(";")];
+    const actualHeaders = headers || Object.keys(data[0]);
+    const csvRows = [actualHeaders.join(";")];
     data.forEach(row => {
-        const values = aHeaders.map(header => {
+        const values = actualHeaders.map(header => {
             const escaped = ('' + (row[header] === undefined || row[header] === null ? '' : row[header])).replace(/"/g, '""');
             return `"${escaped}"`;
         });
@@ -606,23 +614,24 @@ export default function StatisticsPage() {
         toast({ title: "Brak danych", description: "Nie ma danych do wyeksportowania dla tego wykresu.", variant: "destructive"});
         return;
     }
-    let headers: string[];
+    let headersToUse: string[];
     let exportableData = data;
 
     if (chartHeaders) {
-        headers = chartHeaders.map(h => h.label);
+        headersToUse = chartHeaders.map(h => h.label);
         exportableData = data.map(row => {
             const newRow: {[key: string]: any} = {};
             chartHeaders.forEach(h => {
-                newRow[h.label] = row[h.key];
+                // Ensure the key exists in the row, or provide an empty string
+                newRow[h.label] = row.hasOwnProperty(h.key) ? row[h.key] : "";
             });
             return newRow;
         });
     } else {
-        headers = Object.keys(data[0]);
+        headersToUse = Object.keys(data[0]);
     }
     
-    const csvString = arrayToCSV(exportableData, headers);
+    const csvString = arrayToCSV(exportableData, headersToUse);
     downloadCSV(csvString, filename);
     toast({ title: "Eksport CSV", description: `Dane wykresu "${filename}" zostały pobrane.`});
   };
@@ -669,20 +678,20 @@ export default function StatisticsPage() {
         <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><Filter className="h-5 w-5 text-primary"/>Globalny Filtr Danych</CardTitle>
-              <CardDescription>Wybierz zakres dat, aby dostosować wyświetlane statystyki na poniższych wykresach (oprócz porównania okresów).</CardDescription>
+              <CardDescription>Wybierz zakres dat, aby dostosować wyświetlane statystyki. Zmiany w filtrach zostaną zastosowane po kliknięciu "Zastosuj Filtry".</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <DatePicker
                   date={selectedGlobalStartDate}
                   onDateChange={setSelectedGlobalStartDate}
-                  label="Data od"
-                  disabled={(date) => selectedGlobalEndDate ? isBefore(selectedGlobalEndDate,date) : false}
+                  label="Data od (opcjonalnie)"
+                  disabled={(date) => selectedGlobalEndDate ? isAfter(date, selectedGlobalEndDate) : false}
                 />
                 <DatePicker
                   date={selectedGlobalEndDate}
                   onDateChange={setSelectedGlobalEndDate}
-                  label="Data do"
+                  label="Data do (opcjonalnie)"
                   disabled={(date) => selectedGlobalStartDate ? isBefore(date, selectedGlobalStartDate) : false}
                 />
               </div>
@@ -778,28 +787,30 @@ export default function StatisticsPage() {
                         {volumeChartExercises.map(exercise => (
                             <SelectItem key={exercise.id} value={exercise.id}>{exercise.name}</SelectItem>
                         ))}
+                         {volumeChartExercises.length === 0 && <SelectItem value="" disabled>Brak ćwiczeń do wyboru</SelectItem>}
                         </SelectContent>
                     </Select>
-                    <div className="space-y-2">
-                        <Label className="text-sm font-medium">Nakładka z Dziennika Samopoczucia:</Label>
-                        <div className="flex flex-wrap gap-x-4 gap-y-2">
-                            {['wellBeing', 'energyLevel', 'sleepQuality'].map(metricKey => (
-                                <div key={metricKey} className="flex items-center space-x-2">
-                                <Checkbox
-                                    id={`wellness-${metricKey}`}
-                                    checked={selectedWellnessMetrics.includes(metricKey)}
-                                    onCheckedChange={() => handleWellnessMetricToggle(metricKey)}
-                                />
-                                <Label htmlFor={`wellness-${metricKey}`} className="text-sm font-normal">
-                                    {metricKey === 'wellBeing' ? 'Samopoczucie' : metricKey === 'energyLevel' ? 'Energia' : 'Sen'}
-                                </Label>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
                 </div>
+                <Card className="p-4 print-hide">
+                    <Label className="text-sm font-medium mb-2 block">Nakładka Danych z Dziennika Samopoczucia:</Label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2">
+                        {['wellBeing', 'energyLevel', 'sleepQuality'].map(metricKey => (
+                            <div key={metricKey} className="flex items-center space-x-2">
+                            <Checkbox
+                                id={`wellness-${metricKey}`}
+                                checked={selectedWellnessMetrics.includes(metricKey)}
+                                onCheckedChange={() => handleWellnessMetricToggle(metricKey)}
+                            />
+                            <Label htmlFor={`wellness-${metricKey}`} className="text-sm font-normal">
+                                {metricKey === 'wellBeing' ? 'Samopoczucie' : metricKey === 'energyLevel' ? 'Energia' : 'Sen'}
+                            </Label>
+                            </div>
+                        ))}
+                    </div>
+                </Card>
+
               {exerciseVolumeData.length >= 1 ? ( 
-                <ChartContainer config={chartConfig} className="h-[350px] w-full">
+                <ChartContainer config={chartConfig} className="h-[350px] w-full mt-4">
                   <LineChart data={exerciseVolumeData} margin={{ top: 5, right: 30, left: -10, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} />
@@ -816,7 +827,7 @@ export default function StatisticsPage() {
                   </LineChart>
                 </ChartContainer>
               ) : (
-                 <div className="flex items-center justify-center h-[350px] text-muted-foreground">
+                 <div className="flex items-center justify-center h-[350px] text-muted-foreground mt-4">
                     <AlertTriangle className="mr-2 h-5 w-5" />
                     {!selectedExerciseIdForVolume || selectedExerciseIdForVolume === "all" ? "Wybierz ćwiczenie, aby zobaczyć trend objętości." : "Za mało danych dla wybranego ćwiczenia, aby wyświetlić trend objętości."}
                 </div>
@@ -851,7 +862,7 @@ export default function StatisticsPage() {
                 <ChartContainer config={chartConfig} className="h-[350px] w-full max-w-lg">
                   <ResponsiveContainer width="100%" height={350}>
                     <PieChart>
-                      <ChartTooltip content={<ChartTooltipContent nameKey="name" hideIndicator />} />
+                      <RechartsTooltip content={<ChartTooltipContent nameKey="name" hideIndicator />} />
                       <Pie
                         data={muscleGroupProportionData}
                         dataKey="value"
@@ -889,20 +900,25 @@ export default function StatisticsPage() {
               </CardFooter>
           </Card>
 
-          <Card>
+          <Card className="print-hide">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><ArrowRightLeft className="h-6 w-6 text-primary" />Porównaj Okresy</CardTitle>
+              <CardTitle className="flex items-center gap-2"><ArrowRightLeft className="h-6 w-6 text-primary" />Porównaj Okresy (Wkrótce)</CardTitle>
               <CardDescription>Porównaj swoje statystyki między dwoma wybranymi okresami.</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4 print-hide">
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertTitle>Funkcja w budowie</AlertTitle>
+                <AlertDescription>Możliwość porównywania różnych okresów czasowych zostanie dodana w przyszłości.</AlertDescription>
+              </Alert>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4 mt-4">
                 <div className="space-y-2 p-4 border rounded-lg bg-muted/30">
                     <h4 className="font-semibold text-center">Okres A</h4>
                     <DatePicker
                         date={periodAStartDate}
                         onDateChange={setPeriodAStartDate}
                         label="Data od (Okres A)"
-                        disabled={(date) => periodAEndDate ? isBefore(periodAEndDate,date) : false}
+                        disabled={(date) => periodAEndDate ? isBefore(date, periodAEndDate) : false}
                     />
                     <DatePicker
                         date={periodAEndDate}
@@ -917,7 +933,7 @@ export default function StatisticsPage() {
                         date={periodBStartDate}
                         onDateChange={setPeriodBStartDate}
                         label="Data od (Okres B)"
-                        disabled={(date) => periodBEndDate ? isBefore(periodBEndDate,date) : false}
+                        disabled={(date) => periodBEndDate ? isBefore(date, periodBEndDate) : false}
                     />
                     <DatePicker
                         date={periodBEndDate}
@@ -927,7 +943,7 @@ export default function StatisticsPage() {
                     />
                 </div>
               </div>
-              <Button onClick={handleComparePeriods} className="w-full sm:w-auto print-hide">
+              <Button onClick={handleComparePeriods} className="w-full sm:w-auto">
                 <ArrowRightLeft className="mr-2 h-4 w-4" /> Porównaj Okresy
               </Button>
 
@@ -990,13 +1006,13 @@ export default function StatisticsPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="print-hide">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Target className="h-6 w-6 text-primary"/>Moje Cele</CardTitle>
+              <CardTitle className="flex items-center gap-2"><Target className="h-6 w-6 text-primary"/>Moje Cele (Wkrótce)</CardTitle>
               <CardDescription>Definiuj i śledź swoje cele treningowe i pomiarowe.</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center justify-between mb-4 print-hide">
+              <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold">Lista Celów</h3>
                 <Button onClick={() => setIsAddGoalDialogOpen(true)} >
                     <PlusCircle className="mr-2 h-4 w-4"/> Dodaj Nowy Cel
@@ -1007,55 +1023,61 @@ export default function StatisticsPage() {
                     <p className="text-sm text-muted-foreground text-center py-4">Nie zdefiniowano jeszcze żadnych celów.</p>
                 )}
                 {userGoals.map(goal => (
-                  <AlertDialog key={goal.id}>
-                    <div className="p-4 border rounded-lg bg-muted/30">
-                      <div className="flex justify-between items-start">
-                          <div>
-                              <h4 className="font-semibold">{goal.goalName}</h4>
-                              <p className="text-xs text-muted-foreground">Metryka: {goal.metric}</p>
-                              {goal.deadline && <p className="text-xs text-muted-foreground">Termin: {format(parseISO(String(goal.deadline)), "PPP", {locale: pl})}</p>}
-                          </div>
-                          <div className="flex items-center gap-1 print-hide">
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toast({title: "Edycja Celu (Wkrótce)", description: "Możliwość edycji celów zostanie dodana w przyszłości."})}>
-                                  <Edit className="h-4 w-4"/>
-                                  <span className="sr-only">Edytuj cel</span>
-                              </Button>
-                              <AlertDialogTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setGoalToDelete(goal)}>
-                                      <Trash2 className="h-4 w-4"/>
-                                      <span className="sr-only">Usuń cel</span>
-                                  </Button>
-                              </AlertDialogTrigger>
-                          </div>
-                      </div>
-                      <div className="mt-2">
-                          <div className="flex justify-between text-xs mb-1">
-                              <span>Postęp</span>
-                              <span>{goal.currentValue.toLocaleString('pl-PL')} / {goal.targetValue.toLocaleString('pl-PL')} {(goal.metric.includes('(kg)') || goal.metric.includes('Objętość')) ? 'kg' : (goal.metric.includes('(cm)') ? 'cm' : '')}</span>
-                          </div>
-                          <Progress value={(goal.currentValue / goal.targetValue) * 100} className="h-2" />
-                      </div>
-                      {goal.notes && <p className="text-xs text-muted-foreground mt-2 italic">Notatka: {goal.notes}</p>}
-                    </div>
-                     {goalToDelete && goalToDelete.id === goal.id && (
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>Usunąć cel?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    Czy na pewno chcesz usunąć cel "{goalToDelete.goalName}"?
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel onClick={() => setGoalToDelete(null)}>Anuluj</AlertDialogCancel>
-                                <AlertDialogAction onClick={handleDeleteGoal} className="bg-destructive hover:bg-destructive/90">
-                                    Usuń
-                                </AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    )}
-                  </AlertDialog>
-                ))}
-              </div>
+                    <AlertDialog key={goal.id}>
+                      <Card className="p-4 bg-muted/30">
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <h4 className="font-semibold">{goal.goalName}</h4>
+                                <p className="text-xs text-muted-foreground">Metryka: {goal.metric}</p>
+                                {goal.deadline && <p className="text-xs text-muted-foreground">Termin: {format(goal.deadline, "PPP", {locale: pl})}</p>}
+                            </div>
+                            <div className="flex items-center gap-1 print-hide">
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toast({title: "Edycja Celu (Wkrótce)", description: "Możliwość edycji celów zostanie dodana w przyszłości."})}>
+                                    <Edit className="h-4 w-4"/>
+                                    <span className="sr-only">Edytuj cel</span>
+                                </Button>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setGoalToDelete(goal)}>
+                                        <Trash2 className="h-4 w-4"/>
+                                        <span className="sr-only">Usuń cel</span>
+                                    </Button>
+                                </AlertDialogTrigger>
+                            </div>
+                        </div>
+                        <div className="mt-2">
+                            <div className="flex justify-between text-xs mb-1">
+                                <span>Postęp</span>
+                                <span>{goal.currentValue.toLocaleString('pl-PL')} / {goal.targetValue.toLocaleString('pl-PL')} {(goal.metric.includes('(kg)') || goal.metric.includes('Objętość')) ? 'kg' : (goal.metric.includes('(cm)') ? 'cm' : '')}</span>
+                            </div>
+                            <Progress value={(goal.currentValue / goal.targetValue) * 100} className="h-2" />
+                        </div>
+                        {goal.notes && <p className="text-xs text-muted-foreground mt-2 italic">Notatka: {goal.notes}</p>}
+                      </Card>
+                       {goalToDelete && goalToDelete.id === goal.id && (
+                          <AlertDialogContent>
+                              <AlertDialogHeader>
+                                  <AlertDialogTitle>Usunąć cel?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                      Czy na pewno chcesz usunąć cel "{goalToDelete.goalName}"?
+                                  </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                  <AlertDialogCancel onClick={() => setGoalToDelete(null)} disabled={isDeletingGoal}>Anuluj</AlertDialogCancel>
+                                  <AlertDialogAction onClick={handleDeleteGoal} disabled={isDeletingGoal} className="bg-destructive hover:bg-destructive/90">
+                                      {isDeletingGoal ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                                      Usuń
+                                  </AlertDialogAction>
+                              </AlertDialogFooter>
+                          </AlertDialogContent>
+                      )}
+                    </AlertDialog>
+                  ))}
+                </div>
+                <Alert className="mt-4">
+                    <Info className="h-4 w-4" />
+                    <AlertTitle>Funkcja w Rozwoju</AlertTitle>
+                    <AlertDescription>Pełne zarządzanie celami, w tym automatyczne śledzenie postępów na podstawie danych treningowych i pomiarowych, zostanie dodane w przyszłości.</AlertDescription>
+                </Alert>
             </CardContent>
           </Card>
           <AddGoalDialog 
@@ -1068,3 +1090,4 @@ export default function StatisticsPage() {
     </div>
   );
 }
+
