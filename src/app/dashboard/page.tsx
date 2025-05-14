@@ -23,6 +23,7 @@ import {
   Repeat,
   Scale,
   Settings,
+  Timer, // Added for Rest Timer
   User as UserIcon, // Renamed to avoid conflict
   Users,
 } from 'lucide-react';
@@ -76,6 +77,7 @@ const navItems = [
   { href: '/progress-photos', label: 'Zdjęcia Postępu', icon: Camera, description: 'Track visual changes' },
   { href: `/profile/${userData.id}`, label: 'Mój Profil', icon: UserIcon, description: 'View & edit your profile' },
   { href: '/settings', label: 'Ustawienia', icon: Settings, description: 'Manage app settings' },
+  { href: '/tools/rest-timer', label: 'Timer Odpoczynku', icon: Timer, description: 'Standalone rest timer' },
 ];
 
 export default function DashboardPage() {
