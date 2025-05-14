@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form"; // Added useForm import
+import { useForm } from "react-hook-form";
 import * as z from "zod";
 import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
@@ -61,36 +61,37 @@ export function LoginForm() {
   React.useEffect(() => {
     const currentSearchParams = new URLSearchParams(searchParams.toString());
     let paramsModified = false;
-    let newPath = pathname;
-
-    if (currentSearchParams.get("registered") === "true") {
-      setSuccessMessage("Rejestracja zakończona sukcesem! Możesz się teraz zalogować.");
-      toast({
-        title: "Rejestracja Zakończona Sukcesem!",
-        description: "Możesz teraz zalogować się na swoje nowe konto.",
-        variant: "default",
-        duration: 6000,
-      });
-      currentSearchParams.delete("registered");
-      paramsModified = true;
-    }
-    if (currentSearchParams.get("verified") === "true") {
-      if (!successMessage) { // Avoid overwriting registration success
-         toast({
-            title: "Email Zweryfikowany!",
-            description: "Twój email został pomyślnie zweryfikowany. Proszę się zalogować.",
-            variant: "default",
-            duration: 6000,
+    
+    if (pathname === "/login") { // Only proceed if we are actually on the login page
+      if (currentSearchParams.get("registered") === "true") {
+        setSuccessMessage("Rejestracja zakończona sukcesem! Możesz się teraz zalogować.");
+        toast({
+          title: "Rejestracja Zakończona Sukcesem!",
+          description: "Możesz teraz zalogować się na swoje nowe konto.",
+          variant: "default",
+          duration: 6000,
         });
+        currentSearchParams.delete("registered");
+        paramsModified = true;
       }
-      currentSearchParams.delete("verified");
-      paramsModified = true;
-    }
+      if (currentSearchParams.get("verified") === "true") {
+        if (!successMessage) { 
+           toast({
+              title: "Email Zweryfikowany!",
+              description: "Twój email został pomyślnie zweryfikowany. Proszę się zalogować.",
+              variant: "default",
+              duration: 6000,
+          });
+        }
+        currentSearchParams.delete("verified");
+        paramsModified = true;
+      }
 
-    if (paramsModified && pathname === "/login") {
-      const newQueryString = currentSearchParams.toString();
-      newPath = newQueryString ? `/login?${newQueryString}` : "/login";
-      router.replace(newPath, { scroll: false });
+      if (paramsModified) {
+        const newQueryString = currentSearchParams.toString();
+        const newPath = newQueryString ? `/login?${newQueryString}` : "/login";
+        router.replace(newPath, { scroll: false });
+      }
     }
   }, [searchParams, router, toast, pathname, successMessage]);
 
@@ -101,24 +102,24 @@ export function LoginForm() {
     setSuccessMessage(null);
     let navigated = false;
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
+    // Direct credential check without simulated API delay
     if (values.email === "test@example.com" && values.password === "password") {
       try {
         await router.push("/dashboard");
         navigated = true;
-        // setIsLoading(false) will not be called here if navigation is successful and component unmounts
+        // If navigation is successful, component unmounts, setIsLoading(false) might not be needed.
       } catch (error) {
         console.error("Navigation to dashboard failed:", error);
         setErrorMessage("Failed to navigate to dashboard. Please try again.");
+        // navigated remains false
       }
     } else {
       setErrorMessage("Invalid email or password. Please try again.");
+      // navigated remains false
     }
-    
+
     if (!navigated) {
-      setIsLoading(false);
+      setIsLoading(false); // Only set to false if navigation didn't happen or failed
     }
   }
 
