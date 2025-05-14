@@ -29,6 +29,8 @@ import {
   XCircle,
   Loader2,
   ArrowLeft,
+  Trash2, // Added for delete set
+  StickyNote, // Added for notes icon
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -41,6 +43,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea"; // Added Textarea
 import {
   Form,
   FormControl,
@@ -115,13 +118,14 @@ interface RecordedSet {
   weight: number | string; // string for "BW" or similar
   reps: number | string;   // string for "Max" or time
   rpe?: number;
-  notes?: string;
+  notes?: string; // Added notes field
 }
 
 const setFormSchema = z.object({
-  weight: z.string().min(1, "Waga jest wymagana."), // Keep as string to allow "BW" etc.
+  weight: z.string().min(1, "Waga jest wymagana."),
   reps: z.string().min(1, "Liczba powtórzeń jest wymagana."),
   rpe: z.coerce.number().min(1).max(10).optional().or(z.literal("")),
+  notes: z.string().optional(), // Added notes to schema
 });
 
 type SetFormValues = z.infer<typeof setFormSchema>;
@@ -149,13 +153,11 @@ export default function ActiveWorkoutPage() {
 
   const setForm = useForm<SetFormValues>({
     resolver: zodResolver(setFormSchema),
-    defaultValues: { weight: "", reps: "", rpe: "" },
+    defaultValues: { weight: "", reps: "", rpe: "", notes: "" }, // Added notes default
   });
 
-  // Load workout data
   React.useEffect(() => {
     setIsLoading(true);
-    // Simulate API call
     setTimeout(() => {
       const foundWorkout = MOCK_WORKOUTS.find((w) => w.id === workoutId);
       if (foundWorkout) {
@@ -169,18 +171,14 @@ export default function ActiveWorkoutPage() {
     }, 500);
   }, [workoutId, router, toast]);
 
-  // Workout Timer
   React.useEffect(() => {
-    if (!workoutStartTime || isResting) return; // Pause workout timer during rest or if not started
-
+    if (!workoutStartTime || isResting) return; 
     const timerInterval = setInterval(() => {
       setElapsedTime(Math.floor((new Date().getTime() - workoutStartTime.getTime()) / 1000));
     }, 1000);
-
     return () => clearInterval(timerInterval);
   }, [workoutStartTime, isResting]);
 
-  // Rest Timer
   React.useEffect(() => {
     if (isResting && restTimer > 0) {
       restIntervalRef.current = setInterval(() => {
@@ -211,9 +209,10 @@ export default function ActiveWorkoutPage() {
 
     const newSet: RecordedSet = {
       setNumber: (recordedSets[currentExercise.id]?.length || 0) + 1,
-      weight: values.weight, // Store as entered by user
-      reps: values.reps,     // Store as entered by user
+      weight: values.weight,
+      reps: values.reps,
       rpe: values.rpe ? Number(values.rpe) : undefined,
+      notes: values.notes || undefined, // Add notes
     };
 
     setRecordedSets((prev) => ({
@@ -221,15 +220,32 @@ export default function ActiveWorkoutPage() {
       [currentExercise.id]: [...(prev[currentExercise.id] || []), newSet],
     }));
 
-    setForm.reset({ weight: values.weight, reps: "", rpe: "" }); // Keep weight for next set, clear reps/rpe
+    setForm.reset({ weight: values.weight, reps: "", rpe: "", notes: "" }); // Reset notes as well
 
-    // Start rest timer
     const restDuration = currentExercise.defaultRest || DEFAULT_REST_TIME;
     setRestTimer(restDuration);
     setIsResting(true);
     toast({
       title: `Seria ${newSet.setNumber} zapisana!`,
       description: `Rozpoczynam ${restDuration}s odpoczynku.`,
+    });
+  };
+
+  const handleDeleteSet = (exerciseId: string, setIndexToDelete: number) => {
+    setRecordedSets((prev) => {
+      const setsForExercise = prev[exerciseId] || [];
+      const updatedSets = setsForExercise.filter((_, index) => index !== setIndexToDelete);
+      // Optional: Re-number sets if desired, but simpler to keep original numbers or just display index+1
+      // const renumberedSets = updatedSets.map((s, i) => ({ ...s, setNumber: i + 1 }));
+      return {
+        ...prev,
+        [exerciseId]: updatedSets, // or renumberedSets
+      };
+    });
+    toast({
+      title: "Seria usunięta",
+      description: `Seria została pomyślnie usunięta.`,
+      variant: "default",
     });
   };
 
@@ -243,9 +259,9 @@ export default function ActiveWorkoutPage() {
   const handleNextExercise = () => {
     if (currentWorkout && currentExerciseIndex < currentWorkout.exercises.length - 1) {
       setCurrentExerciseIndex((prev) => prev + 1);
-      setIsResting(false); // Stop rest if moving to next exercise
+      setIsResting(false); 
       if (restIntervalRef.current) clearInterval(restIntervalRef.current);
-      setForm.reset({ weight: "", reps: "", rpe: "" });
+      setForm.reset({ weight: "", reps: "", rpe: "", notes: "" });
     } else {
       toast({ title: "To ostatnie ćwiczenie!", description: "Możesz teraz zakończyć trening.", variant: "default"});
     }
@@ -256,13 +272,12 @@ export default function ActiveWorkoutPage() {
       setCurrentExerciseIndex((prev) => prev - 1);
       setIsResting(false);
       if (restIntervalRef.current) clearInterval(restIntervalRef.current);
-      setForm.reset({ weight: "", reps: "", rpe: "" });
+      setForm.reset({ weight: "", reps: "", rpe: "", notes: "" });
     }
   };
 
   const handleFinishWorkout = () => {
     setIsLoading(true);
-    // Simulate saving data
     console.log("Workout Finished. Data:", {
       workoutId: currentWorkout?.id,
       startTime: workoutStartTime,
@@ -277,8 +292,6 @@ export default function ActiveWorkoutPage() {
         description: "Świetna robota! Zobacz swoje podsumowanie.",
         variant: "default",
       });
-      // For now, redirect to a generic summary or workout list.
-      // Replace with actual summary page: router.push(`/workout/summary/${currentWorkout?.id}-${new Date().getTime()}`);
       router.push(`/workout/start?finished=${currentWorkout?.id}`); 
       setIsLoading(false);
     }, 1500);
@@ -298,7 +311,6 @@ export default function ActiveWorkoutPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      {/* Header */}
       <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2">
@@ -343,10 +355,8 @@ export default function ActiveWorkoutPage() {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="flex-1 p-4 sm:p-6 lg:p-8">
         <div className="container mx-auto max-w-3xl">
-          {/* Exercise Progress */}
           <div className="mb-6">
             <div className="flex justify-between text-sm text-muted-foreground mb-1">
               <span>Ćwiczenie {currentExerciseIndex + 1} z {currentWorkout.exercises.length}</span>
@@ -355,7 +365,6 @@ export default function ActiveWorkoutPage() {
             <Progress value={exerciseProgress} className="h-2" />
           </div>
 
-          {/* Current Exercise Card */}
           <Card className="mb-6">
             <CardHeader>
               <CardTitle className="text-2xl flex items-center gap-2">
@@ -387,7 +396,6 @@ export default function ActiveWorkoutPage() {
             )}
           </Card>
 
-          {/* Rest Timer Display */}
           {isResting && (
             <Card className="mb-6 bg-primary/10 border-primary/30">
               <CardHeader>
@@ -407,7 +415,6 @@ export default function ActiveWorkoutPage() {
             </Card>
           )}
 
-          {/* Add Set Form */}
           {!isResting && (
             <Card className="mb-6">
               <CardHeader>
@@ -415,7 +422,8 @@ export default function ActiveWorkoutPage() {
                   <ListChecks className="h-6 w-6 text-primary" /> Rejestruj Serię
                   {currentExercise.defaultSets && setsForCurrentExercise.length < currentExercise.defaultSets ? 
                     ` (Sugerowana: ${setsForCurrentExercise.length + 1} z ${currentExercise.defaultSets})` : 
-                    (setsForCurrentExercise.length > 0 ? ` (Seria ${setsForCurrentExercise.length + 1})` : "")}
+                    (setsForCurrentExercise.length > 0 ? ` (Seria ${setsForCurrentExercise.length + 1})` : ` (Seria 1)`)
+                  }
                 </CardTitle>
                  {currentExercise.defaultReps && <CardDescription>Sugerowane powtórzenia: {currentExercise.defaultReps}</CardDescription>}
               </CardHeader>
@@ -463,6 +471,19 @@ export default function ActiveWorkoutPage() {
                           </FormItem>
                         )}
                       />
+                      <FormField
+                        control={setForm.control}
+                        name="notes"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="flex items-center"><StickyNote className="mr-1 h-4 w-4"/>Notatki (opcjonalne)</FormLabel>
+                            <FormControl>
+                              <Textarea placeholder="Np. Zapas 2 powtórzeń, dobra technika" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     <Button type="submit" className="w-full sm:w-auto" disabled={setForm.formState.isSubmitting}>
                        {setForm.formState.isSubmitting ? <Loader2 className="animate-spin mr-2"/> : <Save className="mr-2 h-4 w-4" />}
                       Zapisz Serię
@@ -473,7 +494,6 @@ export default function ActiveWorkoutPage() {
             </Card>
           )}
 
-          {/* Recorded Sets */}
           {setsForCurrentExercise.length > 0 && (
             <Card className="mb-6">
               <CardHeader>
@@ -484,14 +504,22 @@ export default function ActiveWorkoutPage() {
               <CardContent>
                 <ul className="space-y-3">
                   {setsForCurrentExercise.map((set, index) => (
-                    <li key={index} className="flex justify-between items-center p-3 bg-muted/50 rounded-md text-sm">
-                      <div>
+                    <li key={index} className="flex flex-col sm:flex-row justify-between sm:items-center p-3 bg-muted/50 rounded-md text-sm gap-2">
+                      <div className="flex-grow">
                         <span className="font-semibold">Seria {set.setNumber}: </span>
                         <span>{set.weight} x {set.reps} powt.</span>
                         {set.rpe && <span className="ml-2 text-muted-foreground">(RPE: {set.rpe})</span>}
+                        {set.notes && <p className="text-xs text-muted-foreground mt-1 italic">Notatka: {set.notes}</p>}
                       </div>
-                      {/* Placeholder for edit/delete buttons */}
-                      {/* <Button variant="ghost" size="sm" onClick={() => alert('Edit/Delete not implemented yet')}>...</Button> */}
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="text-destructive hover:text-destructive-foreground hover:bg-destructive/90 self-start sm:self-center"
+                        onClick={() => currentExercise && handleDeleteSet(currentExercise.id, index)}
+                        aria-label="Usuń serię"
+                      >
+                        <Trash2 className="mr-1 h-4 w-4" /> Usuń
+                      </Button>
                     </li>
                   ))}
                 </ul>
@@ -500,7 +528,6 @@ export default function ActiveWorkoutPage() {
           )}
 
 
-          {/* Navigation */}
           <div className="mt-8 flex justify-between items-center gap-4">
             <Button
               variant="outline"
@@ -544,8 +571,6 @@ export default function ActiveWorkoutPage() {
   );
 }
 
-
-// Helper components for Accordion (could be moved to ui if reused)
 const Accordion = React.forwardRef<
   React.ElementRef<typeof AccordionPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Root>
@@ -602,5 +627,3 @@ const AccordionContent = React.forwardRef<
   </AccordionPrimitive.Content>
 ))
 AccordionContent.displayName = AccordionPrimitive.Content.displayName
-
-    
