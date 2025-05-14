@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -52,5 +53,59 @@ body {
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Print-specific styles */
+@media print {
+  body {
+    -webkit-print-color-adjust: exact; /* Chrome, Safari, Edge */
+    print-color-adjust: exact; /* Firefox */
+  }
+  body * {
+    visibility: hidden !important;
+  }
+  .printable-chart-area, .printable-chart-area * {
+    visibility: visible !important;
+  }
+  .printable-chart-area {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    padding: 20px !important; /* Add some padding for better print layout */
+    background-color: hsl(var(--background)) !important; /* Ensure background for dark mode */
+    color: hsl(var(--foreground)) !important; /* Ensure text color for dark mode */
+  }
+  /* Ensure chart elements are visible and styled correctly for printing */
+  .printable-chart-area .recharts-wrapper,
+  .printable-chart-area .recharts-surface,
+  .printable-chart-area .recharts-cartesian-axis-tick-value tspan,
+  .printable-chart-area .recharts-text,
+  .printable-chart-area .recharts-label tspan,
+  .printable-chart-area .recharts-legend-item-text {
+    fill: hsl(var(--foreground)) !important; /* Text color for chart elements */
+    color: hsl(var(--foreground)) !important;
+  }
+  .printable-chart-area .recharts-cartesian-grid line {
+    stroke: hsl(var(--border)) !important; /* Grid line color */
+  }
+  .printable-chart-area .recharts-bar-rectangle path {
+    fill: hsl(var(--chart-1)) !important; /* Example for bar, adjust as needed */
+  }
+  .printable-chart-area .recharts-line-curve {
+     stroke: hsl(var(--chart-2)) !important; /* Example for line, adjust as needed */
+  }
+   .printable-chart-area .recharts-pie-sector path {
+    stroke: hsl(var(--background)) !important; /* Ensure pie slice borders are visible */
+  }
+
+  /* Hide elements that shouldn't be printed within the chart card */
+  .printable-chart-area .card-header,
+  .printable-chart-area .card-footer,
+  .printable-chart-area button,
+  .printable-chart-area .print-hide {
+    display: none !important;
   }
 }

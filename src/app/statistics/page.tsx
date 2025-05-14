@@ -125,7 +125,7 @@ const MOCK_HISTORY_SESSIONS_STATS: SimpleHistoricalWorkoutSession[] = [
     exercises: [
         { id: "ex1", name: "Wyciskanie sztangi na ławce płaskiej"},
         {id: "ex2", name: "Przysiady ze sztangą"},
-        {id: "ex12", name: "Wiosłowanie sztangą"}
+        { id: "ex12", name: "Wiosłowanie sztangą"}
     ]
   },
   {
@@ -233,10 +233,11 @@ export default function StatisticsPage() {
   const [isAddGoalDialogOpen, setIsAddGoalDialogOpen] = React.useState(false);
   const [userGoals, setUserGoals] = React.useState<UserGoal[]>(INITIAL_USER_GOALS);
   const [goalToDelete, setGoalToDelete] = React.useState<UserGoal | null>(null);
+  const [printingChartId, setPrintingChartId] = React.useState<string | null>(null);
 
 
   const volumeChartExercises = React.useMemo(() =>
-    MOCK_EXERCISES_FOR_STATS_FILTER.filter(ex => ex.id !== "all"), // Assuming "all" might be a filter option elsewhere
+    MOCK_EXERCISES_FOR_STATS_FILTER.filter(ex => ex.id !== "all"), 
     []
   );
 
@@ -253,10 +254,9 @@ export default function StatisticsPage() {
      if (exerciseIdFromQuery && volumeChartExercises.some(ex => ex.id === exerciseIdFromQuery)) {
       setSelectedExerciseIdForVolume(exerciseIdFromQuery);
     } else if (!exerciseIdFromQuery && volumeChartExercises.length > 0) {
-      // If no query param, but list exists, set to first valid exercise
       setSelectedExerciseIdForVolume(volumeChartExercises[0].id);
     } else if (volumeChartExercises.length === 0) {
-      setSelectedExerciseIdForVolume(""); // Or handle "no exercises" state
+      setSelectedExerciseIdForVolume("");
     }
   }, [exerciseIdFromQuery, volumeChartExercises]);
 
@@ -294,35 +294,36 @@ export default function StatisticsPage() {
     let filteredMeasurementsData = MOCK_MEASUREMENTS_STATS;
     let filteredWellness = MOCK_WELLNESS_ENTRIES_FOR_STATS;
 
-    if (selectedGlobalStartDate) {
-      const startDate = startOfDay(selectedGlobalStartDate);
+    const sDate = selectedGlobalStartDate ? startOfDay(selectedGlobalStartDate) : null;
+    const eDate = selectedGlobalEndDate ? endOfDay(selectedGlobalEndDate) : null;
+
+    if (sDate) {
       filteredSessions = filteredSessions.filter(session => {
         const sessionDate = parseISO(session.startTime);
-        return isValid(sessionDate) && sessionDate >= startDate;
+        return isValid(sessionDate) && sessionDate >= sDate;
       });
       filteredMeasurementsData = filteredMeasurementsData.filter(m => {
         const measurementDate = parseISO(m.date);
-        return isValid(measurementDate) && measurementDate >= startDate;
+        return isValid(measurementDate) && measurementDate >= sDate;
       });
       filteredWellness = filteredWellness.filter(w => {
           const wellnessDate = parseISO(w.date);
-          return isValid(wellnessDate) && wellnessDate >= startDate;
+          return isValid(wellnessDate) && wellnessDate >= sDate;
       });
     }
 
-    if (selectedGlobalEndDate) {
-      const endDate = endOfDay(selectedGlobalEndDate);
+    if (eDate) {
       filteredSessions = filteredSessions.filter(session => {
         const sessionDate = parseISO(session.startTime);
-        return isValid(sessionDate) && sessionDate <= endDate;
+        return isValid(sessionDate) && sessionDate <= eDate;
       });
       filteredMeasurementsData = filteredMeasurementsData.filter(m => {
         const measurementDate = parseISO(m.date);
-        return isValid(measurementDate) && measurementDate <= endDate;
+        return isValid(measurementDate) && measurementDate <= eDate;
       });
        filteredWellness = filteredWellness.filter(w => {
           const wellnessDate = parseISO(w.date);
-          return isValid(wellnessDate) && wellnessDate <= endDate;
+          return isValid(wellnessDate) && wellnessDate <= eDate;
       });
     }
 
@@ -330,16 +331,22 @@ export default function StatisticsPage() {
     setProcessedMeasurements(filteredMeasurementsData);
     setProcessedWellnessEntries(filteredWellness);
 
-    toast({
-      title: "Filtry Zastosowane",
-      description: `Dane zostały przefiltrowane dla zakresu od ${selectedGlobalStartDate ? format(selectedGlobalStartDate, "PPP", {locale: pl}) : " początku"} do ${selectedGlobalEndDate ? format(selectedGlobalEndDate, "PPP", {locale: pl}) : " końca"}.`,
-    });
+    if (sDate || eDate) {
+        toast({
+        title: "Filtry Zastosowane",
+        description: `Dane zostały przefiltrowane dla zakresu od ${sDate ? format(sDate, "PPP", {locale: pl}) : " początku"} do ${eDate ? format(eDate, "PPP", {locale: pl}) : " końca"}.`,
+        });
+    } else {
+         toast({
+            title: "Filtry Zresetowane",
+            description: "Wyświetlanie wszystkich danych.",
+        });
+    }
   }, [selectedGlobalStartDate, selectedGlobalEndDate, toast]);
   
   React.useEffect(() => {
-    // Apply filters on initial load or when date range changes
     handleApplyGlobalFilters();
-  }, [handleApplyGlobalFilters]); // Dependencies: selectedGlobalStartDate, selectedGlobalEndDate
+  }, [handleApplyGlobalFilters]); 
 
 
   const workoutFrequencyData = React.useMemo(() => {
@@ -390,7 +397,6 @@ export default function StatisticsPage() {
 
     const wellnessDataMap = new Map<string, WellnessEntryForStats>();
     processedWellnessEntries.forEach(entry => {
-      // Ensure wellness entry dates are parsed correctly, assuming they are 'yyyy-MM-dd'
       const entryDate = parseISO(entry.date); 
       if(isValid(entryDate)) {
         wellnessDataMap.set(format(entryDate, "yyyy-MM-dd"), entry);
@@ -422,7 +428,7 @@ export default function StatisticsPage() {
           date: displayDateStr,
           sessionDate: sessionDateObj,
         };
-        if (volume > 0) { // Only add volume if it's calculated
+        if (volume > 0) { 
             dataPoint.Volume = volume;
         }
 
@@ -431,7 +437,6 @@ export default function StatisticsPage() {
           if (selectedWellnessMetrics.includes('energyLevel') && wellnessEntry.energyLevel !== undefined) dataPoint.energyLevel = wellnessEntry.energyLevel;
           if (selectedWellnessMetrics.includes('sleepQuality') && wellnessEntry.sleepQuality !== undefined) dataPoint.sleepQuality = wellnessEntry.sleepQuality;
         }
-        // Only add data point if it has Volume or at least one selected wellness metric
         if (dataPoint.Volume !== undefined || 
             (selectedWellnessMetrics.includes('wellBeing') && dataPoint.wellBeing !== undefined) ||
             (selectedWellnessMetrics.includes('energyLevel') && dataPoint.energyLevel !== undefined) ||
@@ -460,7 +465,7 @@ export default function StatisticsPage() {
     let workoutCount = 0;
     let totalVolume = 0;
 
-    const periodSessions = MOCK_HISTORY_SESSIONS_STATS.filter(session => { // Use the original mock data for comparison, not the globally filtered one
+    const periodSessions = MOCK_HISTORY_SESSIONS_STATS.filter(session => { 
         const sessionDate = parseISO(session.startTime);
         if (!isValid(sessionDate)) return false;
 
@@ -549,6 +554,78 @@ export default function StatisticsPage() {
     setGoalToDelete(null);
   };
 
+  const handlePrintChart = (chartCardId: string) => {
+    setPrintingChartId(chartCardId);
+  };
+
+  React.useEffect(() => {
+    if (printingChartId) {
+      const printTimeout = setTimeout(() => { // Delay to allow DOM update with class
+        window.print();
+        setPrintingChartId(null); 
+      }, 100);
+      return () => clearTimeout(printTimeout);
+    }
+  }, [printingChartId]);
+
+
+  const arrayToCSV = (data: any[], headers?: string[]): string => {
+    if (!data || data.length === 0) {
+        return "";
+    }
+    const aHeaders = headers || Object.keys(data[0]);
+    const csvRows = [aHeaders.join(";")];
+    data.forEach(row => {
+        const values = aHeaders.map(header => {
+            const escaped = ('' + (row[header] === undefined || row[header] === null ? '' : row[header])).replace(/"/g, '""');
+            return `"${escaped}"`;
+        });
+        csvRows.push(values.join(";"));
+    });
+    return csvRows.join("\r\n");
+  };
+
+  const downloadCSV = (csvString: string, filename: string) => {
+    if (!csvString) return;
+    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    if (link.download !== undefined) {
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+  };
+
+  const exportChartDataToCSV = (data: any[], filename: string, chartHeaders?: {key: string, label: string}[]) => {
+    if (!data || data.length === 0) {
+        toast({ title: "Brak danych", description: "Nie ma danych do wyeksportowania dla tego wykresu.", variant: "destructive"});
+        return;
+    }
+    let headers: string[];
+    let exportableData = data;
+
+    if (chartHeaders) {
+        headers = chartHeaders.map(h => h.label);
+        exportableData = data.map(row => {
+            const newRow: {[key: string]: any} = {};
+            chartHeaders.forEach(h => {
+                newRow[h.label] = row[h.key];
+            });
+            return newRow;
+        });
+    } else {
+        headers = Object.keys(data[0]);
+    }
+    
+    const csvString = arrayToCSV(exportableData, headers);
+    downloadCSV(csvString, filename);
+    toast({ title: "Eksport CSV", description: `Dane wykresu "${filename}" zostały pobrane.`});
+  };
+
 
   const chartConfig = {
     count: { label: "Liczba Treningów", color: "hsl(var(--chart-1))" },
@@ -608,20 +685,20 @@ export default function StatisticsPage() {
                   disabled={(date) => selectedGlobalStartDate ? isBefore(date, selectedGlobalStartDate) : false}
                 />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 print-hide">
                 <Label>Wybierz ćwiczenia (placeholder)</Label>
                 <p className="text-sm text-muted-foreground">Tu pojawi się multiselect/checkboxy do wyboru ćwiczeń (funkcja wkrótce).</p>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 print-hide">
                 <Label>Wybierz grupy mięśniowe (placeholder)</Label>
                 <p className="text-sm text-muted-foreground">Tu pojawi się multiselect/checkboxy do wyboru grup mięśniowych (funkcja wkrótce).</p>
               </div>
-               <Button onClick={handleApplyGlobalFilters}>Zastosuj Filtry</Button>
+               <Button onClick={handleApplyGlobalFilters} className="print-hide">Zastosuj Filtry</Button>
             </CardContent>
           </Card>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="lg:col-span-1">
+            <Card id="workout-frequency-chart-card" className={cn(printingChartId === "workout-frequency-chart-card" && "printable-chart-area")}>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><CalendarDays className="h-6 w-6 text-primary" />Częstotliwość Treningów</CardTitle>
                 <CardDescription>Liczba wykonanych treningów w poszczególnych tygodniach.</CardDescription>
@@ -645,13 +722,13 @@ export default function StatisticsPage() {
               </CardContent>
               <CardFooter className="flex justify-end">
                  <TooltipProvider>
-                  <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" disabled><ImageIcon className="h-4 w-4"/></Button></TooltipTrigger><TooltipContent><p>Eksportuj wykres (Wkrótce)</p></TooltipContent></Tooltip>
-                  <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" disabled><FileDown className="h-4 w-4"/></Button></TooltipTrigger><TooltipContent><p>Eksportuj dane CSV (Wkrótce)</p></TooltipContent></Tooltip>
+                  <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handlePrintChart("workout-frequency-chart-card")}><ImageIcon className="h-4 w-4"/></Button></TooltipTrigger><TooltipContent><p>Eksportuj wykres jako Obraz/PDF</p></TooltipContent></Tooltip>
+                  <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => exportChartDataToCSV(workoutFrequencyData, "czestotliwosc_treningow.csv", [{key: 'week', label: 'Tydzień'}, {key: 'count', label: 'Liczba Treningów'}])} disabled={workoutFrequencyData.length === 0}><FileDown className="h-4 w-4"/></Button></TooltipTrigger><TooltipContent><p>Eksportuj dane jako CSV</p></TooltipContent></Tooltip>
                 </TooltipProvider>
               </CardFooter>
             </Card>
 
-            <Card className="lg:col-span-1">
+            <Card id="weight-trend-chart-card" className={cn(printingChartId === "weight-trend-chart-card" && "printable-chart-area")}>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><WeightIcon className="h-6 w-6 text-primary" />Trend Wagi</CardTitle>
                 <CardDescription>Zmiany Twojej wagi w czasie.</CardDescription>
@@ -677,21 +754,21 @@ export default function StatisticsPage() {
                   <p className="text-xs text-muted-foreground">Dane pochodzą z sekcji "Pomiary".</p>
                   <div>
                     <TooltipProvider>
-                    <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" disabled><ImageIcon className="h-4 w-4"/></Button></TooltipTrigger><TooltipContent><p>Eksportuj wykres (Wkrótce)</p></TooltipContent></Tooltip>
-                    <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" disabled><FileDown className="h-4 w-4"/></Button></TooltipTrigger><TooltipContent><p>Eksportuj dane CSV (Wkrótce)</p></TooltipContent></Tooltip>
+                    <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handlePrintChart("weight-trend-chart-card")}><ImageIcon className="h-4 w-4"/></Button></TooltipTrigger><TooltipContent><p>Eksportuj wykres jako Obraz/PDF</p></TooltipContent></Tooltip>
+                    <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => exportChartDataToCSV(weightTrendData, "trend_wagi.csv", [{key: 'date', label: 'Data'}, {key: 'Waga', label: 'Waga (kg)'}])} disabled={weightTrendData.length === 0}><FileDown className="h-4 w-4"/></Button></TooltipTrigger><TooltipContent><p>Eksportuj dane jako CSV</p></TooltipContent></Tooltip>
                     </TooltipProvider>
                   </div>
               </CardFooter>
             </Card>
           </div>
 
-          <Card id="exercise-volume-chart-card" className="lg:col-span-2">
+          <Card id="exercise-volume-chart-card" className={cn("lg:col-span-2", printingChartId === "exercise-volume-chart-card" && "printable-chart-area")}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><DumbbellIcon className="h-6 w-6 text-primary" />Trend Objętości dla Ćwiczenia</CardTitle>
               <CardDescription>Całkowita objętość (ciężar x powtórzenia) dla wybranego ćwiczenia w kolejnych sesjach, z opcjonalną nakładką danych z dziennika samopoczucia.</CardDescription>
             </CardHeader>
             <CardContent>
-                <div className="mb-4">
+                <div className="mb-4 print-hide">
                     <Select value={selectedExerciseIdForVolume} onValueChange={setSelectedExerciseIdForVolume}>
                         <SelectTrigger className="w-full sm:w-[300px]">
                         <SelectValue placeholder="Wybierz ćwiczenie do analizy objętości" />
@@ -733,36 +810,20 @@ export default function StatisticsPage() {
                 </p>
                  <div>
                     <TooltipProvider>
-                    <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" disabled><ImageIcon className="h-4 w-4"/></Button></TooltipTrigger><TooltipContent><p>Eksportuj wykres (Wkrótce)</p></TooltipContent></Tooltip>
-                    <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" disabled><FileDown className="h-4 w-4"/></Button></TooltipTrigger><TooltipContent><p>Eksportuj dane CSV (Wkrótce)</p></TooltipContent></Tooltip>
+                    <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handlePrintChart("exercise-volume-chart-card")}><ImageIcon className="h-4 w-4"/></Button></TooltipTrigger><TooltipContent><p>Eksportuj wykres jako Obraz/PDF</p></TooltipContent></Tooltip>
+                    <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => {
+                        const headers = [{key: 'date', label: 'Data'}, {key: 'Volume', label: 'Objętość'}];
+                        if (selectedWellnessMetrics.includes('wellBeing')) headers.push({key: 'wellBeing', label: 'Samopoczucie'});
+                        if (selectedWellnessMetrics.includes('energyLevel')) headers.push({key: 'energyLevel', label: 'Energia'});
+                        if (selectedWellnessMetrics.includes('sleepQuality')) headers.push({key: 'sleepQuality', label: 'Sen'});
+                        exportChartDataToCSV(exerciseVolumeData, "trend_objetosci_cwiczenia.csv", headers);
+                    }} disabled={exerciseVolumeData.length === 0}><FileDown className="h-4 w-4"/></Button></TooltipTrigger><TooltipContent><p>Eksportuj dane jako CSV</p></TooltipContent></Tooltip>
                     </TooltipProvider>
                   </div>
               </CardFooter>
           </Card>
 
-          <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Info className="h-5 w-5 text-primary"/>Nakładka Danych z Dziennika Samopoczucia</CardTitle>
-                <CardDescription>Wybierz metryki z dziennika samopoczucia, aby nałożyć je na wykres Trendu Objętości dla Ćwiczenia.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-                {['wellBeing', 'energyLevel', 'sleepQuality'].map(metricKey => {
-                    const metricLabel = chartConfig[metricKey as keyof typeof chartConfig]?.label || metricKey;
-                    return (
-                        <div key={metricKey} className="flex items-center space-x-2">
-                            <Checkbox
-                                id={`wellness-${metricKey}`}
-                                checked={selectedWellnessMetrics.includes(metricKey)}
-                                onCheckedChange={() => handleWellnessMetricToggle(metricKey)}
-                            />
-                            <Label htmlFor={`wellness-${metricKey}`} className="font-normal">{metricLabel}</Label>
-                        </div>
-                    );
-                })}
-            </CardContent>
-          </Card>
-
-           <Card className="lg:col-span-2">
+          <Card id="muscle-group-chart-card" className={cn("lg:col-span-2", printingChartId === "muscle-group-chart-card" && "printable-chart-area")}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><PieChartIcon className="h-6 w-6 text-primary" />Proporcje Trenowanych Grup Mięśniowych</CardTitle>
               <CardDescription>Rozkład wykonanych ćwiczeń według grup mięśniowych (na podstawie wszystkich zarejestrowanych treningów w wybranym globalnie okresie).</CardDescription>
@@ -803,8 +864,8 @@ export default function StatisticsPage() {
                 </p>
                  <div>
                     <TooltipProvider>
-                    <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" disabled><ImageIcon className="h-4 w-4"/></Button></TooltipTrigger><TooltipContent><p>Eksportuj wykres (Wkrótce)</p></TooltipContent></Tooltip>
-                    <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" disabled><FileDown className="h-4 w-4"/></Button></TooltipTrigger><TooltipContent><p>Eksportuj dane CSV (Wkrótce)</p></TooltipContent></Tooltip>
+                    <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => handlePrintChart("muscle-group-chart-card")}><ImageIcon className="h-4 w-4"/></Button></TooltipTrigger><TooltipContent><p>Eksportuj wykres jako Obraz/PDF</p></TooltipContent></Tooltip>
+                    <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => exportChartDataToCSV(muscleGroupProportionData, "proporcje_grup_miesniowych.csv", [{key: 'name', label: 'Grupa Mięśniowa'}, {key: 'value', label: 'Liczba Ćwiczeń'}])} disabled={muscleGroupProportionData.length === 0}><FileDown className="h-4 w-4"/></Button></TooltipTrigger><TooltipContent><p>Eksportuj dane jako CSV</p></TooltipContent></Tooltip>
                     </TooltipProvider>
                   </div>
               </CardFooter>
@@ -812,12 +873,17 @@ export default function StatisticsPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><ArrowRightLeft className="h-6 w-6 text-primary" />Porównaj Okresy</CardTitle>
+              <CardTitle className="flex items-center gap-2"><ArrowRightLeft className="h-6 w-6 text-primary" />Porównaj Okresy (Wkrótce)</CardTitle>
               <CardDescription>Porównaj swoje statystyki między dwoma wybranymi okresami.</CardDescription>
             </CardHeader>
             <CardContent>
+              <Alert variant="default" className="mb-4">
+                <Info className="h-4 w-4"/>
+                <AlertTitle>Funkcja w Budowie</AlertTitle>
+                <AlertDescription>Możliwość porównywania okresów zostanie dodana w przyszłości.</AlertDescription>
+              </Alert>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
-                <div className="space-y-2 p-4 border rounded-lg">
+                <div className="space-y-2 p-4 border rounded-lg bg-muted/30">
                     <h4 className="font-semibold text-center">Okres A</h4>
                     <DatePicker
                         date={periodAStartDate}
@@ -832,7 +898,7 @@ export default function StatisticsPage() {
                         disabled={(date) => periodAStartDate ? isBefore(date, periodAStartDate) : false}
                     />
                 </div>
-                 <div className="space-y-2 p-4 border rounded-lg">
+                 <div className="space-y-2 p-4 border rounded-lg bg-muted/30">
                     <h4 className="font-semibold text-center">Okres B</h4>
                     <DatePicker
                         date={periodBStartDate}
@@ -889,7 +955,7 @@ export default function StatisticsPage() {
                             }
                         ].map(item => {
                             const diff = item.valueB - item.valueA;
-                            const percentageChange = item.valueA !== 0 ? ((diff / item.valueA) * 100).toFixed(1) : (item.valueB !== 0 ? (diff > 0 ? "∞" : "-∞") : "0.0"); // Handle division by zero
+                            const percentageChange = item.valueA !== 0 ? ((diff / item.valueA) * 100).toFixed(1) : (item.valueB !== 0 ? (diff > 0 ? "∞" : "-∞") : "0.0"); 
                             return (
                                 <TableRow key={item.label}>
                                     <TableCell className="font-medium">{item.label}</TableCell>
@@ -913,11 +979,16 @@ export default function StatisticsPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Target className="h-6 w-6 text-primary"/>Moje Cele</CardTitle>
+              <CardTitle className="flex items-center gap-2"><Target className="h-6 w-6 text-primary"/>Moje Cele (Wkrótce)</CardTitle>
               <CardDescription>Definiuj i śledź swoje cele treningowe i pomiarowe.</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center justify-between mb-4">
+              <Alert className="mb-4">
+                <Info className="h-4 w-4"/>
+                <AlertTitle>Funkcja w Rozwoju</AlertTitle>
+                <AlertDescription>Pełne zarządzanie celami, ich śledzenie i wizualizacja postępów będą dostępne wkrótce.</AlertDescription>
+              </Alert>
+              <div className="flex items-center justify-between mb-4 print-hide">
                 <h3 className="text-lg font-semibold">Lista Celów</h3>
                 <Button onClick={() => setIsAddGoalDialogOpen(true)} >
                     <PlusCircle className="mr-2 h-4 w-4"/> Dodaj Nowy Cel
@@ -936,7 +1007,7 @@ export default function StatisticsPage() {
                               <p className="text-xs text-muted-foreground">Metryka: {goal.metric}</p>
                               {goal.deadline && <p className="text-xs text-muted-foreground">Termin: {format(parseISO(String(goal.deadline)), "PPP", {locale: pl})}</p>}
                           </div>
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1 print-hide">
                               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toast({title: "Edycja Celu (Wkrótce)", description: "Możliwość edycji celów zostanie dodana w przyszłości."})}>
                                   <Edit className="h-4 w-4"/>
                                   <span className="sr-only">Edytuj cel</span>
@@ -989,5 +1060,3 @@ export default function StatisticsPage() {
     </div>
   );
 }
-
-    
