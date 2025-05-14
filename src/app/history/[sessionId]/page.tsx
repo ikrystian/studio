@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import { pl } from "date-fns/locale";
+import { v4 as uuidv4 } from "uuid";
 import {
   ArrowLeft,
   FileText,
@@ -20,7 +21,11 @@ import {
   Loader2,
   AlertTriangle,
   BarChart,
-  Weight,
+  Weight as WeightIcon, // Renamed to avoid conflict
+  LineChart as LineChartIcon,
+  Save,
+  XCircle,
+  PlusCircle,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -46,12 +51,40 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import type { HistoricalWorkoutSession } from "../page"; // Import from parent
-import type { RecordedSet as ActiveRecordedSet } from "@/app/workout/active/[workoutId]/page";
+import type { HistoricalWorkoutSession as OriginalHistoricalWorkoutSession } from "../page";
+import type { RecordedSet as OriginalRecordedSet, ExerciseInWorkout } from "@/app/workout/active/[workoutId]/page";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+// Make types mutable for editing
+interface RecordedSet extends OriginalRecordedSet {
+  // id might be useful if sets could be added/removed with persistence
+}
+
+interface HistoricalWorkoutSession extends OriginalHistoricalWorkoutSession {
+  recordedSets: Record<string, RecordedSet[]>;
+  generalNotes?: string;
+  difficulty?: DifficultyRating;
+}
+
+enum DifficultyRating {
+  BardzoLatwy = "Bardzo Łatwy",
+  Latwy = "Łatwy",
+  Sredni = "Średni",
+  Trudny = "Trudny",
+  BardzoTrudny = "Bardzo Trudny",
+  Ekstremalny = "Ekstremalny",
+}
 
 
 // Re-using MOCK_HISTORY_SESSIONS for simplicity in this example
-// In a real app, you'd fetch this session by ID from a backend
 const MOCK_HISTORY_SESSIONS_FOR_DETAIL: HistoricalWorkoutSession[] = [
   {
     id: "hist1",
@@ -62,14 +95,14 @@ const MOCK_HISTORY_SESSIONS_FOR_DETAIL: HistoricalWorkoutSession[] = [
     endTime: "2024-07-25T09:00:00.000Z",
     totalTimeSeconds: 3600,
     recordedSets: {
-      ex1: [{ setNumber: 1, weight: "60", reps: "10", notes: "Good form" }, { setNumber: 2, weight: "65", reps: "8" }] as ActiveRecordedSet[],
-      ex2: [{ setNumber: 1, weight: "100", reps: "5" }] as ActiveRecordedSet[],
+      ex1: [{ setNumber: 1, weight: "60", reps: "10", notes: "Good form" }, { setNumber: 2, weight: "65", reps: "8" }] as RecordedSet[],
+      ex2: [{ setNumber: 1, weight: "100", reps: "5" }] as RecordedSet[],
     },
     exercises: [
       { id: "ex1", name: "Wyciskanie sztangi na ławce płaskiej", defaultSets: 3, defaultReps: "8-10", defaultRest: 90 },
       { id: "ex2", name: "Przysiady ze sztangą", defaultSets: 4, defaultReps: "10-12", defaultRest: 120 },
     ],
-    difficulty: "Średni" as any, // Cast for mock data
+    difficulty: DifficultyRating.Sredni,
     generalNotes: "Feeling strong today!",
     calculatedTotalVolume: (60*10) + (65*8) + (100*5),
   },
@@ -82,10 +115,10 @@ const MOCK_HISTORY_SESSIONS_FOR_DETAIL: HistoricalWorkoutSession[] = [
     endTime: "2024-07-27T18:00:00.000Z",
     totalTimeSeconds: 1800,
     recordedSets: {
-      ex6: [{ setNumber: 1, weight: "N/A", reps: "30 min" }] as ActiveRecordedSet[],
+      ex6: [{ setNumber: 1, weight: "N/A", reps: "30 min" }] as RecordedSet[],
     },
     exercises: [{ id: "ex6", name: "Bieg na bieżni (30 min)", defaultSets: 1, defaultReps: "30 min", defaultRest: 0 }],
-    difficulty: "Trudny" as any, // Cast for mock data
+    difficulty: DifficultyRating.Trudny,
     generalNotes: "Tough session, pushed hard.",
     calculatedTotalVolume: 0,
   },
@@ -98,16 +131,16 @@ const MOCK_HISTORY_SESSIONS_FOR_DETAIL: HistoricalWorkoutSession[] = [
     endTime: "2024-07-29T09:20:00.000Z",
     totalTimeSeconds: 3900,
     recordedSets: {
-      ex1: [{ setNumber: 1, weight: "65", reps: "10" }, { setNumber: 2, weight: "70", reps: "8"}, { setNumber: 3, weight: "70", reps: "7"}] as ActiveRecordedSet[],
-      ex2: [{ setNumber: 1, weight: "100", reps: "6" }, { setNumber: 2, weight: "105", reps: "5"}] as ActiveRecordedSet[],
-      ex4: [{ setNumber: 1, weight: "BW", reps: "8" }, { setNumber: 2, weight: "BW", reps: "7"}] as ActiveRecordedSet[],
+      ex1: [{ setNumber: 1, weight: "65", reps: "10" }, { setNumber: 2, weight: "70", reps: "8"}, { setNumber: 3, weight: "70", reps: "7"}] as RecordedSet[],
+      ex2: [{ setNumber: 1, weight: "100", reps: "6" }, { setNumber: 2, weight: "105", reps: "5"}] as RecordedSet[],
+      ex4: [{ setNumber: 1, weight: "BW", reps: "8" }, { setNumber: 2, weight: "BW", reps: "7"}] as RecordedSet[],
     },
     exercises: [
       { id: "ex1", name: "Wyciskanie sztangi na ławce płaskiej" },
       { id: "ex2", name: "Przysiady ze sztangą" },
       { id: "ex4", name: "Podciąganie na drążku" },
     ],
-    difficulty: "Średni" as any,
+    difficulty: DifficultyRating.Sredni,
     calculatedTotalVolume: (65*10) + (70*8) + (70*7) + (100*6) + (105*5),
   },
 ];
@@ -129,14 +162,20 @@ export default function WorkoutHistoryDetailPage() {
   const [sessionData, setSessionData] = React.useState<HistoricalWorkoutSession | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isDeleting, setIsDeleting] = React.useState(false);
+  const [isSavingEdit, setIsSavingEdit] = React.useState(false);
+
+  const [isEditingSession, setIsEditingSession] = React.useState(false);
+  const [editedSessionData, setEditedSessionData] = React.useState<HistoricalWorkoutSession | null>(null);
+
 
   React.useEffect(() => {
     setIsLoading(true);
-    // Simulate API call
     setTimeout(() => {
       const foundSession = MOCK_HISTORY_SESSIONS_FOR_DETAIL.find(s => s.id === sessionId);
       if (foundSession) {
-        setSessionData(foundSession);
+        // Deep copy for initial sessionData and for editing purposes if needed later
+        const deepCopiedSession = JSON.parse(JSON.stringify(foundSession)) as HistoricalWorkoutSession;
+        setSessionData(deepCopiedSession);
       } else {
         toast({ title: "Błąd", description: "Nie znaleziono sesji treningowej.", variant: "destructive" });
         router.replace("/history");
@@ -147,17 +186,96 @@ export default function WorkoutHistoryDetailPage() {
 
   const handleDeleteSession = async () => {
     setIsDeleting(true);
-    // Simulate API call for deletion
     await new Promise(resolve => setTimeout(resolve, 1000));
-    // In a real app, you would also update the source of MOCK_HISTORY_SESSIONS_FOR_DETAIL or refetch
     toast({
       title: "Sesja usunięta",
       description: `Sesja treningowa "${sessionData?.workoutName}" została (symulacyjnie) usunięta.`,
       variant: "default",
     });
     router.replace("/history");
-    // No need to setIsDeleting(false) as we are redirecting
   };
+
+  const handleEditSession = () => {
+    if (sessionData) {
+      // Create a deep copy for editing to avoid mutating original state directly
+      setEditedSessionData(JSON.parse(JSON.stringify(sessionData)));
+      setIsEditingSession(true);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditedSessionData(null);
+    setIsEditingSession(false);
+    toast({ title: "Edycja anulowana", variant: "default" });
+  };
+
+  const handleSaveChanges = async () => {
+    if (!editedSessionData) return;
+    setIsSavingEdit(true);
+    // Add validation for editedSessionData if needed here
+    console.log("Saving edited session data (simulation):", editedSessionData);
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Simulate successful save
+    setSessionData(JSON.parse(JSON.stringify(editedSessionData))); // Update main data with edited copy
+    setIsEditingSession(false);
+    setEditedSessionData(null);
+    setIsSavingEdit(false);
+    toast({ title: "Zmiany zapisane!", description: "Dane sesji treningowej zostały zaktualizowane.", variant: "default" });
+  };
+
+  const handleSetInputChange = (exerciseId: string, setIndex: number, field: keyof RecordedSet, value: string) => {
+    setEditedSessionData(prev => {
+      if (!prev) return null;
+      const newEditedData = JSON.parse(JSON.stringify(prev)) as HistoricalWorkoutSession;
+      const sets = newEditedData.recordedSets[exerciseId];
+      if (sets && sets[setIndex]) {
+        (sets[setIndex] as any)[field] = value;
+      }
+      return newEditedData;
+    });
+  };
+  
+  const handleAddNewSet = (exerciseId: string) => {
+    setEditedSessionData(prev => {
+      if (!prev) return null;
+      const newEditedData = JSON.parse(JSON.stringify(prev)) as HistoricalWorkoutSession;
+      const sets = newEditedData.recordedSets[exerciseId] || [];
+      const newSetNumber = sets.length + 1;
+      sets.push({ setNumber: newSetNumber, weight: "", reps: "", rpe: undefined, notes: "" });
+      newEditedData.recordedSets[exerciseId] = sets;
+      return newEditedData;
+    });
+  };
+
+  const handleDeleteEditedSet = (exerciseId: string, setIndexToDelete: number) => {
+     setEditedSessionData(prev => {
+      if (!prev) return null;
+      const newEditedData = JSON.parse(JSON.stringify(prev)) as HistoricalWorkoutSession;
+      let sets = newEditedData.recordedSets[exerciseId];
+      if (sets) {
+        sets = sets.filter((_, index) => index !== setIndexToDelete)
+                   .map((s, i) => ({ ...s, setNumber: i + 1 })); // Re-number sets
+        newEditedData.recordedSets[exerciseId] = sets;
+      }
+      return newEditedData;
+    });
+    toast({ title: "Seria usunięta z edycji", variant: "default"});
+  };
+
+  const handleRepeatWorkout = () => {
+    if (sessionData?.workoutId) {
+      router.push(`/workout/active/${sessionData.workoutId}`);
+    } else {
+      toast({
+        title: "Nie można powtórzyć",
+        description: "Brak informacji o oryginalnym szablonie tego treningu.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const dataToDisplay = isEditingSession && editedSessionData ? editedSessionData : sessionData;
 
   if (isLoading) {
     return (
@@ -168,7 +286,7 @@ export default function WorkoutHistoryDetailPage() {
     );
   }
 
-  if (!sessionData) {
+  if (!dataToDisplay) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
         <Alert variant="destructive" className="max-w-md">
@@ -195,11 +313,25 @@ export default function WorkoutHistoryDetailPage() {
               </Link>
             </Button>
             <FileText className="h-8 w-8 text-primary" />
-            <h1 className="text-xl font-bold truncate max-w-xs sm:max-w-md" title={sessionData.workoutName}>
-              {sessionData.workoutName}
+            <h1 className="text-xl font-bold truncate max-w-xs sm:max-w-md" title={dataToDisplay.workoutName}>
+              {dataToDisplay.workoutName}
             </h1>
           </div>
-          {/* Placeholder for potential actions like share, export */}
+           {isEditingSession ? (
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={handleCancelEdit} disabled={isSavingEdit}>
+                <XCircle className="mr-2 h-4 w-4" /> Anuluj Edycję
+              </Button>
+              <Button onClick={handleSaveChanges} disabled={isSavingEdit}>
+                {isSavingEdit ? <Loader2 className="animate-spin mr-2 h-4 w-4"/> : <Save className="mr-2 h-4 w-4" />}
+                Zapisz Zmiany
+              </Button>
+            </div>
+          ) : (
+            <Button variant="outline" onClick={handleEditSession}>
+              <Edit className="mr-2 h-4 w-4" /> Edytuj Wpis
+            </Button>
+          )}
         </div>
       </header>
 
@@ -207,42 +339,66 @@ export default function WorkoutHistoryDetailPage() {
         <div className="container mx-auto max-w-3xl space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="text-3xl">{sessionData.workoutName}</CardTitle>
+              <CardTitle className="text-3xl">{dataToDisplay.workoutName}</CardTitle>
               <CardDescription>
-                Data: {format(parseISO(sessionData.startTime), "PPPp", { locale: pl })}
+                Data: {format(parseISO(dataToDisplay.startTime), "PPPp", { locale: pl })}
               </CardDescription>
             </CardHeader>
-            <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-              <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-md">
-                <Clock className="h-5 w-5 text-primary" />
-                <div>
-                  <p className="font-semibold">Całkowity Czas</p>
-                  <p>{formatTime(sessionData.totalTimeSeconds)}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-md">
-                <Weight className="h-5 w-5 text-primary" />
-                <div>
-                  <p className="font-semibold">Całkowity Ciężar</p>
-                  <p>{sessionData.calculatedTotalVolume.toLocaleString('pl-PL')} kg</p>
-                </div>
-              </div>
-              {sessionData.difficulty && (
+            <CardContent className="space-y-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-md">
-                  <BarChart className="h-5 w-5 text-primary" /> {/* Placeholder icon */}
+                  <Clock className="h-5 w-5 text-primary" />
                   <div>
-                    <p className="font-semibold">Ocena Trudności</p>
-                    <p>{sessionData.difficulty}</p>
+                    <p className="font-semibold">Całkowity Czas</p>
+                    <p>{formatTime(dataToDisplay.totalTimeSeconds)}</p>
                   </div>
                 </div>
-              )}
-            </CardContent>
-             {sessionData.generalNotes && (
-                <CardFooter className="flex-col items-start pt-4 border-t">
+                <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-md">
+                  <WeightIcon className="h-5 w-5 text-primary" />
+                  <div>
+                    <p className="font-semibold">Całkowity Ciężar</p>
+                    <p>{dataToDisplay.calculatedTotalVolume.toLocaleString('pl-PL')} kg</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-md">
+                    <BarChart className="h-5 w-5 text-primary" />
+                    <div>
+                        <p className="font-semibold">Ocena Trudności</p>
+                        {isEditingSession && editedSessionData ? (
+                            <Select
+                                value={editedSessionData.difficulty}
+                                onValueChange={(value) => setEditedSessionData(prev => prev ? ({ ...prev, difficulty: value as DifficultyRating }) : null)}
+                            >
+                                <SelectTrigger className="h-8 text-xs">
+                                    <SelectValue placeholder="Oceń trudność..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {Object.values(DifficultyRating).map(level => (
+                                        <SelectItem key={level} value={level}>{level}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        ) : (
+                            <p>{dataToDisplay.difficulty || "Nie oceniono"}</p>
+                        )}
+                    </div>
+                </div>
+              </div>
+               
+                <div className="pt-4 border-t">
                     <h4 className="font-semibold mb-1 flex items-center gap-1"><StickyNote className="h-4 w-4 text-primary"/> Ogólne Notatki:</h4>
-                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">{sessionData.generalNotes}</p>
-                </CardFooter>
-            )}
+                    {isEditingSession && editedSessionData ? (
+                        <Textarea
+                            value={editedSessionData.generalNotes || ""}
+                            onChange={(e) => setEditedSessionData(prev => prev ? ({ ...prev, generalNotes: e.target.value }) : null)}
+                            placeholder="Dodaj ogólne notatki do treningu..."
+                            rows={3}
+                        />
+                    ) : (
+                         <p className="text-sm text-muted-foreground whitespace-pre-wrap">{dataToDisplay.generalNotes || "Brak ogólnych notatek."}</p>
+                    )}
+                </div>
+            </CardContent>
           </Card>
 
           <Card>
@@ -250,26 +406,84 @@ export default function WorkoutHistoryDetailPage() {
               <CardTitle className="flex items-center gap-2"><ListOrdered className="h-6 w-6 text-primary"/>Wykonane Ćwiczenia</CardTitle>
             </CardHeader>
             <CardContent>
-              {sessionData.exercises.filter(ex => sessionData.recordedSets[ex.id]?.length > 0).length > 0 ? (
-                <ul className="space-y-4">
-                  {sessionData.exercises.map((exercise) => {
-                    const sets = sessionData.recordedSets[exercise.id];
-                    if (!sets || sets.length === 0) return null;
+              {dataToDisplay.exercises.filter(ex => dataToDisplay.recordedSets[ex.id]?.length > 0 || (isEditingSession && editedSessionData?.recordedSets[ex.id]?.length > 0)).length > 0 ? (
+                <ul className="space-y-6">
+                  {dataToDisplay.exercises.map((exercise) => {
+                    const setsToDisplay = (isEditingSession && editedSessionData?.recordedSets[exercise.id]) 
+                                        ? editedSessionData.recordedSets[exercise.id] 
+                                        : sessionData?.recordedSets[exercise.id];
+                    
+                    if (!setsToDisplay || setsToDisplay.length === 0) return null;
 
                     return (
                       <li key={exercise.id}>
-                        <h3 className="font-semibold text-lg mb-1">{exercise.name}</h3>
-                        <ul className="space-y-1 pl-4 text-sm text-muted-foreground">
-                          {sets.map((set, index) => (
-                            <li key={index} className="list-disc list-inside">
-                              Seria {set.setNumber}: {set.weight} x {set.reps} powt.
-                              {set.rpe && ` (RPE: ${set.rpe})`}
-                              {set.notes && <span className="italic text-xs block pl-2"> - Notatka: {set.notes}</span>}
+                        <div className="flex justify-between items-center mb-2">
+                            <h3 className="font-semibold text-lg">{exercise.name}</h3>
+                            {!isEditingSession && (
+                                <Button variant="outline" size="sm" asChild>
+                                    <Link href={`/statistics?exerciseId=${exercise.id}&exerciseName=${encodeURIComponent(exercise.name)}`}>
+                                        <LineChartIcon className="mr-2 h-4 w-4"/> Zobacz postęp
+                                    </Link>
+                                </Button>
+                            )}
+                        </div>
+                        <ul className="space-y-2 pl-1 text-sm">
+                          {setsToDisplay.map((set, index) => (
+                            <li key={`set-${exercise.id}-${index}`} className={`p-3 rounded-md ${isEditingSession ? 'bg-muted/60' : 'bg-muted/30'}`}>
+                              {isEditingSession && editedSessionData ? (
+                                <div className="space-y-2">
+                                  <div className="flex justify-between items-center">
+                                    <span className="font-medium text-xs">Seria {set.setNumber}</span>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => handleDeleteEditedSet(exercise.id, index)}>
+                                        <Trash2 className="h-3 w-3"/>
+                                    </Button>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <Input 
+                                        placeholder="Ciężar (kg/opis)" 
+                                        value={String(set.weight)} 
+                                        onChange={(e) => handleSetInputChange(exercise.id, index, 'weight', e.target.value)}
+                                        className="h-8 text-xs"
+                                    />
+                                    <Input 
+                                        placeholder="Powt./Czas/Dystans" 
+                                        value={String(set.reps)} 
+                                        onChange={(e) => handleSetInputChange(exercise.id, index, 'reps', e.target.value)}
+                                        className="h-8 text-xs"
+                                    />
+                                  </div>
+                                  <Input 
+                                      placeholder="RPE (1-10, opcjonalne)" 
+                                      type="number"
+                                      value={String(set.rpe || "")} 
+                                      onChange={(e) => handleSetInputChange(exercise.id, index, 'rpe', e.target.value)}
+                                      className="h-8 text-xs"
+                                  />
+                                  <Textarea 
+                                      placeholder="Notatki do serii (opcjonalne)" 
+                                      value={set.notes || ""} 
+                                      onChange={(e) => handleSetInputChange(exercise.id, index, 'notes', e.target.value)}
+                                      rows={2}
+                                      className="text-xs"
+                                  />
+                                </div>
+                              ) : (
+                                <>
+                                  <span className="font-medium">Seria {set.setNumber}:</span> {set.weight} x {set.reps} powt.
+                                  {set.rpe && <span className="text-muted-foreground"> (RPE: {set.rpe})</span>}
+                                  {set.notes && <p className="italic text-xs text-muted-foreground/80 mt-0.5"> - Notatka: {set.notes}</p>}
+                                </>
+                              )}
                             </li>
                           ))}
                         </ul>
-                        {sessionData.exercises.filter(ex => sessionData.recordedSets[ex.id]?.length > 0).indexOf(exercise) < sessionData.exercises.filter(ex => sessionData.recordedSets[ex.id]?.length > 0).length - 1 && (
-                            <Separator className="my-3"/>
+                        {isEditingSession && (
+                            <Button variant="outline" size="sm" className="mt-3 text-xs" onClick={() => handleAddNewSet(exercise.id)}>
+                                <PlusCircle className="mr-1 h-3 w-3"/> Dodaj Serię do {exercise.name}
+                            </Button>
+                        )}
+                        {dataToDisplay.exercises.filter(ex => dataToDisplay.recordedSets[ex.id]?.length > 0).indexOf(exercise) < dataToDisplay.exercises.filter(ex => dataToDisplay.recordedSets[ex.id]?.length > 0).length - 1 && (
+                            <Separator className="my-4"/>
                         )}
                       </li>
                     );
@@ -281,47 +495,47 @@ export default function WorkoutHistoryDetailPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Dumbbell className="h-6 w-6 text-primary"/>Akcje</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col sm:flex-row gap-3">
-                <Button variant="outline" className="w-full sm:w-auto" disabled>
-                    <Repeat className="mr-2 h-4 w-4" /> Powtórz Trening (Wkrótce)
-                </Button>
-                <Button variant="outline" className="w-full sm:w-auto" disabled>
-                    <Edit className="mr-2 h-4 w-4" /> Edytuj Wpis (Wkrótce)
-                </Button>
-                 <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                        <Button variant="destructive" className="w-full sm:w-auto" disabled={isDeleting}>
-                            {isDeleting ? <Loader2 className="animate-spin mr-2 h-4 w-4"/> : <Trash2 className="mr-2 h-4 w-4" />}
-                             Usuń Wpis
-                        </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                        <AlertDialogTitle>Usunąć wpis z historii?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Czy na pewno chcesz usunąć tę sesję treningową z historii? Tej akcji nie można cofnąć.
-                        </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                        <AlertDialogCancel disabled={isDeleting}>Anuluj</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDeleteSession} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
-                            {isDeleting ? <Loader2 className="animate-spin mr-2"/> : null}
-                            Potwierdź i usuń
-                        </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
-            </CardContent>
-          </Card>
-
+          {!isEditingSession && (
+            <Card>
+              <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><Dumbbell className="h-6 w-6 text-primary"/>Akcje</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col sm:flex-row gap-3">
+                  <Button variant="outline" className="w-full sm:w-auto" onClick={handleRepeatWorkout}>
+                      <Repeat className="mr-2 h-4 w-4" /> Powtórz Trening
+                  </Button>
+                  {/* <Button variant="outline" className="w-full sm:w-auto" onClick={handleEditSession}>
+                      <Edit className="mr-2 h-4 w-4" /> Edytuj Wpis
+                  </Button> */}
+                   <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                          <Button variant="destructive" className="w-full sm:w-auto" disabled={isDeleting}>
+                              {isDeleting ? <Loader2 className="animate-spin mr-2 h-4 w-4"/> : <Trash2 className="mr-2 h-4 w-4" />}
+                               Usuń Wpis
+                          </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                          <AlertDialogHeader>
+                          <AlertDialogTitle>Usunąć wpis z historii?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                              Czy na pewno chcesz usunąć tę sesję treningową z historii? Tej akcji nie można cofnąć.
+                          </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                          <AlertDialogCancel disabled={isDeleting}>Anuluj</AlertDialogCancel>
+                          <AlertDialogAction onClick={handleDeleteSession} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
+                              {isDeleting ? <Loader2 className="animate-spin mr-2"/> : null}
+                              Potwierdź i usuń
+                          </AlertDialogAction>
+                          </AlertDialogFooter>
+                      </AlertDialogContent>
+                  </AlertDialog>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </main>
     </div>
   );
 }
-
     
