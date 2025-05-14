@@ -43,9 +43,14 @@ export const PREDEFINED_BODY_PARTS = [
   { key: "bicepsR", name: "Biceps prawy (cm)", label: "Biceps P." },
   { key: "thighL", name: "Udo lewe (cm)", label: "Udo L." },
   { key: "thighR", name: "Udo prawe (cm)", label: "Udo P." },
+  { key: "calfL", name: "Łydka lewa (cm)", label: "Łydka L." },
+  { key: "calfR", name: "Łydka prawa (cm)", label: "Łydka P." },
+  { key: "shoulders", name: "Barki (cm)", label: "Barki" },
+  { key: "neck", name: "Szyja (cm)", label: "Szyja" },
+  { key: "forearmL", name: "Przedramię lewe (cm)", label: "Przedramię L."},
+  { key: "forearmR", name: "Przedramię prawe (cm)", label: "Przedramię P."},
 ];
 
-// Schema for validating individual body part measurements
 const bodyPartMeasurementSchema = z.object({
   name: z.string(),
   value: z.coerce.number().positive("Wartość musi być dodatnia.").nullable().optional().or(z.literal("")),
@@ -65,7 +70,6 @@ const measurementFormSchema = z.object({
 
 export type MeasurementFormDataInternal = z.infer<typeof measurementFormSchema>;
 
-// This is the type that will be passed to onSave, matching the main Measurement interface
 export type MeasurementFormData = Omit<Measurement, "id"> & { date: string };
 
 
@@ -73,7 +77,7 @@ interface AddMeasurementDialogProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   onSave: (data: MeasurementFormData) => void;
-  initialData?: Measurement | null; // For editing
+  initialData?: Measurement | null; 
 }
 
 export function AddMeasurementDialog({
@@ -96,7 +100,7 @@ export function AddMeasurementDialog({
   });
 
   React.useEffect(() => {
-    if (initialData) {
+    if (initialData && isOpen) {
       form.reset({
         date: parseISO(initialData.date),
         weight: initialData.weight,
@@ -106,7 +110,7 @@ export function AddMeasurementDialog({
         })),
         notes: initialData.notes ?? "",
       });
-    } else {
+    } else if (!initialData && isOpen) {
       form.reset({
         date: new Date(),
         weight: undefined,
@@ -114,25 +118,38 @@ export function AddMeasurementDialog({
         notes: "",
       });
     }
-  }, [initialData, form, isOpen]); // Re-run effect when isOpen changes to reset form on dialog open
+  }, [initialData, form, isOpen]); 
 
   function onSubmit(values: MeasurementFormDataInternal) {
     const transformedData: MeasurementFormData = {
       ...values,
-      date: values.date.toISOString(), // Convert date to ISO string
+      date: values.date.toISOString(), 
       bodyParts: values.bodyParts.map(bp => ({
         name: bp.name,
-        value: bp.value === "" ? null : Number(bp.value) // Ensure "" becomes null
-      })).filter(bp => bp.value !== null), // Filter out parts that were left empty
+        value: bp.value === "" || bp.value === undefined ? null : Number(bp.value) 
+      })).filter(bp => bp.value !== null), 
     };
     onSave(transformedData);
-    form.reset(); // Reset form after successful save
   }
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
         onOpenChange(open);
-        if (!open) form.reset(); // Reset form when dialog is closed
+        if (!open) form.reset( // Reset to initial or default values when closing
+          initialData 
+          ? {
+              date: parseISO(initialData.date),
+              weight: initialData.weight,
+              bodyParts: PREDEFINED_BODY_PARTS.map(part => ({ name: part.name, value: initialData.bodyParts.find(bp => bp.name === part.name)?.value ?? null })),
+              notes: initialData.notes ?? "",
+            }
+          : {
+              date: new Date(),
+              weight: undefined,
+              bodyParts: PREDEFINED_BODY_PARTS.map(part => ({ name: part.name, value: null })),
+              notes: "",
+            }
+        );
     }}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
@@ -205,7 +222,14 @@ export function AddMeasurementDialog({
                         <FormItem>
                         <FormLabel className="text-sm font-normal">{part.name}</FormLabel>
                         <FormControl>
-                            <Input type="number" step="0.1" placeholder="Wartość (cm)" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} />
+                            <Input 
+                              type="number" 
+                              step="0.1" 
+                              placeholder="Wartość (cm)" 
+                              {...field} 
+                              value={field.value === null ? "" : field.value} // Ensure null is treated as empty string for input
+                              onChange={e => field.onChange(e.target.value === '' ? null : parseFloat(e.target.value))} 
+                            />
                         </FormControl>
                         <FormMessage />
                         </FormItem>
@@ -230,7 +254,7 @@ export function AddMeasurementDialog({
             />
             <DialogFooter className="pt-4 border-t">
               <DialogClose asChild>
-                <Button type="button" variant="outline">
+                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                   <XCircle className="mr-2 h-4 w-4" /> Anuluj
                 </Button>
               </DialogClose>

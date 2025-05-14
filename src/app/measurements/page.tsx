@@ -15,7 +15,9 @@ import {
   Loader2,
   CalendarDays,
   StickyNote,
-  Ruler, // Using Ruler for generic body part icon
+  Ruler, 
+  Activity, // For BMI icon placeholder
+  Download, // For CSV export icon
 } from "lucide-react";
 import { v4 as uuidv4 } from "uuid"; // For generating unique IDs
 
@@ -40,8 +42,6 @@ import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
-  ChartLegend,
-  ChartLegendContent,
 } from "@/components/ui/chart";
 import {
   LineChart as RechartsLineChart,
@@ -49,7 +49,7 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip as RechartsTooltip, // Renamed to avoid conflict
+  Tooltip as RechartsTooltip, 
   ResponsiveContainer,
 } from "recharts";
 import {
@@ -70,9 +70,13 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
 
 export interface BodyPartData {
   name: string;
@@ -116,10 +120,30 @@ const INITIAL_MOCK_MEASUREMENTS: Measurement[] = [
       { name: "Klatka piersiowa (cm)", value: 99 },
       { name: "Talia (cm)", value: 78 },
       { name: "Biodra (cm)", value: 94 },
+      { name: "Biceps lewy (cm)", value: 35 },
     ],
     notes: "Czuję się lżej.",
   },
 ];
+
+// Mock user height in CM. In a real app, this would come from user profile.
+const USER_HEIGHT_CM: number | null = 175; // Example height: 175cm. Set to null to test missing height.
+
+const calculateBMI = (weightKg: number, heightCm: number | null): number | null => {
+  if (!heightCm || heightCm <= 0 || !weightKg || weightKg <= 0) {
+    return null;
+  }
+  const heightM = heightCm / 100;
+  return parseFloat((weightKg / (heightM * heightM)).toFixed(1));
+};
+
+const interpretBMI = (bmi: number | null): string => {
+  if (bmi === null) return "-";
+  if (bmi < 18.5) return "Niedowaga";
+  if (bmi < 25) return "Waga prawidłowa";
+  if (bmi < 30) return "Nadwaga";
+  return "Otyłość";
+};
 
 
 export default function MeasurementsPage() {
@@ -132,26 +156,37 @@ export default function MeasurementsPage() {
 
   const [selectedChartMetric, setSelectedChartMetric] = React.useState<string>("Waga (kg)");
 
+  // Reminder settings state (placeholders)
+  const [enableReminders, setEnableReminders] = React.useState(false);
+  const [reminderFrequency, setReminderFrequency] = React.useState("weekly");
+  const [reminderTime, setReminderTime] = React.useState("09:00");
+
+
   const availableMetricsForChart = React.useMemo(() => {
-    const metrics = ["Waga (kg)"];
-    if (measurements.length > 0) {
-      measurements[0].bodyParts.forEach(bp => {
-        if (!metrics.includes(bp.name)) {
-          metrics.push(bp.name);
+    const metrics = ["Waga (kg)", "BMI"]; // Add BMI to chartable metrics
+    const bodyPartNames = new Set<string>();
+    measurements.forEach(m => {
+      m.bodyParts.forEach(bp => {
+        if (bp.value !== null) {
+          bodyPartNames.add(bp.name);
         }
       });
-    }
-    return metrics;
+    });
+    return [...metrics, ...Array.from(bodyPartNames)];
   }, [measurements]);
 
   const chartData = React.useMemo(() => {
     return measurements
-      .sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime()) // Sort by date
+      .sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime())
       .map(m => {
         const dataPoint: { date: string; [key: string]: any } = {
           date: format(parseISO(m.date), "dd MMM yy", { locale: pl }),
           "Waga (kg)": m.weight,
         };
+        const bmi = calculateBMI(m.weight, USER_HEIGHT_CM);
+        if (bmi !== null) {
+          dataPoint["BMI"] = bmi;
+        }
         m.bodyParts.forEach(bp => {
           if (bp.value !== null) {
             dataPoint[bp.name] = bp.value;
@@ -176,11 +211,9 @@ export default function MeasurementsPage() {
 
   const handleSaveMeasurement = (data: MeasurementFormData) => {
     if (editingMeasurement) {
-      // Update existing measurement
       setMeasurements(prev => prev.map(m => m.id === editingMeasurement.id ? { ...data, id: editingMeasurement.id } : m));
       toast({ title: "Pomiar zaktualizowany", description: "Dane pomiaru zostały pomyślnie zaktualizowane." });
     } else {
-      // Add new measurement
       const newMeasurement: Measurement = { ...data, id: uuidv4() };
       setMeasurements(prev => [...prev, newMeasurement].sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime()));
       toast({ title: "Pomiar dodany", description: "Nowy pomiar został pomyślnie zapisany." });
@@ -201,7 +234,6 @@ export default function MeasurementsPage() {
   const handleDeleteMeasurement = async () => {
     if (!measurementToDelete) return;
     setIsDeleting(true);
-    // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 500));
     setMeasurements(prev => prev.filter(m => m.id !== measurementToDelete.id));
     toast({ title: "Pomiar usunięty", description: "Pomiar został pomyślnie usunięty." });
@@ -213,6 +245,53 @@ export default function MeasurementsPage() {
     const part = measurement.bodyParts.find(p => p.name === partName);
     return part && part.value !== null ? part.value.toString() : "-";
   }
+
+  const handleExportToCSV = () => {
+    if (measurements.length === 0) {
+      toast({ title: "Brak danych", description: "Nie ma żadnych pomiarów do wyeksportowania.", variant: "destructive" });
+      return;
+    }
+
+    // Dynamically determine all unique body part names for headers
+    const allBodyPartNames = Array.from(new Set(measurements.flatMap(m => m.bodyParts.map(bp => bp.name)))).sort();
+
+    let csvContent = "data:text/csv;charset=utf-8,";
+    // Headers
+    const headers = ["Data", "Waga (kg)", "BMI", "Interpretacja BMI", ...allBodyPartNames, "Notatki"];
+    csvContent += headers.join(";") + "\r\n";
+
+    // Rows
+    measurements.forEach(m => {
+      const date = format(parseISO(m.date), "yyyy-MM-dd", { locale: pl });
+      const bmi = calculateBMI(m.weight, USER_HEIGHT_CM);
+      const bmiInterpretation = interpretBMI(bmi);
+      
+      const bodyPartValues = allBodyPartNames.map(bpName => {
+        const part = m.bodyParts.find(p => p.name === bpName);
+        return part && part.value !== null ? part.value.toString() : "";
+      });
+
+      const row = [
+        date,
+        m.weight.toString(),
+        bmi !== null ? bmi.toString() : "",
+        bmiInterpretation !== "-" ? bmiInterpretation : "",
+        ...bodyPartValues,
+        m.notes || ""
+      ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(";"); // Escape quotes and ensure string
+      csvContent += row + "\r\n";
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "pomiary_ciala.csv");
+    document.body.appendChild(link); 
+    link.click();
+    document.body.removeChild(link);
+    toast({ title: "Eksport zakończony", description: "Dane pomiarów zostały wyeksportowane do CSV." });
+  };
+
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -237,7 +316,6 @@ export default function MeasurementsPage() {
 
       <main className="flex-1 p-4 sm:p-6 lg:p-8">
         <div className="container mx-auto space-y-8">
-          {/* Add/Edit Measurement Dialog */}
           <AddMeasurementDialog
             isOpen={isAddDialogOpen}
             onOpenChange={setIsAddDialogOpen}
@@ -245,7 +323,6 @@ export default function MeasurementsPage() {
             initialData={editingMeasurement}
           />
           
-          {/* Delete Confirmation Dialog */}
            {measurementToDelete && (
             <AlertDialog open={!!measurementToDelete} onOpenChange={() => setMeasurementToDelete(null)}>
               <AlertDialogContent>
@@ -266,14 +343,17 @@ export default function MeasurementsPage() {
             </AlertDialog>
           )}
 
-
-          {/* Measurement History Section */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CalendarDays className="h-6 w-6 text-primary" /> Historia Pomiarów
-              </CardTitle>
-              <CardDescription>Przeglądaj i zarządzaj swoimi zapisanymi pomiarami.</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <CalendarDays className="h-6 w-6 text-primary" /> Historia Pomiarów
+                </CardTitle>
+                <CardDescription>Przeglądaj i zarządzaj swoimi zapisanymi pomiarami.</CardDescription>
+              </div>
+              <Button variant="outline" onClick={handleExportToCSV} disabled={measurements.length === 0}>
+                <Download className="mr-2 h-4 w-4"/> Eksportuj dane do CSV
+              </Button>
             </CardHeader>
             <CardContent>
               {measurements.length === 0 ? (
@@ -289,6 +369,7 @@ export default function MeasurementsPage() {
                       <TableRow>
                         <TableHead>Data</TableHead>
                         <TableHead className="text-right">Waga (kg)</TableHead>
+                        <TableHead className="text-right">BMI</TableHead>
                         {PREDEFINED_BODY_PARTS.map(part => (
                           <TableHead key={part.key} className="text-right hidden sm:table-cell">{part.label}</TableHead>
                         ))}
@@ -297,28 +378,50 @@ export default function MeasurementsPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {measurements.map((m) => (
-                        <TableRow key={m.id}>
-                          <TableCell>{format(parseISO(m.date), "PPP", { locale: pl })}</TableCell>
-                          <TableCell className="text-right font-medium">{m.weight.toFixed(1)}</TableCell>
-                          {PREDEFINED_BODY_PARTS.map(part => (
-                            <TableCell key={part.key} className="text-right hidden sm:table-cell">{getBodyPartValue(m, part.name)}</TableCell>
-                          ))}
-                          <TableCell className="text-xs text-muted-foreground hidden md:table-cell max-w-[200px] truncate">
-                            {m.notes || "-"}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Button variant="ghost" size="icon" onClick={() => handleEditMeasurement(m)} className="mr-1">
-                              <Edit className="h-4 w-4" />
-                              <span className="sr-only">Edytuj</span>
-                            </Button>
-                            <Button variant="ghost" size="icon" onClick={() => openDeleteConfirmation(m)} className="text-destructive hover:text-destructive">
-                              <Trash2 className="h-4 w-4" />
-                               <span className="sr-only">Usuń</span>
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {measurements.map((m) => {
+                        const bmi = calculateBMI(m.weight, USER_HEIGHT_CM);
+                        const bmiInterpretation = interpretBMI(bmi);
+                        return (
+                          <TableRow key={m.id}>
+                            <TableCell>{format(parseISO(m.date), "PPP", { locale: pl })}</TableCell>
+                            <TableCell className="text-right font-medium">{m.weight.toFixed(1)}</TableCell>
+                            <TableCell className="text-right">
+                              {bmi !== null ? (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="cursor-help underline decoration-dashed decoration-muted-foreground/50">
+                                        {bmi} ({bmiInterpretation})
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>BMI: {bmi}</p>
+                                      <p>Interpretacja: {bmiInterpretation}</p>
+                                      <p className="text-xs text-muted-foreground">(Wzrost: {USER_HEIGHT_CM || 'N/A'} cm)</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              ) : (USER_HEIGHT_CM ? "-" : <span className="text-xs text-destructive">Podaj wzrost w profilu</span>)}
+                            </TableCell>
+                            {PREDEFINED_BODY_PARTS.map(part => (
+                              <TableCell key={part.key} className="text-right hidden sm:table-cell">{getBodyPartValue(m, part.name)}</TableCell>
+                            ))}
+                            <TableCell className="text-xs text-muted-foreground hidden md:table-cell max-w-[200px] truncate">
+                              {m.notes || "-"}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button variant="ghost" size="icon" onClick={() => handleEditMeasurement(m)} className="mr-1">
+                                <Edit className="h-4 w-4" />
+                                <span className="sr-only">Edytuj</span>
+                              </Button>
+                              <Button variant="ghost" size="icon" onClick={() => openDeleteConfirmation(m)} className="text-destructive hover:text-destructive">
+                                <Trash2 className="h-4 w-4" />
+                                 <span className="sr-only">Usuń</span>
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </ScrollArea>
@@ -326,7 +429,6 @@ export default function MeasurementsPage() {
             </CardContent>
           </Card>
 
-          {/* Charts Section */}
           {measurements.length > 0 && (
             <Card>
               <CardHeader>
@@ -348,7 +450,7 @@ export default function MeasurementsPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                {chartData.length >= 1 ? ( // Need at least 1 point to draw something, ideally 2 for a line
+                {chartData.length >= 1 ? ( 
                   <ChartContainer config={chartConfig} className="h-[300px] w-full">
                     <RechartsLineChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -357,7 +459,6 @@ export default function MeasurementsPage() {
                         tickLine={false} 
                         axisLine={false} 
                         tickMargin={8}
-                        tickFormatter={(value) => format(parseISO(value), "dd MMM", { locale: pl })}
                       />
                       <YAxis 
                         tickLine={false} 
@@ -365,6 +466,7 @@ export default function MeasurementsPage() {
                         tickMargin={8}
                         domain={['auto', 'auto']}
                         allowDecimals={true}
+                        width={selectedChartMetric === 'BMI' ? 30 : undefined} // Adjust YAxis width for BMI
                       />
                       <ChartTooltip
                         cursor={false}
@@ -373,10 +475,10 @@ export default function MeasurementsPage() {
                       <Line
                         dataKey={selectedChartMetric}
                         type="monotone"
-                        stroke={`var(--color-${selectedChartMetric.replace(/[()]/g, '').replace(/\s/g, '_')})`}
+                        stroke={`var(--color-${selectedChartMetric.replace(/[()\s./]/g, '_')})`} // Sanitize name for CSS variable
                         strokeWidth={2}
                         dot={{
-                          fill: `var(--color-${selectedChartMetric.replace(/[()]/g, '').replace(/\s/g, '_')})`,
+                          fill: `var(--color-${selectedChartMetric.replace(/[()\s./]/g, '_')})`,
                         }}
                         activeDot={{
                           r: 6,
@@ -397,6 +499,52 @@ export default function MeasurementsPage() {
               </CardFooter>
             </Card>
           )}
+
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><Activity className="h-6 w-6 text-primary" /> Ustawienia Przypomnień o Pomiarach</CardTitle>
+                    <CardDescription>Skonfiguruj przypomnienia, aby regularnie aktualizować swoje pomiary.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    <Alert>
+                        <Activity className="h-4 w-4"/>
+                        <AlertTitle>Funkcja w budowie</AlertTitle>
+                        <AlertDescription>
+                            Możliwość konfigurowania przypomnień o pomiarach (np. codziennie, co tydzień) zostanie dodana w przyszłości.
+                        </AlertDescription>
+                    </Alert>
+                    <div className="flex items-center space-x-2">
+                        <Switch id="enable-measurement-reminders" checked={enableReminders} onCheckedChange={setEnableReminders} disabled/>
+                        <Label htmlFor="enable-measurement-reminders">Włącz przypomnienia o pomiarach (Wkrótce)</Label>
+                    </div>
+                    {enableReminders && (
+                        <>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <Label htmlFor="reminder-frequency">Częstotliwość</Label>
+                                    <Select value={reminderFrequency} onValueChange={setReminderFrequency} disabled>
+                                        <SelectTrigger id="reminder-frequency">
+                                            <SelectValue placeholder="Wybierz częstotliwość" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="daily">Codziennie</SelectItem>
+                                            <SelectItem value="weekly">Co tydzień</SelectItem>
+                                            <SelectItem value="monthly">Co miesiąc</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div>
+                                    <Label htmlFor="reminder-time">Godzina</Label>
+                                    <Input id="reminder-time" type="time" value={reminderTime} onChange={(e) => setReminderTime(e.target.value)} disabled/>
+                                </div>
+                            </div>
+                            <Button disabled>Zapisz ustawienia przypomnień (Wkrótce)</Button>
+                        </>
+                    )}
+                </CardContent>
+            </Card>
+
+
         </div>
       </main>
     </div>
