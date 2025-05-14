@@ -25,7 +25,7 @@ import {
   CheckCircle,
   XCircle,
 } from "lucide-react";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, differenceInSeconds } from "date-fns";
 import { pl } from "date-fns/locale";
 import {
   BarChart,
@@ -135,6 +135,12 @@ export default function WorkoutSummaryPage() {
     if (dataString) {
       try {
         const parsedData: WorkoutSummaryData = JSON.parse(dataString);
+        
+        // Recalculate totalTimeSeconds if it wasn't stored correctly or to ensure accuracy
+        if (parsedData.startTime && parsedData.endTime) {
+            parsedData.totalTimeSeconds = differenceInSeconds(parseISO(parsedData.endTime), parseISO(parsedData.startTime));
+        }
+
         setSummaryData(parsedData);
 
         // Simulate PB check
@@ -146,35 +152,57 @@ export default function WorkoutSummaryPage() {
               const currentWeight = parseFloat(String(current.weight));
               const currentReps = parseInt(String(current.reps), 10);
               if (!isNaN(currentWeight) && !isNaN(currentReps)) {
-                const bestWeight = parseFloat(String(best.weight));
-                const bestReps = parseInt(String(best.reps), 10);
-                // Simple comparison: higher weight is better, then more reps for same weight
-                if (currentWeight > bestWeight || (currentWeight === bestWeight && currentReps > bestReps)) {
-                  return current;
+                const bestWeight = parseFloat(String(best.weight)); // May be NaN if best.weight is "BW" or similar
+                const bestReps = parseInt(String(best.reps), 10);   // May be NaN
+                
+                let isCurrentBetter = false;
+                if (!isNaN(currentWeight) && !isNaN(currentReps)) {
+                    if (isNaN(bestWeight) || currentWeight > bestWeight) {
+                        isCurrentBetter = true;
+                    } else if (currentWeight === bestWeight && (isNaN(bestReps) || currentReps > bestReps)) {
+                        isCurrentBetter = true;
+                    }
                 }
+                return isCurrentBetter ? current : best;
               }
               return best;
             }, { weight: 0, reps: 0 } as RecordedSet);
 
-            const achievedWeight = parseFloat(String(bestSetForExercise.weight));
-            const achievedReps = parseInt(String(bestSetForExercise.reps), 10);
+            const achievedWeightVal = bestSetForExercise.weight;
+            const achievedRepsVal = bestSetForExercise.reps;
+            
+            const achievedWeight = typeof achievedWeightVal === 'string' && achievedWeightVal.toUpperCase() === 'BW' ? 'BW' : parseFloat(String(achievedWeightVal));
+            const achievedReps = parseInt(String(achievedRepsVal), 10);
 
-            if (!isNaN(achievedWeight) && !isNaN(achievedReps) && achievedWeight > 0) {
+
+            if ((typeof achievedWeight === 'number' && !isNaN(achievedWeight) && achievedWeight > 0 && !isNaN(achievedReps) && achievedReps > 0) || (achievedWeight === 'BW' && !isNaN(achievedReps) && achievedReps > 0) ) {
               const existingPb = MOCK_EXISTING_PBS[exercise.id];
               let isNewPb = false;
+              let achievedValueStr = `${achievedWeightVal}${typeof achievedWeight === 'number' ? 'kg' : ''} x ${achievedRepsVal}powt.`;
+
               if (!existingPb) {
-                isNewPb = true; // Any valid set is a PB if none exists
+                isNewPb = true; 
               } else {
-                const existingPbWeight = parseFloat(String(existingPb.value));
-                if (achievedWeight > existingPbWeight || (achievedWeight === existingPbWeight && existingPb.reps && achievedReps > existingPb.reps)) {
-                  isNewPb = true;
+                const existingPbWeight = typeof existingPb.value === 'string' && existingPb.value.toUpperCase() === 'BW' ? 'BW' : parseFloat(String(existingPb.value));
+                const existingPbReps = existingPb.reps ? parseInt(String(existingPb.reps), 10) : 0;
+
+                if (achievedWeight === 'BW' && existingPbWeight === 'BW') {
+                    if (achievedReps > existingPbReps) isNewPb = true;
+                } else if (typeof achievedWeight === 'number' && typeof existingPbWeight === 'number') {
+                    if (achievedWeight > existingPbWeight) {
+                        isNewPb = true;
+                    } else if (achievedWeight === existingPbWeight && achievedReps > existingPbReps) {
+                        isNewPb = true;
+                    }
+                } else if (typeof achievedWeight === 'number' && existingPbWeight === 'BW') { 
+                    isNewPb = true; // Any weighted lift is better than BW for this simple check
                 }
               }
               if (isNewPb) {
                 suggestions.push({
                   exerciseId: exercise.id,
                   exerciseName: exercise.name,
-                  achievedValue: `${bestSetForExercise.weight}kg x ${bestSetForExercise.reps}powt.`,
+                  achievedValue: achievedValueStr,
                   status: 'suggested',
                 });
               }
@@ -235,6 +263,14 @@ export default function WorkoutSummaryPage() {
     console.log("Saving workout summary:", fullSummaryToSave);
 
     await new Promise(resolve => setTimeout(resolve, 1500));
+
+    // Simulate saving the last workout date
+    try {
+      localStorage.setItem('workoutWiseLastWorkoutDate', new Date().toISOString());
+    } catch (e) {
+      console.error("Failed to save last workout date to localStorage", e);
+    }
+
 
     toast({
       title: "Trening Zapisany!",
