@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowLeft, ChevronRight, Bell } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Bell, Activity } from 'lucide-react'; // Added Activity for Health Integrations
 
 export const metadata: Metadata = {
   title: 'Ustawienia | WorkoutWise',
@@ -16,6 +16,12 @@ const settingsOptions = [
     description: 'Skonfiguruj powiadomienia przypominające o zaplanowanych treningach.',
     href: '/settings/reminders',
     icon: Bell,
+  },
+  {
+    title: 'Integracje z Aplikacjami Zdrowotnymi',
+    description: 'Połącz z Apple Health lub Google Fit, aby synchronizować dane.',
+    href: '/settings/health-integrations',
+    icon: Activity, // Using Activity as a placeholder icon
   },
   // Future settings can be added here
   // {
