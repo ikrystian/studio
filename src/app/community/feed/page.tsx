@@ -73,7 +73,7 @@ interface MockNotification {
   user: MockUser; // User who initiated the action
   postContentPreview?: string; // For like/comment on a post
   timestamp: string;
-  read: boolean;
+  read: boolean; // Added read status
 }
 
 // Mock Users
@@ -160,10 +160,11 @@ const ALL_MOCK_POSTS: MockPost[] = [
 
 const POSTS_PER_PAGE = 3;
 
-const MOCK_NOTIFICATIONS: MockNotification[] = [
+const INITIAL_MOCK_NOTIFICATIONS: MockNotification[] = [
   { id: uuidv4(), type: 'like', user: MOCK_USERS[0], postContentPreview: "Ukończyłem właśnie 'Morderczy Trening Nóg'...", timestamp: new Date(Date.now() - 1000 * 60 * 10).toISOString(), read: false },
   { id: uuidv4(), type: 'comment', user: MOCK_USERS[1], postContentPreview: "Jakie są Wasze ulubione zdrowe przekąski...", timestamp: new Date(Date.now() - 1000 * 60 * 45).toISOString(), read: false },
   { id: uuidv4(), type: 'new_post', user: MOCK_USERS[0], postContentPreview: "Dziś rest day, ale jutro wracam...", timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), read: true },
+  { id: uuidv4(), type: 'follow', user: MOCK_USERS[2], timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(), read: false },
 ];
 
 
@@ -176,8 +177,11 @@ export default function CommunityFeedPage() {
   const [commentInputs, setCommentInputs] = React.useState<Record<string, string>>({});
 
   const [activeFilter, setActiveFilter] = React.useState<'all' | 'workouts' | 'text_only'>('all');
-  const [notifications, setNotifications] = React.useState<MockNotification[]>(MOCK_NOTIFICATIONS);
-  const [unreadNotificationCount, setUnreadNotificationCount] = React.useState(MOCK_NOTIFICATIONS.filter(n => !n.read).length);
+  const [notifications, setNotifications] = React.useState<MockNotification[]>(INITIAL_MOCK_NOTIFICATIONS);
+  
+  const unreadNotificationCount = React.useMemo(() => {
+    return notifications.filter(n => !n.read).length;
+  }, [notifications]);
 
   const [currentPage, setCurrentPage] = React.useState(1);
   const [isLoadingMore, setIsLoadingMore] = React.useState(false);
@@ -208,19 +212,20 @@ export default function CommunityFeedPage() {
       setPosts(prevPosts => [...prevPosts, ...newPosts]);
       setCurrentPage(nextPage);
     }
+    // Use posts.length from the state that is about to be set for more accurate check
     if (posts.length + newPosts.length >= filteredAllPosts.length) {
       setHasMorePosts(false);
     }
     setIsLoadingMore(false);
-  }, [isLoadingMore, hasMorePosts, currentPage, getFilteredMockPosts, posts.length]);
+  }, [isLoadingMore, hasMorePosts, currentPage, getFilteredMockPosts, posts]); // Added posts to dependency array
 
   React.useEffect(() => {
-    // Initial load
+    // Initial load or filter change
     const filteredAll = getFilteredMockPosts();
     setPosts(filteredAll.slice(0, POSTS_PER_PAGE));
-    setCurrentPage(1);
+    setCurrentPage(1); // Reset to first page
     setHasMorePosts(filteredAll.length > POSTS_PER_PAGE);
-  }, [getFilteredMockPosts]);
+  }, [getFilteredMockPosts]); // Rerun when filter changes
 
 
   const sentinelRef = React.useCallback((node: HTMLDivElement | null) => {
@@ -304,13 +309,21 @@ export default function CommunityFeedPage() {
       comments: [],
       timestamp: new Date().toISOString(),
     };
-    setPosts(prevPosts => [newPost, ...prevPosts]); // Add to the top of the feed
+    
+    // Add to the master list of posts as well, so it appears if filters change
+    ALL_MOCK_POSTS.unshift(newPost); 
+
+    // Refresh displayed posts based on current filter
+    const filteredAll = getFilteredMockPosts();
+    setPosts(filteredAll.slice(0, (currentPage * POSTS_PER_PAGE))); // Show current page plus new post
+    setHasMorePosts(filteredAll.length > (currentPage * POSTS_PER_PAGE));
+
     setNewPostContent("");
     toast({ title: "Post opublikowany!", variant: "default" });
   };
 
   const handleShare = (postId: string, option: 'now' | 'comment' | 'copy') => {
-    const postToShare = posts.find(p => p.id === postId);
+    const postToShare = ALL_MOCK_POSTS.find(p => p.id === postId); // Search in all posts
     if (!postToShare) return;
 
     switch (option) {
@@ -330,9 +343,13 @@ export default function CommunityFeedPage() {
   };
 
   const handleNotificationClick = (notificationId: string) => {
-    setNotifications(prev => prev.map(n => n.id === notificationId ? {...n, read: true} : n));
-    setUnreadNotificationCount(prev => Math.max(0, prev - 1));
-    toast({ title: "Powiadomienie otwarte (Symulacja)", description: `Przejście do szczegółów powiadomienia ID: ${notificationId}` });
+    setNotifications(prevNotifications =>
+      prevNotifications.map(n =>
+        n.id === notificationId ? { ...n, read: true } : n
+      )
+    );
+    // unreadNotificationCount will update via useMemo
+    toast({ title: "Powiadomienie otwarte (Symulacja)", description: `Przejście do szczegółów powiadomienia ID: ${notificationId.substring(0,8)}...` });
     // In real app: router.push('/path/to/notification/source')
   };
 
@@ -352,13 +369,16 @@ export default function CommunityFeedPage() {
             <h1 className="text-2xl font-bold">Aktualności</h1>
           </div>
           <div className="flex items-center gap-3">
-            <Select value={activeFilter} onValueChange={(value) => setActiveFilter(value as any)}>
+            <Select value={activeFilter} onValueChange={(value) => {
+              setActiveFilter(value as any);
+              // No need to manually reset posts here, useEffect will handle it
+            }}>
               <SelectTrigger className="w-[180px] h-9 text-xs">
                 <SelectValue placeholder="Filtruj feed" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Wszystkie posty</SelectItem>
-                <SelectItem value="workouts">Tylko treningi</SelectItem>
+                <SelectItem value="workouts">Tylko podsumowania treningów</SelectItem>
                 <SelectItem value="text_only">Tylko posty tekstowe</SelectItem>
               </SelectContent>
             </Select>
@@ -374,18 +394,41 @@ export default function CommunityFeedPage() {
                   <span className="sr-only">Powiadomienia</span>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-80">
-                <DropdownMenuItem disabled className="font-semibold">Powiadomienia</DropdownMenuItem>
+              <DropdownMenuContent align="end" className="w-80 max-h-96 overflow-y-auto">
+                <DropdownMenuItem disabled className="font-semibold text-base">Powiadomienia</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 {notifications.length === 0 && <DropdownMenuItem disabled>Brak nowych powiadomień.</DropdownMenuItem>}
-                {notifications.slice(0, 5).map(n => ( // Show max 5 notifications
-                  <DropdownMenuItem key={n.id} onClick={() => handleNotificationClick(n.id)} className={`flex flex-col items-start ${!n.read ? 'bg-primary/10' : ''}`}>
-                    <span className="text-xs text-muted-foreground">{n.user.name} {n.type === 'like' ? 'polubił(a)' : n.type === 'comment' ? 'skomentował(a)' : 'dodał(a) nowy post'}</span>
-                    <span className="text-sm truncate w-full">{n.postContentPreview}</span>
-                    <span className="text-xs text-muted-foreground/70">{formatDistanceToNow(parseISO(n.timestamp), { addSuffix: true, locale: pl })}</span>
+                {notifications.sort((a,b) => parseISO(b.timestamp).getTime() - parseISO(a.timestamp).getTime()).map(n => ( // Show sorted by newest first
+                  <DropdownMenuItem 
+                    key={n.id} 
+                    onClick={() => handleNotificationClick(n.id)} 
+                    className={`flex flex-col items-start p-2.5 cursor-pointer ${!n.read ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-muted/50'}`}
+                    style={!n.read ? { fontWeight: '500' } : {}}
+                  >
+                    <div className="flex items-center gap-2 w-full">
+                        <Avatar className="h-8 w-8">
+                            <AvatarImage src={n.user.avatarUrl} alt={n.user.name} data-ai-hint="profile avatar small" />
+                            <AvatarFallback>{n.user.name.substring(0,1)}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 text-sm">
+                            <span className="font-medium">{n.user.name}</span>{' '}
+                            {n.type === 'like' ? 'polubił(a) Twój post:' : 
+                             n.type === 'comment' ? 'skomentował(a) Twój post:' : 
+                             n.type === 'new_post' ? 'dodał(a) nowy post:' :
+                             n.type === 'follow' ? 'zaczął/ęła Cię obserwować.' : ''}
+                             {n.postContentPreview && <span className="block text-xs text-muted-foreground truncate mt-0.5">{n.postContentPreview}</span>}
+                        </div>
+                         {!n.read && <span className="h-2 w-2 rounded-full bg-primary ml-auto flex-shrink-0"></span>}
+                    </div>
+                    <span className="text-xs text-muted-foreground/80 mt-1 self-end">{formatDistanceToNow(parseISO(n.timestamp), { addSuffix: true, locale: pl })}</span>
                   </DropdownMenuItem>
                 ))}
-                {notifications.length > 5 && <DropdownMenuItem disabled>...</DropdownMenuItem>}
+                 {notifications.length > 5 && (
+                    <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem disabled className="text-center text-xs">Wyświetlono 5 najnowszych...</DropdownMenuItem>
+                    </>
+                 )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
