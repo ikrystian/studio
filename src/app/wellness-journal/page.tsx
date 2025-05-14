@@ -24,6 +24,7 @@ import {
   XCircle,
   Brain, // Icon for Stress
   Accessibility, // Icon for DOMS (Muscle Soreness)
+  Users, // Placeholder for Context
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -70,6 +71,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger, // Added AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -81,8 +83,9 @@ export interface WellnessEntry {
   wellBeing: number; // 1-5 scale
   energyLevel: number; // 1-5 scale
   sleepQuality: number; // 1-5 scale
-  stressLevel?: number; // 1-5 scale, new
-  muscleSoreness?: number; // 1-5 scale, new
+  stressLevel?: number; // 1-5 scale
+  muscleSoreness?: number; // 1-5 scale
+  context?: string; // e.g., "Przed treningiem", "Po treningu"
   notes?: string;
 }
 
@@ -91,8 +94,9 @@ const wellnessEntrySchema = z.object({
   wellBeing: z.coerce.number().min(1, "Ocena jest wymagana.").max(5),
   energyLevel: z.coerce.number().min(1, "Ocena jest wymagana.").max(5),
   sleepQuality: z.coerce.number().min(1, "Ocena jest wymagana.").max(5),
-  stressLevel: z.coerce.number().min(1).max(5).optional().or(z.literal("")), // New
-  muscleSoreness: z.coerce.number().min(1).max(5).optional().or(z.literal("")), // New
+  stressLevel: z.coerce.number().min(1).max(5).optional().or(z.literal("")),
+  muscleSoreness: z.coerce.number().min(1).max(5).optional().or(z.literal("")),
+  context: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -105,13 +109,21 @@ const RATING_OPTIONS = [
   { value: 4, label: "4 - Wysoki / Dobrze" },
   { value: 5, label: "5 - Bardzo wysoki / Bardzo dobrze" },
 ];
-// Specific labels for soreness if needed
+
 const SORENESS_RATING_OPTIONS = [
     { value: 1, label: "1 - Brak bólu" },
     { value: 2, label: "2 - Lekki ból" },
     { value: 3, label: "3 - Umiarkowany ból" },
     { value: 4, label: "4 - Silny ból" },
     { value: 5, label: "5 - Bardzo silny ból" },
+];
+
+const CONTEXT_OPTIONS = [
+    { value: "general", label: "Ogólny" },
+    { value: "before_workout", label: "Przed treningiem" },
+    { value: "after_workout", label: "Po treningu" },
+    { value: "morning", label: "Rano" },
+    { value: "evening", label: "Wieczorem" },
 ];
 
 
@@ -124,6 +136,7 @@ const INITIAL_MOCK_ENTRIES: WellnessEntry[] = [
     sleepQuality: 5,
     stressLevel: 2,
     muscleSoreness: 3,
+    context: "after_workout",
     notes: "Dobry dzień, trochę zmęczony po treningu nóg.",
   },
   {
@@ -134,6 +147,7 @@ const INITIAL_MOCK_ENTRIES: WellnessEntry[] = [
     sleepQuality: 4,
     stressLevel: 1,
     muscleSoreness: 1,
+    context: "morning",
     notes: "Pełen energii!",
   },
 ];
@@ -151,8 +165,9 @@ export default function WellnessJournalPage() {
       wellBeing: 3,
       energyLevel: 3,
       sleepQuality: 3,
-      stressLevel: "", // Default to empty string to allow optional selection
-      muscleSoreness: "", // Default to empty string
+      stressLevel: "",
+      muscleSoreness: "",
+      context: "general",
       notes: "",
     },
   });
@@ -167,10 +182,10 @@ export default function WellnessJournalPage() {
       sleepQuality: values.sleepQuality,
       stressLevel: values.stressLevel === "" ? undefined : Number(values.stressLevel),
       muscleSoreness: values.muscleSoreness === "" ? undefined : Number(values.muscleSoreness),
+      context: values.context === "general" || values.context === "" ? undefined : values.context,
       notes: values.notes,
     };
 
-    // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     setEntries(prev => [newEntry, ...prev].sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime()));
@@ -182,6 +197,7 @@ export default function WellnessJournalPage() {
       sleepQuality: 3,
       stressLevel: "",
       muscleSoreness: "",
+      context: "general",
       notes: "",
     });
     setIsSaving(false);
@@ -189,8 +205,7 @@ export default function WellnessJournalPage() {
 
   const handleDeleteEntry = async () => {
     if (!entryToDelete) return;
-    setIsSaving(true); // Reuse saving state for loading indicator
-    // Simulate API call
+    setIsSaving(true); 
     await new Promise(resolve => setTimeout(resolve, 500));
     setEntries(prev => prev.filter(e => e.id !== entryToDelete.id));
     toast({ title: "Wpis usunięty", description: "Wpis został pomyślnie usunięty z dziennika." });
@@ -203,6 +218,11 @@ export default function WellnessJournalPage() {
     const options = type === 'soreness' ? SORENESS_RATING_OPTIONS : RATING_OPTIONS;
     return options.find(opt => opt.value === value)?.label || String(value);
   };
+
+  const getContextLabel = (value?: string): string => {
+    if (!value) return "-";
+    return CONTEXT_OPTIONS.find(opt => opt.value === value)?.label || value;
+  }
 
 
   return (
@@ -224,7 +244,6 @@ export default function WellnessJournalPage() {
 
       <main className="flex-1 p-4 sm:p-6 lg:p-8">
         <div className="container mx-auto space-y-8">
-          {/* Add New Entry Form */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -365,6 +384,24 @@ export default function WellnessJournalPage() {
                         </FormItem>
                       )}
                     />
+                    <FormField
+                      control={form.control}
+                      name="context"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="flex items-center"><Users className="mr-2 h-4 w-4"/>Kontekst wpisu (opcjonalnie)</FormLabel>
+                           <Select onValueChange={field.onChange} value={field.value} disabled={isSaving}>
+                            <FormControl>
+                              <SelectTrigger><SelectValue placeholder="Wybierz kontekst..." /></SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {CONTEXT_OPTIONS.map(opt => <SelectItem key={opt.value} value={String(opt.value)}>{opt.label}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </div>
                   <FormField
                     control={form.control}
@@ -390,7 +427,6 @@ export default function WellnessJournalPage() {
             </Form>
           </Card>
 
-          {/* Entries History */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -416,7 +452,8 @@ export default function WellnessJournalPage() {
                         <TableHead>Sen</TableHead>
                         <TableHead className="hidden sm:table-cell">Stres</TableHead>
                         <TableHead className="hidden sm:table-cell">DOMS</TableHead>
-                        <TableHead className="hidden md:table-cell">Notatki</TableHead>
+                        <TableHead className="hidden md:table-cell">Kontekst</TableHead>
+                        <TableHead className="hidden lg:table-cell">Notatki</TableHead>
                         <TableHead className="text-right">Akcje</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -429,7 +466,8 @@ export default function WellnessJournalPage() {
                           <TableCell>{getRatingLabel(entry.sleepQuality)}</TableCell>
                           <TableCell className="hidden sm:table-cell">{getRatingLabel(entry.stressLevel)}</TableCell>
                           <TableCell className="hidden sm:table-cell">{getRatingLabel(entry.muscleSoreness, 'soreness')}</TableCell>
-                          <TableCell className="text-xs text-muted-foreground hidden md:table-cell max-w-[150px] truncate" title={entry.notes}>
+                          <TableCell className="hidden md:table-cell">{getContextLabel(entry.context)}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground hidden lg:table-cell max-w-[150px] truncate" title={entry.notes}>
                             {entry.notes || "-"}
                           </TableCell>
                           <TableCell className="text-right">
@@ -449,7 +487,6 @@ export default function WellnessJournalPage() {
             </CardContent>
           </Card>
           
-          {/* Delete Confirmation Dialog */}
            {entryToDelete && (
             <AlertDialog open={!!entryToDelete} onOpenChange={() => setEntryToDelete(null)}>
               <AlertDialogContent>
@@ -475,3 +512,4 @@ export default function WellnessJournalPage() {
     </div>
   );
 }
+
