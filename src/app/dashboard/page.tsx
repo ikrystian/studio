@@ -23,7 +23,7 @@ import {
   Repeat,
   Scale,
   Settings,
-  User as UserIcon,
+  User as UserIcon, // Renamed to avoid conflict
   Users,
 } from 'lucide-react';
 import type { Metadata } from 'next';
@@ -47,7 +47,7 @@ const lastWorkout = {
   duration: '45 min',
   calories: '350 kcal',
   exercises: 5,
-  link: '/history/workout/123', // Placeholder link
+  link: '/history/hist1', // Updated to a valid mock session ID
 };
 
 // Simulated progress stats
@@ -60,8 +60,8 @@ const progressStats = {
 
 // Simulated upcoming reminders
 const upcomingReminders = [
-  { id: 1, title: 'Leg Day', time: 'Tomorrow, 10:00 AM', link: '/plans/workout/456' },
-  { id: 2, title: 'Cardio Session', time: 'Wednesday, 6:00 PM', link: '/plans/workout/789' },
+  { id: 1, title: 'Leg Day', time: 'Tomorrow, 10:00 AM', link: '/plans/plan1' }, // Placeholder link
+  { id: 2, title: 'Cardio Session', time: 'Wednesday, 6:00 PM', link: '/plans/plan2' }, // Placeholder link
   { id: 3, title: 'Rest & Recovery', time: 'Thursday', link: '#' },
 ];
 
