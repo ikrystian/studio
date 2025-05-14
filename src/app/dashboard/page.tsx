@@ -21,6 +21,8 @@ import {
   CalendarDays,
   Flame,
   Repeat,
+  BookOpen, // Added for Plany Treningowe consistency
+  User as UserIcon, // For Profile
 } from 'lucide-react';
 import type { Metadata } from 'next';
 
@@ -33,6 +35,7 @@ export const metadata: Metadata = {
 const userData = {
   name: 'Alex', // Replace with actual user name
   avatarUrl: 'https://placehold.co/100x100.png', // Replace with actual avatar or remove
+  id: 'current_user_id' // Placeholder for current user ID
 };
 
 // Simulated last workout data
@@ -63,11 +66,12 @@ const upcomingReminders = [
 // Navigation items
 const navItems = [
   { href: '/workout/start', label: 'Rozpocznij trening', icon: PlayCircle, description: 'Start a new session' },
-  { href: '/plans', label: 'Plany treningowe', icon: ClipboardList, description: 'View your plans' },
+  { href: '/plans', label: 'Plany treningowe', icon: BookOpen, description: 'View your plans' },
   { href: '/history', label: 'Historia', icon: History, description: 'Track your progress' },
   { href: '/community', label: 'Społeczność', icon: Users, description: 'Connect with others' },
   { href: '/measurements', label: 'Pomiary', icon: Scale, description: 'Log your metrics' },
-  { href: '/settings', label: 'Ustawienia', icon: Settings, description: 'Manage your account' },
+  { href: `/profile/${userData.id}`, label: 'Mój Profil', icon: UserIcon, description: 'View & edit your profile' },
+  // { href: '/settings', label: 'Ustawienia', icon: Settings, description: 'Manage your account' }, // Settings can be part of profile or separate
 ];
 
 export default function DashboardPage() {
@@ -83,10 +87,12 @@ export default function DashboardPage() {
             <h1 className="text-2xl font-bold">WorkoutWise</h1>
           </div>
           <div className="flex items-center gap-3">
-            <Avatar className="h-9 w-9">
-              <AvatarImage src={userData.avatarUrl} alt={userName} data-ai-hint="profile avatar" />
-              <AvatarFallback>{userName.charAt(0).toUpperCase()}</AvatarFallback>
-            </Avatar>
+            <Link href={`/profile/${userData.id}`} passHref>
+              <Avatar className="h-9 w-9 cursor-pointer">
+                <AvatarImage src={userData.avatarUrl} alt={userName} data-ai-hint="profile avatar" />
+                <AvatarFallback>{userName.charAt(0).toUpperCase()}</AvatarFallback>
+              </Avatar>
+            </Link>
             <Button variant="outline" size="sm" asChild>
               <Link href="/login">Wyloguj</Link>
             </Button>
@@ -229,3 +235,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
