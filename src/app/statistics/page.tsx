@@ -4,7 +4,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, BarChart3, LineChart as LineChartIcon, CalendarDays, TrendingUp, WeightIcon, DumbbellIcon, AlertTriangle, PieChartIcon, ImageIcon, FileDown, Filter, Info, ArrowRightLeft, Target, Edit, Trash2, PlusCircle, Save, Loader2 } from "lucide-react";
+import { ArrowLeft, BarChart3, LineChart as LineChartIcon, CalendarDays, TrendingUp, WeightIcon as WeightLucideIcon, DumbbellIcon, AlertTriangle, PieChartIcon, ImageIcon, FileDown, Filter, Info, ArrowRightLeft, Target, Edit, Trash2, PlusCircle, Save, Loader2, ChevronDown } from "lucide-react";
 import { format, parseISO, getWeek, getYear, startOfDay, endOfDay, isValid, isWithinInterval, isBefore, isAfter } from "date-fns";
 import { pl } from "date-fns/locale";
 import { v4 as uuidv4 } from "uuid";
@@ -54,6 +54,8 @@ import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AddGoalDialog, type AddGoalFormData } from "@/components/statistics/add-goal-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   AlertDialog,
@@ -145,6 +147,10 @@ const EXERCISE_CATEGORIES_MAP: { [exerciseId: string]: string } = {
   "ex18": "Klatka",
 };
 
+const ALL_UNIQUE_EXERCISES = Array.from(new Set(MOCK_HISTORY_SESSIONS_STATS.flatMap(s => s.exercises.map(e => ({ id: e.id, name: e.name }))).map(e => JSON.stringify(e)))).map(s => JSON.parse(s) as {id: string; name: string});
+const ALL_UNIQUE_MUSCLE_GROUPS = Array.from(new Set(Object.values(EXERCISE_CATEGORIES_MAP))).sort();
+
+
 interface SimpleMeasurement {
   id: string;
   date: string; // ISO string
@@ -157,15 +163,6 @@ const MOCK_MEASUREMENTS_STATS: SimpleMeasurement[] = [
   { id: "m4", date: new Date(2024, 6, 15).toISOString(), weight: 74.8 }, 
   { id: "m5", date: new Date(2024, 6, 22).toISOString(), weight: 74.5 }, 
   { id: "m6", date: new Date(2024, 6, 29).toISOString(), weight: 74.0 }, 
-];
-
-const MOCK_EXERCISES_FOR_STATS_FILTER = [
-    { id: "ex1", name: "Wyciskanie sztangi na ławce płaskiej" },
-    { id: "ex2", name: "Przysiady ze sztangą" },
-    { id: "ex4", name: "Podciąganie na drążku" },
-    { id: "ex9", name: "Wyciskanie żołnierskie (OHP)" },
-    { id: "ex10", name: "Uginanie ramion ze sztangą" },
-    { id: "ex12", name: "Wiosłowanie sztangą" },
 ];
 
 interface WellnessEntryForStats {
@@ -221,6 +218,8 @@ export default function StatisticsPage() {
 
   const [selectedGlobalStartDate, setSelectedGlobalStartDate] = React.useState<Date | undefined>();
   const [selectedGlobalEndDate, setSelectedGlobalEndDate] = React.useState<Date | undefined>();
+  const [selectedExerciseIds, setSelectedExerciseIds] = React.useState<string[]>([]);
+  const [selectedMuscleGroups, setSelectedMuscleGroups] = React.useState<string[]>([]);
   
   const [processedHistorySessions, setProcessedHistorySessions] = React.useState<SimpleHistoricalWorkoutSession[]>(MOCK_HISTORY_SESSIONS_STATS);
   const [processedMeasurements, setProcessedMeasurements] = React.useState<SimpleMeasurement[]>(MOCK_MEASUREMENTS_STATS);
@@ -239,10 +238,19 @@ export default function StatisticsPage() {
   const [printingChartId, setPrintingChartId] = React.useState<string | null>(null);
 
 
-  const volumeChartExercises = React.useMemo(() =>
-    MOCK_EXERCISES_FOR_STATS_FILTER.filter(ex => ex.id !== "all"), 
-    []
-  );
+  const volumeChartExercises = React.useMemo(() => {
+    // Derive available exercises for volume chart from processed (filtered) history
+    const uniqueExercisesInProcessedSessions = new Set<string>();
+    const exercises = processedHistorySessions.flatMap(s => s.exercises.map(e => ({ id: e.id, name: e.name })));
+    const unique = [];
+    for (const ex of exercises) {
+        if (!uniqueExercisesInProcessedSessions.has(ex.id)) {
+            unique.push(ex);
+            uniqueExercisesInProcessedSessions.add(ex.id);
+        }
+    }
+    return unique.sort((a,b) => a.name.localeCompare(b.name));
+  }, [processedHistorySessions]);
 
   const initialSelectedExerciseId = React.useMemo(() => {
     if (exerciseIdFromQuery && volumeChartExercises.some(ex => ex.id === exerciseIdFromQuery)) {
@@ -256,24 +264,24 @@ export default function StatisticsPage() {
   React.useEffect(() => {
      if (exerciseIdFromQuery && volumeChartExercises.some(ex => ex.id === exerciseIdFromQuery)) {
       setSelectedExerciseIdForVolume(exerciseIdFromQuery);
-    } else if (!exerciseIdFromQuery && volumeChartExercises.length > 0) {
+    } else if (!exerciseIdFromQuery && volumeChartExercises.length > 0 && !volumeChartExercises.some(ex => ex.id === selectedExerciseIdForVolume)) {
       setSelectedExerciseIdForVolume(volumeChartExercises[0].id);
     } else if (volumeChartExercises.length === 0) {
       setSelectedExerciseIdForVolume("");
     }
-  }, [exerciseIdFromQuery, volumeChartExercises]);
+  }, [exerciseIdFromQuery, volumeChartExercises, selectedExerciseIdForVolume]);
 
 
   React.useEffect(() => {
-    if (exerciseIdFromQuery) {
+    if (exerciseIdFromQuery && typeof window !== 'undefined') { // ensure window exists for scrollIntoView
       const timer = setTimeout(() => {
         const element = document.getElementById('exercise-volume-chart-card');
         if (element) {
           element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-           const selectedExercise = MOCK_EXERCISES_FOR_STATS_FILTER.find(ex => ex.id === selectedExerciseIdForVolume); 
+           const selectedExercise = ALL_UNIQUE_EXERCISES.find(ex => ex.id === selectedExerciseIdForVolume); 
            const messageExerciseName = exerciseNameFromQuery || selectedExercise?.name || "wybranego ćwiczenia";
            
-           if (MOCK_EXERCISES_FOR_STATS_FILTER.some(ex => ex.id === exerciseIdFromQuery)) {
+           if (ALL_UNIQUE_EXERCISES.some(ex => ex.id === exerciseIdFromQuery)) {
              toast({
                 title: "Analiza Ćwiczenia",
                 description: `Wyświetlanie trendu objętości dla: ${messageExerciseName}.`,
@@ -300,8 +308,9 @@ export default function StatisticsPage() {
     const sDate = selectedGlobalStartDate ? startOfDay(selectedGlobalStartDate) : null;
     const eDate = selectedGlobalEndDate ? endOfDay(selectedGlobalEndDate) : null;
 
+    // Date filtering
     if (sDate || eDate) {
-      filteredSessions = MOCK_HISTORY_SESSIONS_STATS.filter(session => {
+      filteredSessions = filteredSessions.filter(session => {
         const sessionDate = parseISO(session.startTime);
         if (!isValid(sessionDate)) return false;
         let inRange = true;
@@ -309,7 +318,7 @@ export default function StatisticsPage() {
         if (eDate && isAfter(sessionDate, eDate)) inRange = false;
         return inRange;
       });
-      filteredMeasurementsData = MOCK_MEASUREMENTS_STATS.filter(m => {
+      filteredMeasurementsData = filteredMeasurementsData.filter(m => {
         const measurementDate = parseISO(m.date);
         if (!isValid(measurementDate)) return false;
         let inRange = true;
@@ -317,7 +326,7 @@ export default function StatisticsPage() {
         if (eDate && isAfter(measurementDate, eDate)) inRange = false;
         return inRange;
       });
-      filteredWellness = MOCK_WELLNESS_ENTRIES_FOR_STATS.filter(w => {
+      filteredWellness = filteredWellness.filter(w => {
           const wellnessDate = parseISO(w.date);
           if (!isValid(wellnessDate)) return false;
           let inRange = true;
@@ -325,26 +334,49 @@ export default function StatisticsPage() {
           if (eDate && isAfter(wellnessDate, eDate)) inRange = false;
           return inRange;
       });
-        toast({
-        title: "Filtry Zastosowane",
-        description: `Dane zostały przefiltrowane dla zakresu od ${sDate ? format(sDate, "PPP", {locale: pl}) : " początku"} do ${eDate ? format(eDate, "PPP", {locale: pl}) : " końca"}.`,
-        });
-    } else {
-         toast({
-            title: "Filtry Zresetowane",
-            description: "Wyświetlanie wszystkich danych.",
-        });
     }
 
+    // Exercise ID filtering
+    if (selectedExerciseIds.length > 0) {
+      filteredSessions = filteredSessions.filter(session => 
+        session.exercises.some(ex => selectedExerciseIds.includes(ex.id))
+      );
+    }
+
+    // Muscle Group filtering
+    if (selectedMuscleGroups.length > 0) {
+      filteredSessions = filteredSessions.filter(session => 
+        session.exercises.some(ex => {
+          const category = EXERCISE_CATEGORIES_MAP[ex.id];
+          return category && selectedMuscleGroups.includes(category);
+        })
+      );
+    }
+    
     setProcessedHistorySessions(filteredSessions);
     setProcessedMeasurements(filteredMeasurementsData);
     setProcessedWellnessEntries(filteredWellness);
 
-  }, [selectedGlobalStartDate, selectedGlobalEndDate, toast]);
+    // Reset volume chart selection if current exercise is no longer in filtered data
+    const currentVolumeExercises = new Set(filteredSessions.flatMap(s => s.exercises.map(e => e.id)));
+    if (selectedExerciseIdForVolume && !currentVolumeExercises.has(selectedExerciseIdForVolume)) {
+        const firstAvailable = Array.from(currentVolumeExercises)[0];
+        setSelectedExerciseIdForVolume(firstAvailable || "");
+    }
+
+
+    toast({
+        title: "Filtry Zastosowane",
+        description: `Dane zostały przefiltrowane. Znaleziono ${filteredSessions.length} sesji treningowych.`,
+    });
+
+  }, [selectedGlobalStartDate, selectedGlobalEndDate, selectedExerciseIds, selectedMuscleGroups, toast, selectedExerciseIdForVolume]);
   
-  React.useEffect(() => {
-    handleApplyGlobalFilters();
-  }, [handleApplyGlobalFilters]);
+  // Apply filters when component mounts or when filter states change
+  // This is removed to rely on the "Zastosuj Filtry" button
+  // React.useEffect(() => {
+  //   handleApplyGlobalFilters();
+  // }, [handleApplyGlobalFilters]);
 
 
   const workoutFrequencyData = React.useMemo(() => {
@@ -463,6 +495,8 @@ export default function StatisticsPage() {
     let workoutCount = 0;
     let totalVolume = 0;
 
+    // Use MOCK_HISTORY_SESSIONS_STATS here for comparison, not processedHistorySessions
+    // as the comparison periods might be outside the global filter
     const periodSessions = MOCK_HISTORY_SESSIONS_STATS.filter(session => { 
         const sessionDate = parseISO(session.startTime);
         if (!isValid(sessionDate)) return false;
@@ -567,9 +601,9 @@ export default function StatisticsPage() {
   React.useEffect(() => {
     if (printingChartId) {
       const printTimeout = setTimeout(() => { 
-        window.print();
+        if (typeof window !== 'undefined') window.print();
         setPrintingChartId(null); 
-      }, 100); // Reduced delay to ensure class is applied before print dialog
+      }, 100); 
       return () => clearTimeout(printTimeout);
     }
   }, [printingChartId]);
@@ -592,7 +626,7 @@ export default function StatisticsPage() {
   };
 
   const downloadCSV = (csvString: string, filename: string) => {
-    if (!csvString) return;
+    if (!csvString || typeof window === 'undefined') return;
     const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
     if (link.download !== undefined) {
@@ -632,11 +666,39 @@ export default function StatisticsPage() {
     toast({ title: "Eksport CSV", description: `Dane wykresu "${filename}" zostały pobrane.`});
   };
 
+ const handleMultiSelectChange = (
+    currentSelected: string[],
+    value: string,
+    setter: React.Dispatch<React.SetStateAction<string[]>>
+  ) => {
+    if (currentSelected.includes(value)) {
+      setter(currentSelected.filter((item) => item !== value));
+    } else {
+      setter([...currentSelected, value]);
+    }
+  };
+
+  const handleSelectAll = (
+    allOptions: { id: string }[] | string[],
+    currentSelected: string[],
+    setter: React.Dispatch<React.SetStateAction<string[]>>
+  ) => {
+    if (currentSelected.length === allOptions.length) {
+      setter([]); // Deselect all
+    } else {
+      if (typeof allOptions[0] === 'string') {
+        setter(allOptions as string[]);
+      } else {
+        setter((allOptions as { id: string }[]).map(option => option.id));
+      }
+    }
+  };
+
 
   const chartConfig = {
     count: { label: "Liczba Treningów", color: "hsl(var(--chart-1))" },
     Waga: { label: "Waga (kg)", color: "hsl(var(--chart-2))" },
-    Volume: { label: `Objętość (${MOCK_EXERCISES_FOR_STATS_FILTER.find(ex => ex.id === selectedExerciseIdForVolume)?.name || 'wybranego ćwiczenia'})`, color: "hsl(var(--chart-3))" },
+    Volume: { label: `Objętość (${ALL_UNIQUE_EXERCISES.find(ex => ex.id === selectedExerciseIdForVolume)?.name || 'wybranego ćwiczenia'})`, color: "hsl(var(--chart-3))" },
     Klatka: { label: "Klatka", color: "hsl(var(--chart-1))" },
     Nogi: { label: "Nogi", color: "hsl(var(--chart-2))" },
     Plecy: { label: "Plecy", color: "hsl(var(--chart-3))" },
@@ -674,7 +736,7 @@ export default function StatisticsPage() {
         <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><Filter className="h-5 w-5 text-primary"/>Globalny Filtr Danych</CardTitle>
-              <CardDescription>Wybierz zakres dat, aby dostosować wyświetlane statystyki. Zmiany w filtrach zostaną zastosowane po kliknięciu "Zastosuj Filtry".</CardDescription>
+              <CardDescription>Wybierz zakres dat oraz inne kryteria, aby dostosować wyświetlane statystyki. Zmiany zostaną zastosowane po kliknięciu "Zastosuj Filtry".</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -691,15 +753,79 @@ export default function StatisticsPage() {
                   disabled={(date) => selectedGlobalStartDate ? isBefore(date, selectedGlobalStartDate) : false}
                 />
               </div>
-              <div className="space-y-2 print-hide">
-                <Label>Wybierz ćwiczenia (Wkrótce)</Label>
-                <p className="text-sm text-muted-foreground">Tu pojawi się multiselect/checkboxy do wyboru ćwiczeń (funkcja wkrótce).</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Popover>
+                    <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full justify-start">
+                            <DumbbellIcon className="mr-2 h-4 w-4"/>
+                            Wybierz ćwiczenia ({selectedExerciseIds.length} zazn.)
+                            <ChevronDown className="ml-auto h-4 w-4 opacity-50"/>
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                        <div className="p-2 border-b">
+                             <Label className="flex items-center">
+                                <Checkbox
+                                    checked={selectedExerciseIds.length === ALL_UNIQUE_EXERCISES.length}
+                                    indeterminate={selectedExerciseIds.length > 0 && selectedExerciseIds.length < ALL_UNIQUE_EXERCISES.length}
+                                    onCheckedChange={() => handleSelectAll(ALL_UNIQUE_EXERCISES, selectedExerciseIds, setSelectedExerciseIds)}
+                                    className="mr-2"
+                                />
+                                Zaznacz/Odznacz wszystkie
+                            </Label>
+                        </div>
+                        <ScrollArea className="h-[200px] p-2">
+                            {ALL_UNIQUE_EXERCISES.map(exercise => (
+                                <Label key={exercise.id} className="flex items-center space-x-2 p-2 hover:bg-muted rounded-md cursor-pointer">
+                                    <Checkbox
+                                        id={`ex-filter-${exercise.id}`}
+                                        checked={selectedExerciseIds.includes(exercise.id)}
+                                        onCheckedChange={() => handleMultiSelectChange(selectedExerciseIds, exercise.id, setSelectedExerciseIds)}
+                                    />
+                                    <span>{exercise.name}</span>
+                                </Label>
+                            ))}
+                        </ScrollArea>
+                    </PopoverContent>
+                </Popover>
+                 <Popover>
+                    <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full justify-start">
+                            <DumbbellIcon className="mr-2 h-4 w-4"/> {/* Replace with a better icon for muscle groups if available */}
+                            Wybierz grupy mięśniowe ({selectedMuscleGroups.length} zazn.)
+                            <ChevronDown className="ml-auto h-4 w-4 opacity-50"/>
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                         <div className="p-2 border-b">
+                             <Label className="flex items-center">
+                                <Checkbox
+                                    checked={selectedMuscleGroups.length === ALL_UNIQUE_MUSCLE_GROUPS.length}
+                                    indeterminate={selectedMuscleGroups.length > 0 && selectedMuscleGroups.length < ALL_UNIQUE_MUSCLE_GROUPS.length}
+                                    onCheckedChange={() => handleSelectAll(ALL_UNIQUE_MUSCLE_GROUPS, selectedMuscleGroups, setSelectedMuscleGroups)}
+                                    className="mr-2"
+                                />
+                                Zaznacz/Odznacz wszystkie
+                            </Label>
+                        </div>
+                        <ScrollArea className="h-[200px] p-2">
+                            {ALL_UNIQUE_MUSCLE_GROUPS.map(group => (
+                                <Label key={group} className="flex items-center space-x-2 p-2 hover:bg-muted rounded-md cursor-pointer">
+                                    <Checkbox
+                                        id={`mg-filter-${group}`}
+                                        checked={selectedMuscleGroups.includes(group)}
+                                        onCheckedChange={() => handleMultiSelectChange(selectedMuscleGroups, group, setSelectedMuscleGroups)}
+                                    />
+                                    <span>{group}</span>
+                                </Label>
+                            ))}
+                        </ScrollArea>
+                    </PopoverContent>
+                </Popover>
               </div>
-              <div className="space-y-2 print-hide">
-                <Label>Wybierz grupy mięśniowe (Wkrótce)</Label>
-                <p className="text-sm text-muted-foreground">Tu pojawi się multiselect/checkboxy do wyboru grup mięśniowych (funkcja wkrótce).</p>
-              </div>
-               <Button onClick={handleApplyGlobalFilters} className="print-hide">Zastosuj Filtry</Button>
+              <Button onClick={handleApplyGlobalFilters} className="print-hide">
+                <Filter className="mr-2 h-4 w-4"/>Zastosuj Filtry
+              </Button>
             </CardContent>
           </Card>
 
@@ -736,7 +862,7 @@ export default function StatisticsPage() {
 
             <Card id="weight-trend-chart-card" className={cn(printingChartId === "weight-trend-chart-card" && "printable-chart-area")}>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2"><WeightIcon className="h-6 w-6 text-primary" />Trend Wagi</CardTitle>
+                <CardTitle className="flex items-center gap-2"><WeightLucideIcon className="h-6 w-6 text-primary" />Trend Wagi</CardTitle>
                 <CardDescription>Zmiany Twojej wagi w czasie.</CardDescription>
               </CardHeader>
               <CardContent>
@@ -783,7 +909,7 @@ export default function StatisticsPage() {
                         {volumeChartExercises.map(exercise => (
                             <SelectItem key={exercise.id} value={exercise.id}>{exercise.name}</SelectItem>
                         ))}
-                         {volumeChartExercises.length === 0 && <SelectItem value="" disabled>Brak ćwiczeń do wyboru</SelectItem>}
+                         {volumeChartExercises.length === 0 && <SelectItem value="" disabled>Brak ćwiczeń do wyboru (zastosuj filtry)</SelectItem>}
                         </SelectContent>
                     </Select>
                 </div>
@@ -997,12 +1123,12 @@ export default function StatisticsPage() {
             </CardContent>
           </Card>
 
-          <Card className="print-hide">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Target className="h-6 w-6 text-primary"/>Moje Cele</CardTitle>
-              <CardDescription>Definiuj i śledź swoje cele treningowe i pomiarowe.</CardDescription>
-            </CardHeader>
-            <AlertDialog open={!!goalToDelete} onOpenChange={(isOpen) => !isOpen && setGoalToDelete(null)}>
+          <AlertDialog open={!!goalToDelete} onOpenChange={(isOpen) => !isOpen && setGoalToDelete(null)}>
+            <Card className="print-hide">
+                <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Target className="h-6 w-6 text-primary"/>Moje Cele</CardTitle>
+                <CardDescription>Definiuj i śledź swoje cele treningowe i pomiarowe.</CardDescription>
+                </CardHeader>
                 <CardContent>
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold">Lista Celów</h3>
@@ -1064,8 +1190,8 @@ export default function StatisticsPage() {
                         </AlertDialogContent>
                     )}
                 </CardContent>
-            </AlertDialog>
-          </Card>
+            </Card>
+          </AlertDialog>
           <AddGoalDialog 
             isOpen={isAddGoalDialogOpen} 
             onOpenChange={setIsAddGoalDialogOpen}
@@ -1077,3 +1203,5 @@ export default function StatisticsPage() {
   );
 }
 
+
+    
