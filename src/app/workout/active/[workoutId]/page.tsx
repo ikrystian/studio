@@ -32,7 +32,8 @@ import {
   Trash2,
   StickyNote,
   Lightbulb,
-  Edit2,
+  Edit2, // For exercise notes icon
+  Edit3, // For edit set icon
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -76,6 +77,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
+import type { ProgressionSettings } from "@/app/settings/progression-model/page";
 
 
 // Simulated exercise database (can be expanded or moved)
@@ -86,6 +88,9 @@ const MOCK_EXERCISES_DATABASE: { id: string; name: string; category: string, ins
   { id: "ex4", name: "Podciąganie na drążku", category: "Plecy", instructions: "Złap drążek nachwytem szerzej niż barki. Podciągnij się, aż broda znajdzie się nad drążkiem. Kontrolowanie opuść ciało." },
   { id: "ex5", name: "Pompki", category: "Klatka", instructions: "Przyjmij pozycję podporu przodem, dłonie na szerokość barków. Opuść ciało, uginając łokcie, aż klatka piersiowa znajdzie się blisko podłoża. Wypchnij ciało w górę." },
   { id: "ex6", name: "Bieg na bieżni (30 min)", category: "Cardio", instructions: "Ustaw odpowiednią prędkość i nachylenie na bieżni. Utrzymuj stałe tempo przez określony czas." },
+  { id: "ex9", name: "Wyciskanie żołnierskie (OHP)", category: "Barki", instructions: "Stań prosto, sztanga na wysokości obojczyków. Wypchnij sztangę pionowo nad głowę, blokując łokcie. Kontrolowanie opuść." },
+  { id: "ex10", name: "Uginanie ramion ze sztangą", category: "Ramiona", instructions: "Stań prosto, chwyć sztangę podchwytem na szerokość barków. Ugnij ramiona, unosząc sztangę w kierunku barków. Opuść kontrolowanie." },
+  { id: "ex12", name: "Wiosłowanie sztangą", category: "Plecy", instructions: "Pochyl tułów, utrzymując proste plecy. Chwyć sztangę nachwytem. Przyciągnij sztangę do dolnej części brzucha, ściągając łopatki. Opuść kontrolowanie." },
 ];
 
 // Simulated workout data
@@ -131,6 +136,11 @@ export interface RecordedSet {
   notes?: string;
 }
 
+interface EditingSetInfo {
+  exerciseId: string;
+  setIndex: number; // index in the recordedSets[exerciseId] array
+}
+
 // Simplified mock history for progression suggestions
 interface MockSetRecord { weight: string | number; reps: string | number; }
 interface MockPastSession {
@@ -145,6 +155,7 @@ const MOCK_WORKOUT_HISTORY_FOR_SUGGESTIONS: MockPastSession[] = [
   { sessionId: 's3', exerciseId: 'ex2', date: '2024-07-15T10:00:00Z', setsPerformed: [{ weight: 100, reps: 10 }, { weight: 100, reps: 10 }] },
   { sessionId: 's4', exerciseId: 'ex4', date: '2024-07-15T11:00:00Z', setsPerformed: [{ weight: 'BW', reps: 8 }, { weight: 'BW', reps: 7 }] },
 ];
+const PROGRESSION_SETTINGS_LOCAL_STORAGE_KEY = "workoutWiseProgressionSettings";
 
 
 const setFormSchema = z.object({
@@ -170,6 +181,8 @@ export default function ActiveWorkoutPage() {
 
   const [recordedSets, setRecordedSets] = React.useState<Record<string, RecordedSet[]>>({});
   const [exerciseNotes, setExerciseNotes] = React.useState<Record<string, string>>({});
+  const [editingSetInfo, setEditingSetInfo] = React.useState<EditingSetInfo | null>(null);
+
 
   const [workoutStartTime, setWorkoutStartTime] = React.useState<Date | null>(null);
   const [elapsedTime, setElapsedTime] = React.useState(0); // in seconds
@@ -179,6 +192,8 @@ export default function ActiveWorkoutPage() {
   const restIntervalRef = React.useRef<NodeJS.Timeout | null>(null);
 
   const [progressionSuggestion, setProgressionSuggestion] = React.useState<string | null>(null);
+  const [userProgressionSettings, setUserProgressionSettings] = React.useState<ProgressionSettings | null>(null);
+
 
   const setForm = useForm<SetFormValues>({
     resolver: zodResolver(setFormSchema),
@@ -187,11 +202,21 @@ export default function ActiveWorkoutPage() {
 
   React.useEffect(() => {
     setIsLoading(true);
+    // Simulate fetching workout details
     setTimeout(() => {
       const foundWorkout = MOCK_WORKOUTS.find((w) => w.id === workoutId);
       if (foundWorkout) {
         setCurrentWorkout(foundWorkout);
         setWorkoutStartTime(new Date());
+        // Load progression settings from localStorage
+        try {
+          const storedSettings = localStorage.getItem(PROGRESSION_SETTINGS_LOCAL_STORAGE_KEY);
+          if (storedSettings) {
+            setUserProgressionSettings(JSON.parse(storedSettings));
+          }
+        } catch (error) {
+          console.error("Error loading progression settings:", error);
+        }
       } else {
         toast({ title: "Błąd", description: "Nie znaleziono treningu.", variant: "destructive" });
         router.push("/workout/start");
@@ -201,7 +226,7 @@ export default function ActiveWorkoutPage() {
   }, [workoutId, router, toast]);
 
   React.useEffect(() => {
-    if (!workoutStartTime || isResting) return;
+    if (!workoutStartTime || isResting) return; // Don't run elapsed timer if resting
     const timerInterval = setInterval(() => {
       setElapsedTime(Math.floor((new Date().getTime() - workoutStartTime.getTime()) / 1000));
     }, 1000);
@@ -228,41 +253,61 @@ export default function ActiveWorkoutPage() {
 
   React.useEffect(() => {
     if (currentExercise) {
-      const getSuggestion = (exerciseId: string, history: MockPastSession[]): string | null => {
+      const getSuggestion = (
+        exerciseId: string,
+        history: MockPastSession[],
+        settings: ProgressionSettings | null
+      ): string | null => {
+        if (!settings?.enableProgression) {
+          return "Sugestie progresji są wyłączone w ustawieniach.";
+        }
+
         const relevantSessions = history
           .filter(session => session.exerciseId === exerciseId)
           .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
+        let baseSuggestion = "Pierwszy raz to ćwiczenie? Daj z siebie wszystko i zanotuj wyniki!";
         if (relevantSessions.length > 0) {
           const lastSession = relevantSessions[0];
           const lastSet = lastSession.setsPerformed[0];
-
           if (lastSet) {
             const lastWeight = lastSet.weight;
             const lastReps = lastSet.reps;
             const datePerformed = new Date(lastSession.date).toLocaleDateString('pl-PL');
+            baseSuggestion = `Ostatnio (${datePerformed}): ${lastWeight}${typeof lastWeight === 'number' ? 'kg' : ''} x ${lastReps} powt. `;
 
-            if (typeof lastWeight === 'number' && typeof lastReps === 'number') {
-              const suggestedWeight = lastWeight + 2.5;
-              return `Ostatnio (${datePerformed}): ${lastWeight}kg x ${lastReps} powt. Sugestia: spróbuj dziś ${suggestedWeight}kg na ${lastReps} powt. lub podobną liczbę powtórzeń.`;
-            } else if (lastWeight === 'BW') {
-              return `Ostatnio (${datePerformed}): ${lastWeight} x ${lastReps} powt. Sugestia: spróbuj dziś więcej powtórzeń lub rozważ dodanie obciążenia.`;
+            if (settings.selectedModel === "linear_weight" && typeof lastWeight === 'number') {
+              const increment = settings.linearWeightIncrement || 2.5;
+              baseSuggestion += `Sugestia (Liniowa - Ciężar): Spróbuj ${lastWeight + increment}kg x ${lastReps} powt.`;
+            } else if (settings.selectedModel === "linear_reps" && typeof lastReps === 'number') {
+              const increment = settings.linearRepsIncrement || 1;
+              baseSuggestion += `Sugestia (Liniowa - Powtórzenia): Spróbuj ${lastWeight}${typeof lastWeight === 'number' ? 'kg' : ''} x ${lastReps + increment} powt.`;
+            } else if (settings.selectedModel === "double_progression" && settings.doubleProgressionRepRange) {
+               baseSuggestion += `Sugestia (Podwójna Progresja): Celuj w ${settings.doubleProgressionRepRange} powt. z ${lastWeight}${typeof lastWeight === 'number' ? 'kg' : ''}.`;
             } else {
-               return `Ostatnio (${datePerformed}): ${lastWeight} x ${lastReps} powt. Skup się na technice i liczbie powtórzeń.`;
+                baseSuggestion += "Dostosuj parametry zgodnie ze swoim planem.";
             }
           }
         }
-        return "Pierwszy raz to ćwiczenie? Daj z siebie wszystko i zanotuj wyniki!";
+        return baseSuggestion;
       };
-      setProgressionSuggestion(getSuggestion(currentExercise.id, MOCK_WORKOUT_HISTORY_FOR_SUGGESTIONS));
-       setForm.reset({
-        weight: recordedSets[currentExercise.id]?.[recordedSets[currentExercise.id].length -1]?.weight?.toString() || "", // Pre-fill with last set's weight for this exercise
-        reps: "",
-        rpe: "",
-        notes: ""
-      });
+      setProgressionSuggestion(getSuggestion(currentExercise.id, MOCK_WORKOUT_HISTORY_FOR_SUGGESTIONS, userProgressionSettings));
+      
+      // Pre-fill form for new set, or clear if switching exercises while editing
+      if (!editingSetInfo || editingSetInfo.exerciseId !== currentExercise.id) {
+        setEditingSetInfo(null); // Clear editing state if exercise changed
+        const setsForThisExercise = recordedSets[currentExercise.id] || [];
+        const lastSetForThisExercise = setsForThisExercise[setsForThisExercise.length -1];
+        setForm.reset({
+          weight: lastSetForThisExercise?.weight?.toString() || "",
+          reps: "",
+          rpe: "",
+          notes: ""
+        });
+      }
     }
-  }, [currentExercise, recordedSets]);
+  }, [currentExercise, recordedSets, userProgressionSettings, editingSetInfo, setForm]);
+
 
   const formatTime = (totalSeconds: number) => {
     const hours = Math.floor(totalSeconds / 3600);
@@ -271,32 +316,81 @@ export default function ActiveWorkoutPage() {
     return `${hours > 0 ? String(hours).padStart(2, "0") + ":" : ""}${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
   };
 
-  const handleAddSet = (values: SetFormValues) => {
+  const handleSaveSetSubmit = (values: SetFormValues) => {
     if (!currentExercise) return;
 
-    const newSet: RecordedSet = {
-      setNumber: (recordedSets[currentExercise.id]?.length || 0) + 1,
+    const setEntry: Omit<RecordedSet, 'setNumber'> = {
       weight: isNaN(parseFloat(values.weight)) ? values.weight : parseFloat(values.weight),
       reps: isNaN(parseInt(values.reps, 10)) ? values.reps : parseInt(values.reps, 10),
       rpe: values.rpe ? Number(values.rpe) : undefined,
       notes: values.notes || undefined,
     };
 
-    setRecordedSets((prev) => ({
-      ...prev,
-      [currentExercise.id]: [...(prev[currentExercise.id] || []), newSet],
-    }));
+    if (editingSetInfo && editingSetInfo.exerciseId === currentExercise.id) {
+      // Update existing set
+      const updatedSetsForExercise = [...(recordedSets[currentExercise.id] || [])];
+      updatedSetsForExercise[editingSetInfo.setIndex] = {
+        ...updatedSetsForExercise[editingSetInfo.setIndex], // keep original setNumber
+        ...setEntry,
+      };
+      setRecordedSets(prev => ({
+        ...prev,
+        [currentExercise.id]: updatedSetsForExercise,
+      }));
+      toast({ title: "Seria zaktualizowana!" });
+      setEditingSetInfo(null); // Exit edit mode
+      setForm.reset({ weight: String(setEntry.weight), reps: "", rpe: "", notes: "" });
 
-    setForm.reset({ weight: String(newSet.weight), reps: "", rpe: "", notes: "" });
+    } else {
+      // Add new set
+      const newSet: RecordedSet = {
+        ...setEntry,
+        setNumber: (recordedSets[currentExercise.id]?.length || 0) + 1,
+      };
+      setRecordedSets((prev) => ({
+        ...prev,
+        [currentExercise.id]: [...(prev[currentExercise.id] || []), newSet],
+      }));
+      setForm.reset({ weight: String(newSet.weight), reps: "", rpe: "", notes: "" });
+      const restDuration = currentExercise.defaultRest || DEFAULT_REST_TIME;
+      setRestTimer(restDuration);
+      setIsResting(true);
+      toast({
+        title: `Seria ${newSet.setNumber} zapisana!`,
+        description: `Rozpoczynam ${restDuration}s odpoczynku.`,
+      });
+    }
+  };
+  
+  const handleStartEditSet = (exerciseId: string, setIndex: number) => {
+    const setBeingEdited = recordedSets[exerciseId]?.[setIndex];
+    if (setBeingEdited) {
+      setEditingSetInfo({ exerciseId, setIndex });
+      setForm.reset({
+        weight: String(setBeingEdited.weight),
+        reps: String(setBeingEdited.reps),
+        rpe: setBeingEdited.rpe ? String(setBeingEdited.rpe) : "",
+        notes: setBeingEdited.notes || ""
+      });
+      setIsResting(false); // Stop rest timer if it was running
+      if(restIntervalRef.current) clearInterval(restIntervalRef.current);
+      setRestTimer(0);
+    }
+  };
 
-    const restDuration = currentExercise.defaultRest || DEFAULT_REST_TIME;
-    setRestTimer(restDuration);
-    setIsResting(true);
-    toast({
-      title: `Seria ${newSet.setNumber} zapisana!`,
-      description: `Rozpoczynam ${restDuration}s odpoczynku.`,
+  const handleCancelEdit = () => {
+    setEditingSetInfo(null);
+    // Reset form to how it would be for a new set (e.g., prefill weight from last *actual* set)
+    const setsForThisExercise = recordedSets[currentExercise.id] || [];
+    const lastSetForThisExercise = setsForThisExercise[setsForThisExercise.length -1];
+    setForm.reset({
+        weight: lastSetForThisExercise?.weight?.toString() || "",
+        reps: "",
+        rpe: "",
+        notes: ""
     });
   };
+
 
   const handleDeleteSet = (exerciseId: string, setIndexToDelete: number) => {
     setRecordedSets((prev) => {
@@ -309,6 +403,12 @@ export default function ActiveWorkoutPage() {
         [exerciseId]: updatedSets,
       };
     });
+    if (editingSetInfo && editingSetInfo.exerciseId === exerciseId && editingSetInfo.setIndex === setIndexToDelete) {
+      handleCancelEdit(); // If the deleted set was being edited, cancel edit mode
+    } else if (editingSetInfo && editingSetInfo.exerciseId === exerciseId && editingSetInfo.setIndex > setIndexToDelete) {
+      // If a set before the one being edited was deleted, adjust the editing index
+      setEditingSetInfo(info => info ? ({ ...info, setIndex: info.setIndex - 1 }) : null);
+    }
     toast({
       title: "Seria usunięta",
       description: `Seria została pomyślnie usunięta.`,
@@ -330,8 +430,10 @@ export default function ActiveWorkoutPage() {
   const handleNextExercise = () => {
     if (currentWorkout && currentExerciseIndex < currentWorkout.exercises.length - 1) {
       setCurrentExerciseIndex((prev) => prev + 1);
-      setIsResting(false);
+      setIsResting(false); // Ensure rest is stopped
       if (restIntervalRef.current) clearInterval(restIntervalRef.current);
+      setRestTimer(0);
+      setEditingSetInfo(null); // Clear editing state when moving to next exercise
     } else {
       toast({ title: "To ostatnie ćwiczenie!", description: "Możesz teraz zakończyć trening.", variant: "default"});
     }
@@ -340,13 +442,15 @@ export default function ActiveWorkoutPage() {
   const handlePreviousExercise = () => {
     if (currentExerciseIndex > 0) {
       setCurrentExerciseIndex((prev) => prev - 1);
-      setIsResting(false);
+      setIsResting(false); // Ensure rest is stopped
       if (restIntervalRef.current) clearInterval(restIntervalRef.current);
+      setRestTimer(0);
+      setEditingSetInfo(null); // Clear editing state
     }
   };
 
   const handleFinishWorkout = () => {
-    setIsLoading(true);
+    setIsLoading(true); // Indicate loading for the finish process
     if (!currentWorkout || !workoutStartTime) {
         toast({ title: "Błąd", description: "Nie można zakończyć treningu.", variant: "destructive"});
         setIsLoading(false);
@@ -354,16 +458,17 @@ export default function ActiveWorkoutPage() {
     }
 
     const summaryData = {
-        workoutId: currentWorkout.id,
+        workoutId: currentWorkout.id, // Add workoutId to summary
         workoutName: currentWorkout.name,
         startTime: workoutStartTime.toISOString(),
         endTime: new Date().toISOString(),
         totalTimeSeconds: elapsedTime,
         recordedSets: recordedSets,
-        exercises: currentWorkout.exercises,
+        exercises: currentWorkout.exercises, // Pass full exercise definitions
         exerciseNotes: exerciseNotes,
     };
 
+    // Save summaryData to localStorage for the summary page
     try {
         localStorage.setItem('workoutSummaryData', JSON.stringify(summaryData));
         toast({
@@ -371,16 +476,16 @@ export default function ActiveWorkoutPage() {
             description: "Przekierowuję do podsumowania...",
             variant: "default",
         });
-        router.push(`/workout/summary`);
+        router.push(`/workout/summary`); 
     } catch (error) {
         console.error("Error saving summary data to localStorage:", error);
         toast({ title: "Błąd zapisu", description: "Nie udało się zapisać danych do podsumowania.", variant: "destructive"});
-    } finally {
-        setIsLoading(false);
+        setIsLoading(false); // Reset loading state on error
     }
+    // Do not set isLoading to false here if navigation is successful, page will unmount
   };
 
-  if (isLoading || !currentWorkout || !currentExercise) {
+  if (isLoading && !currentWorkout ) { // Only show full page loader initially
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -388,6 +493,22 @@ export default function ActiveWorkoutPage() {
       </div>
     );
   }
+  
+  if (!currentWorkout || !currentExercise) {
+     // This case might happen if workoutId is invalid and initial loading finishes
+     // Or if navigation logic has an issue. A more robust app might redirect.
+    return (
+         <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
+            <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Błąd Treningu</AlertTitle>
+                <AlertDescription>Nie można załadować danych treningu. Spróbuj ponownie.</AlertDescription>
+                 <Button onClick={() => router.push("/workout/start")} className="mt-4">Wróć do wyboru</Button>
+            </Alert>
+        </div>
+    );
+  }
+
 
   const exerciseProgress = ((currentExerciseIndex + 1) / currentWorkout.exercises.length) * 100;
   const setsForCurrentExercise = recordedSets[currentExercise.id] || [];
@@ -414,7 +535,7 @@ export default function ActiveWorkoutPage() {
             </div>
              <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="destructive" size="sm" disabled={isLoading}>
+                <Button variant="destructive" size="sm" disabled={isLoading && currentWorkout != null}>
                   <Square className="mr-2 h-4 w-4" /> Zakończ
                 </Button>
               </AlertDialogTrigger>
@@ -426,9 +547,9 @@ export default function ActiveWorkoutPage() {
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Anuluj</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleFinishWorkout} disabled={isLoading}>
-                    {isLoading ? <Loader2 className="animate-spin mr-2"/> : null}
+                  <AlertDialogCancel disabled={isLoading && currentWorkout != null}>Anuluj</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleFinishWorkout} disabled={isLoading && currentWorkout != null}>
+                    {(isLoading && currentWorkout != null) ? <Loader2 className="animate-spin mr-2"/> : null}
                     Potwierdź i zakończ
                   </AlertDialogAction>
                 </AlertDialogFooter>
@@ -481,6 +602,10 @@ export default function ActiveWorkoutPage() {
                   <Lightbulb className="h-4 w-4 text-primary" />
                   <AlertTitle className="text-primary">Sugestia Progresji</AlertTitle>
                   <AlertDescription>{progressionSuggestion}</AlertDescription>
+                   <div className="mt-3 flex gap-2">
+                       <Button variant="ghost" size="sm" disabled><CheckCircle className="mr-2 h-4 w-4"/> Zastosuj sugestię (Wkrótce)</Button>
+                       <Button variant="ghost" size="sm" disabled><HelpCircle className="mr-2 h-4 w-4"/> Dlaczego taka sugestia? (Wkrótce)</Button>
+                   </div>
                 </Alert>
               )}
                <div className="space-y-2">
@@ -500,7 +625,7 @@ export default function ActiveWorkoutPage() {
             </CardContent>
           </Card>
 
-          {isResting && (
+          {isResting && !editingSetInfo && (
             <Card className="mb-6 bg-primary/10 border-primary/30">
               <CardHeader>
                 <CardTitle className="text-xl flex items-center gap-2 text-primary">
@@ -519,21 +644,22 @@ export default function ActiveWorkoutPage() {
             </Card>
           )}
 
-          {!isResting && (
+          {(!isResting || editingSetInfo) && (
             <Card className="mb-6">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <ListChecks className="h-6 w-6 text-primary" /> Rejestruj Serię
-                  {currentExercise.defaultSets && setsForCurrentExercise.length < currentExercise.defaultSets ?
+                  <ListChecks className="h-6 w-6 text-primary" /> 
+                  {editingSetInfo ? `Edytuj Serię ${editingSetInfo.setData.setNumber}` : `Rejestruj Serię`}
+                  {!editingSetInfo && currentExercise.defaultSets && setsForCurrentExercise.length < currentExercise.defaultSets ?
                     ` (Sugerowana: ${setsForCurrentExercise.length + 1} z ${currentExercise.defaultSets})` :
-                    (setsForCurrentExercise.length > 0 ? ` (Seria ${setsForCurrentExercise.length + 1})` : ` (Seria 1)`)
+                    (!editingSetInfo && setsForCurrentExercise.length > 0 ? ` (Seria ${setsForCurrentExercise.length + 1})` : (!editingSetInfo ? ` (Seria 1)`: ''))
                   }
                 </CardTitle>
-                 {currentExercise.defaultReps && <CardDescription>Sugerowane powtórzenia: {currentExercise.defaultReps}</CardDescription>}
+                 {currentExercise.defaultReps && !editingSetInfo && <CardDescription>Sugerowane powtórzenia: {currentExercise.defaultReps}</CardDescription>}
               </CardHeader>
               <CardContent>
                 <Form {...setForm}>
-                  <form onSubmit={setForm.handleSubmit(handleAddSet)} className="space-y-4">
+                  <form onSubmit={setForm.handleSubmit(handleSaveSetSubmit)} className="space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <FormField
                         control={setForm.control}
@@ -588,10 +714,17 @@ export default function ActiveWorkoutPage() {
                           </FormItem>
                         )}
                       />
-                    <Button type="submit" className="w-full sm:w-auto" disabled={setForm.formState.isSubmitting}>
-                       {setForm.formState.isSubmitting ? <Loader2 className="animate-spin mr-2"/> : <Save className="mr-2 h-4 w-4" />}
-                      Zapisz Serię
-                    </Button>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                        <Button type="submit" className="w-full sm:flex-1" disabled={setForm.formState.isSubmitting}>
+                           {setForm.formState.isSubmitting ? <Loader2 className="animate-spin mr-2"/> : <Save className="mr-2 h-4 w-4" />}
+                          {editingSetInfo ? "Zaktualizuj Serię" : "Zapisz Serię"}
+                        </Button>
+                        {editingSetInfo && (
+                            <Button type="button" variant="outline" onClick={handleCancelEdit} className="w-full sm:w-auto">
+                                <XCircle className="mr-2 h-4 w-4" /> Anuluj Edycję
+                            </Button>
+                        )}
+                    </div>
                   </form>
                 </Form>
               </CardContent>
@@ -608,22 +741,35 @@ export default function ActiveWorkoutPage() {
               <CardContent>
                 <ul className="space-y-3">
                   {setsForCurrentExercise.map((set, index) => (
-                    <li key={index} className="flex flex-col sm:flex-row justify-between sm:items-center p-3 bg-muted/50 rounded-md text-sm gap-2">
+                    <li key={`${currentExercise.id}-set-${index}`} className="flex flex-col sm:flex-row justify-between sm:items-start p-3 bg-muted/50 rounded-md text-sm gap-2">
                       <div className="flex-grow">
                         <span className="font-semibold">Seria {set.setNumber}: </span>
                         <span>{set.weight} x {set.reps} powt.</span>
                         {set.rpe && <span className="ml-2 text-muted-foreground">(RPE: {set.rpe})</span>}
                         {set.notes && <p className="text-xs text-muted-foreground mt-1 italic">Notatka: {set.notes}</p>}
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-destructive hover:text-destructive-foreground hover:bg-destructive/90 self-start sm:self-center"
-                        onClick={() => currentExercise && handleDeleteSet(currentExercise.id, index)}
-                        aria-label="Usuń serię"
-                      >
-                        <Trash2 className="mr-1 h-4 w-4" /> Usuń
-                      </Button>
+                      <div className="flex gap-2 self-start sm:self-center flex-shrink-0">
+                         <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                            onClick={() => handleStartEditSet(currentExercise.id, index)}
+                            aria-label="Edytuj serię"
+                            disabled={!!editingSetInfo} // Disable if another set is already being edited
+                          >
+                            <Edit3 className="mr-1 h-4 w-4" /> Edytuj
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive-foreground hover:bg-destructive/90"
+                            onClick={() => currentExercise && handleDeleteSet(currentExercise.id, index)}
+                            aria-label="Usuń serię"
+                             disabled={!!editingSetInfo} // Optionally disable delete while editing another set
+                          >
+                            <Trash2 className="mr-1 h-4 w-4" /> Usuń
+                          </Button>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -636,18 +782,18 @@ export default function ActiveWorkoutPage() {
             <Button
               variant="outline"
               onClick={handlePreviousExercise}
-              disabled={currentExerciseIndex === 0 || isLoading}
+              disabled={currentExerciseIndex === 0 || (isLoading && currentWorkout != null) || !!editingSetInfo}
             >
               <ChevronLeft className="mr-2 h-4 w-4" /> Poprzednie ćwiczenie
             </Button>
             {currentExerciseIndex < currentWorkout.exercises.length - 1 ? (
-                 <Button onClick={handleNextExercise} disabled={isLoading} className="bg-primary hover:bg-primary/90">
+                 <Button onClick={handleNextExercise} disabled={(isLoading && currentWorkout != null) || !!editingSetInfo} className="bg-primary hover:bg-primary/90">
                     Następne ćwiczenie <ChevronRight className="ml-2 h-4 w-4" />
                 </Button>
             ) : (
                  <AlertDialog>
                     <AlertDialogTrigger asChild>
-                        <Button disabled={isLoading} className="bg-green-600 hover:bg-green-700 text-white">
+                        <Button disabled={(isLoading && currentWorkout != null) || !!editingSetInfo} className="bg-green-600 hover:bg-green-700 text-white">
                             <CheckCircle className="mr-2 h-4 w-4" /> Zakończ Trening i Zapisz
                         </Button>
                     </AlertDialogTrigger>
@@ -659,9 +805,9 @@ export default function ActiveWorkoutPage() {
                         </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
-                        <AlertDialogCancel>Anuluj</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleFinishWorkout} disabled={isLoading}>
-                            {isLoading ? <Loader2 className="animate-spin mr-2"/> : null}
+                        <AlertDialogCancel disabled={isLoading && currentWorkout != null}>Anuluj</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleFinishWorkout} disabled={isLoading && currentWorkout != null}>
+                            {(isLoading && currentWorkout != null) ? <Loader2 className="animate-spin mr-2"/> : null}
                             Zakończ i Zapisz
                         </AlertDialogAction>
                         </AlertDialogFooter>
