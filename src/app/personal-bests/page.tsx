@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -20,6 +19,7 @@ import {
   LineChart as LineChartIcon, // Added for progression chart button
   Star, // For badge placeholder
   Medal, // For badge placeholder
+  Dumbbell, // Added for badge placeholder
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -41,7 +41,10 @@ import {
 } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { ManagePbDialog, type PersonalBestFormData } from "@/components/personal-bests/manage-pb-dialog";
+import {
+  ManagePbDialog,
+  type PersonalBestFormData,
+} from "@/components/personal-bests/manage-pb-dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -64,12 +67,11 @@ import { Alert } from "@/components/ui/alert"; // Added Alert for badge section
 import { MOCK_EXERCISES_DATABASE } from "@/app/workout/create/page";
 import { PbProgressionChartDialog } from "@/components/personal-bests/pb-progression-chart-dialog"; // New Import
 
-
 export interface PersonalBest {
   id: string;
   exerciseId: string;
   exerciseName: string;
-  recordType: 'weight_reps' | 'max_reps' | 'time_seconds' | 'distance_km';
+  recordType: "weight_reps" | "max_reps" | "time_seconds" | "distance_km";
   value: {
     weight?: number | string;
     reps?: number;
@@ -101,13 +103,13 @@ const INITIAL_MOCK_PBS: PersonalBest[] = [
   {
     id: uuidv4(),
     exerciseId: "ex6",
-    exerciseName: "Bieg na bieżni (30 min)", 
+    exerciseName: "Bieg na bieżni (30 min)",
     recordType: "time_seconds",
-    value: { timeSeconds: 30 * 60 }, 
+    value: { timeSeconds: 30 * 60 },
     date: new Date(2024, 5, 20).toISOString(),
     notes: "Najszybsze 30 min na bieżni.",
   },
-   {
+  {
     id: uuidv4(),
     exerciseId: "ex4",
     exerciseName: "Podciąganie na drążku",
@@ -118,44 +120,54 @@ const INITIAL_MOCK_PBS: PersonalBest[] = [
   },
 ];
 
-const RECORD_TYPE_LABELS: Record<PersonalBest['recordType'], string> = {
+const RECORD_TYPE_LABELS: Record<PersonalBest["recordType"], string> = {
   weight_reps: "Ciężar x Powtórzenia",
   max_reps: "Maks. Powtórzeń",
   time_seconds: "Czas",
-  distance_km: "Dystans"
+  distance_km: "Dystans",
 };
-
 
 export default function PersonalBestsPage() {
   const { toast } = useToast();
-  const [personalBests, setPersonalBests] = React.useState<PersonalBest[]>(INITIAL_MOCK_PBS);
+  const [personalBests, setPersonalBests] =
+    React.useState<PersonalBest[]>(INITIAL_MOCK_PBS);
   const [isManageDialogOpen, setIsManageDialogOpen] = React.useState(false);
   const [editingPb, setEditingPb] = React.useState<PersonalBest | null>(null);
   const [pbToDelete, setPbToDelete] = React.useState<PersonalBest | null>(null);
   const [isDeleting, setIsDeleting] = React.useState(false);
 
   const [searchTerm, setSearchTerm] = React.useState("");
-  const [selectedExerciseFilter, setSelectedExerciseFilter] = React.useState<string>("all");
+  const [selectedExerciseFilter, setSelectedExerciseFilter] =
+    React.useState<string>("all");
 
   const [isPbChartDialogOpen, setIsPbChartDialogOpen] = React.useState(false);
   const [pbForChart, setPbForChart] = React.useState<PersonalBest | null>(null);
 
   const filteredPbs = React.useMemo(() => {
     return personalBests
-      .filter(pb => {
-        const matchesSearch = pb.exerciseName.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesExercise = selectedExerciseFilter === "all" || pb.exerciseId === selectedExerciseFilter;
+      .filter((pb) => {
+        const matchesSearch = pb.exerciseName
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase());
+        const matchesExercise =
+          selectedExerciseFilter === "all" ||
+          pb.exerciseId === selectedExerciseFilter;
         return matchesSearch && matchesExercise;
       })
       .sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
   }, [personalBests, searchTerm, selectedExerciseFilter]);
 
-
   const handleSavePb = (data: PersonalBestFormData) => {
-    const exercise = MOCK_EXERCISES_DATABASE.find(ex => ex.id === data.exerciseId);
+    const exercise = MOCK_EXERCISES_DATABASE.find(
+      (ex) => ex.id === data.exerciseId
+    );
     if (!exercise) {
-        toast({ title: "Błąd", description: "Wybrane ćwiczenie nie istnieje.", variant: "destructive" });
-        return;
+      toast({
+        title: "Błąd",
+        description: "Wybrane ćwiczenie nie istnieje.",
+        variant: "destructive",
+      });
+      return;
     }
 
     const pbEntry: PersonalBest = {
@@ -166,19 +178,33 @@ export default function PersonalBestsPage() {
       value: {
         weight: data.valueWeight === "" ? undefined : data.valueWeight,
         reps: data.valueReps === "" ? undefined : Number(data.valueReps),
-        timeSeconds: data.valueTimeSeconds === "" ? undefined : Number(data.valueTimeSeconds),
-        distanceKm: data.valueDistanceKm === "" ? undefined : Number(data.valueDistanceKm),
+        timeSeconds:
+          data.valueTimeSeconds === ""
+            ? undefined
+            : Number(data.valueTimeSeconds),
+        distanceKm:
+          data.valueDistanceKm === ""
+            ? undefined
+            : Number(data.valueDistanceKm),
       },
-      date: typeof data.date === 'string' ? data.date : data.date.toISOString(), // Ensure date is ISO string
+      date: typeof data.date === "string" ? data.date : data.date.toISOString(), // Ensure date is ISO string
       notes: data.notes,
     };
 
     if (editingPb) {
-      setPersonalBests(prev => prev.map(p => (p.id === editingPb.id ? pbEntry : p)));
-      toast({ title: "Rekord Zaktualizowany!", description: "Twój rekord został pomyślnie zaktualizowany." });
+      setPersonalBests((prev) =>
+        prev.map((p) => (p.id === editingPb.id ? pbEntry : p))
+      );
+      toast({
+        title: "Rekord Zaktualizowany!",
+        description: "Twój rekord został pomyślnie zaktualizowany.",
+      });
     } else {
-      setPersonalBests(prev => [...prev, pbEntry]);
-      toast({ title: "Nowy Rekord Zapisany! Gratulacje!", description: `Ustanowiłeś nowy rekord w ${pbEntry.exerciseName}.` });
+      setPersonalBests((prev) => [...prev, pbEntry]);
+      toast({
+        title: "Nowy Rekord Zapisany! Gratulacje!",
+        description: `Ustanowiłeś nowy rekord w ${pbEntry.exerciseName}.`,
+      });
     }
     setIsManageDialogOpen(false);
     setEditingPb(null);
@@ -196,9 +222,12 @@ export default function PersonalBestsPage() {
   const handleDeletePb = async () => {
     if (!pbToDelete) return;
     setIsDeleting(true);
-    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API call
-    setPersonalBests(prev => prev.filter(p => p.id !== pbToDelete.id));
-    toast({ title: "Rekord usunięty", description: "Rekord został pomyślnie usunięty." });
+    await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate API call
+    setPersonalBests((prev) => prev.filter((p) => p.id !== pbToDelete.id));
+    toast({
+      title: "Rekord usunięty",
+      description: "Rekord został pomyślnie usunięty.",
+    });
     setPbToDelete(null);
     setIsDeleting(false);
   };
@@ -211,31 +240,37 @@ export default function PersonalBestsPage() {
   const formatPbValue = (pb: PersonalBest): string => {
     switch (pb.recordType) {
       case "weight_reps":
-        return `${pb.value.weight || '-'} kg x ${pb.value.reps || '-'} powt.`;
+        return `${pb.value.weight || "-"} kg x ${pb.value.reps || "-"} powt.`;
       case "max_reps":
-        return `${pb.value.reps || '-'} powt. ${pb.value.weight ? `(${pb.value.weight === "BW" ? "BW" : pb.value.weight + "kg"})` : '(BW)'}`;
+        return `${pb.value.reps || "-"} powt. ${
+          pb.value.weight
+            ? `(${pb.value.weight === "BW" ? "BW" : pb.value.weight + "kg"})`
+            : "(BW)"
+        }`;
       case "time_seconds":
         const totalSeconds = pb.value.timeSeconds || 0;
         const minutes = Math.floor(totalSeconds / 60);
         const seconds = totalSeconds % 60;
-        return `${minutes > 0 ? `${minutes}m ` : ''}${seconds}s`;
+        return `${minutes > 0 ? `${minutes}m ` : ""}${seconds}s`;
       case "distance_km":
-        return `${pb.value.distanceKm || '-'} km`;
+        return `${pb.value.distanceKm || "-"} km`;
       default:
         return "N/A";
     }
   };
-  
+
   const uniqueExercisesInPbs = React.useMemo(() => {
     const exerciseSet = new Map<string, string>();
-    personalBests.forEach(pb => {
-        if (!exerciseSet.has(pb.exerciseId)) {
-            exerciseSet.set(pb.exerciseId, pb.exerciseName);
-        }
+    personalBests.forEach((pb) => {
+      if (!exerciseSet.has(pb.exerciseId)) {
+        exerciseSet.set(pb.exerciseId, pb.exerciseName);
+      }
     });
-    return Array.from(exerciseSet.entries()).map(([id, name]) => ({ id, name }));
+    return Array.from(exerciseSet.entries()).map(([id, name]) => ({
+      id,
+      name,
+    }));
   }, [personalBests]);
-
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -251,7 +286,12 @@ export default function PersonalBestsPage() {
             <Trophy className="h-8 w-8 text-primary" />
             <h1 className="text-2xl font-bold">Rekordy Życiowe</h1>
           </div>
-          <Button onClick={() => { setEditingPb(null); setIsManageDialogOpen(true); }}>
+          <Button
+            onClick={() => {
+              setEditingPb(null);
+              setIsManageDialogOpen(true);
+            }}
+          >
             <PlusCircle className="mr-2 h-5 w-5" />
             Dodaj Rekord
           </Button>
@@ -275,18 +315,30 @@ export default function PersonalBestsPage() {
           />
 
           {pbToDelete && (
-            <AlertDialog open={!!pbToDelete} onOpenChange={() => setPbToDelete(null)}>
+            <AlertDialog
+              open={!!pbToDelete}
+              onOpenChange={() => setPbToDelete(null)}
+            >
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Usunąć rekord?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Czy na pewno chcesz usunąć ten rekord ({pbToDelete.exerciseName})? Tej akcji nie można cofnąć.
+                    Czy na pewno chcesz usunąć ten rekord (
+                    {pbToDelete.exerciseName})? Tej akcji nie można cofnąć.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel disabled={isDeleting}>Anuluj</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDeletePb} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
-                    {isDeleting ? <Loader2 className="animate-spin mr-2"/> : null}
+                  <AlertDialogCancel disabled={isDeleting}>
+                    Anuluj
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleDeletePb}
+                    disabled={isDeleting}
+                    className="bg-destructive hover:bg-destructive/90"
+                  >
+                    {isDeleting ? (
+                      <Loader2 className="animate-spin mr-2" />
+                    ) : null}
                     Potwierdź i usuń
                   </AlertDialogAction>
                 </AlertDialogFooter>
@@ -296,47 +348,59 @@ export default function PersonalBestsPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Filter className="h-5 w-5 text-primary"/> Filtruj Rekordy</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Filter className="h-5 w-5 text-primary" /> Filtruj Rekordy
+              </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col sm:flex-row gap-4">
-                <div className="relative flex-grow">
-                    <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                        type="search"
-                        placeholder="Szukaj po nazwie ćwiczenia..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10"
-                    />
-                </div>
-                <Select value={selectedExerciseFilter} onValueChange={setSelectedExerciseFilter}>
-                    <SelectTrigger className="w-full sm:w-[280px]">
-                        <SelectValue placeholder="Filtruj ćwiczenie" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">Wszystkie ćwiczenia</SelectItem>
-                        {uniqueExercisesInPbs.map(ex => (
-                            <SelectItem key={ex.id} value={ex.id}>{ex.name}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
+              <div className="relative flex-grow">
+                <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder="Szukaj po nazwie ćwiczenia..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Select
+                value={selectedExerciseFilter}
+                onValueChange={setSelectedExerciseFilter}
+              >
+                <SelectTrigger className="w-full sm:w-[280px]">
+                  <SelectValue placeholder="Filtruj ćwiczenie" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Wszystkie ćwiczenia</SelectItem>
+                  {uniqueExercisesInPbs.map((ex) => (
+                    <SelectItem key={ex.id} value={ex.id}>
+                      {ex.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Award className="h-6 w-6 text-primary" /> Twoje Osobiste Rekordy
+                <Award className="h-6 w-6 text-primary" /> Twoje Osobiste
+                Rekordy
               </CardTitle>
-              <CardDescription>Przeglądaj i zarządzaj swoimi najlepszymi osiągnięciami.</CardDescription>
+              <CardDescription>
+                Przeglądaj i zarządzaj swoimi najlepszymi osiągnięciami.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {filteredPbs.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-10 text-center">
                   <Trophy className="h-16 w-16 text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">Brak zapisanych rekordów.</p>
+                  <p className="text-muted-foreground">
+                    Brak zapisanych rekordów.
+                  </p>
                   <p className="text-sm text-muted-foreground">
-                    {searchTerm || selectedExerciseFilter !== "all" 
+                    {searchTerm || selectedExerciseFilter !== "all"
                       ? "Nie znaleziono rekordów pasujących do kryteriów."
                       : "Kliknij 'Dodaj Rekord', aby rozpocząć śledzenie swoich PB!"}
                   </p>
@@ -348,31 +412,62 @@ export default function PersonalBestsPage() {
                       <TableRow>
                         <TableHead className="w-[25%]">Ćwiczenie</TableHead>
                         <TableHead className="w-[20%]">Rekord</TableHead>
-                        <TableHead className="w-[15%]" >Typ Rekordu</TableHead>
-                        <TableHead className="w-[15%] text-center">Data</TableHead>
-                        <TableHead className="w-[10%] text-center">Progresja</TableHead>
-                        <TableHead className="text-right w-[15%]">Akcje</TableHead>
+                        <TableHead className="w-[15%]">Typ Rekordu</TableHead>
+                        <TableHead className="w-[15%] text-center">
+                          Data
+                        </TableHead>
+                        <TableHead className="w-[10%] text-center">
+                          Progresja
+                        </TableHead>
+                        <TableHead className="text-right w-[15%]">
+                          Akcje
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filteredPbs.map((pb) => (
                         <TableRow key={pb.id}>
-                          <TableCell className="font-medium">{pb.exerciseName}</TableCell>
+                          <TableCell className="font-medium">
+                            {pb.exerciseName}
+                          </TableCell>
                           <TableCell>{formatPbValue(pb)}</TableCell>
-                          <TableCell className="text-muted-foreground">{RECORD_TYPE_LABELS[pb.recordType]}</TableCell>
-                          <TableCell className="text-center">{format(parseISO(pb.date), "dd MMM yyyy", { locale: pl })}</TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {RECORD_TYPE_LABELS[pb.recordType]}
+                          </TableCell>
                           <TableCell className="text-center">
-                            <Button variant="ghost" size="icon" onClick={() => handleOpenPbChart(pb)} title="Zobacz progresję">
+                            {format(parseISO(pb.date), "dd MMM yyyy", {
+                              locale: pl,
+                            })}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleOpenPbChart(pb)}
+                              title="Zobacz progresję"
+                            >
                               <LineChartIcon className="h-4 w-4" />
                               <span className="sr-only">Zobacz progresję</span>
                             </Button>
                           </TableCell>
                           <TableCell className="text-right">
-                            <Button variant="ghost" size="icon" onClick={() => handleEditPb(pb)} className="mr-1" title="Edytuj rekord">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleEditPb(pb)}
+                              className="mr-1"
+                              title="Edytuj rekord"
+                            >
                               <Edit className="h-4 w-4" />
                               <span className="sr-only">Edytuj</span>
                             </Button>
-                            <Button variant="ghost" size="icon" onClick={() => openDeleteConfirmation(pb)} className="text-destructive hover:text-destructive" title="Usuń rekord">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openDeleteConfirmation(pb)}
+                              className="text-destructive hover:text-destructive"
+                              title="Usuń rekord"
+                            >
                               <Trash2 className="h-4 w-4" />
                               <span className="sr-only">Usuń</span>
                             </Button>
@@ -384,49 +479,58 @@ export default function PersonalBestsPage() {
                 </ScrollArea>
               )}
             </CardContent>
-             {filteredPbs.length > 0 && (
-                <CardFooter>
-                    <p className="text-xs text-muted-foreground">Wyświetlanie {filteredPbs.length} rekordów.</p>
-                </CardFooter>
+            {filteredPbs.length > 0 && (
+              <CardFooter>
+                <p className="text-xs text-muted-foreground">
+                  Wyświetlanie {filteredPbs.length} rekordów.
+                </p>
+              </CardFooter>
             )}
           </Card>
 
           <Card>
             <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Award className="h-5 w-5 text-primary"/>Moje Odznaki (Symulacja)</CardTitle>
-                <CardDescription>Przeglądaj zdobyte odznaki za osiągnięcia.</CardDescription>
+              <CardTitle className="flex items-center gap-2">
+                <Award className="h-5 w-5 text-primary" />
+                Moje Odznaki (Symulacja)
+              </CardTitle>
+              <CardDescription>
+                Przeglądaj zdobyte odznaki za osiągnięcia.
+              </CardDescription>
             </CardHeader>
             <CardContent>
-                <Alert>
-                    <Trophy className="h-4 w-4"/>
-                    <p className="font-semibold">Funkcja w budowie</p>
-                    <p className="text-xs text-muted-foreground">
-                        System odznak i nagród za osiągnięcia (w tym za rekordy życiowe) zostanie dodany w przyszłości.
-                    </p>
-                </Alert>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-4">
-                    {/* Mock Badges */}
-                    {[
-                        {name: "Mistrz Przysiadu: 140kg", icon: Dumbbell},
-                        {name: "Klub 100kg: Wyciskanie", icon: Award},
-                        {name: "Wytrwały Biegacz: 30 min", icon: Medal},
-                        {name: "Siłacz Podciągania: 15xBW", icon: Star},
-                    ].map((badge, idx) => {
-                        const Icon = badge.icon;
-                        return (
-                            <div key={idx} className="flex flex-col items-center text-center p-3 border rounded-lg bg-muted/50">
-                                <Icon className="h-10 w-10 text-amber-500 mb-2"/>
-                                <p className="text-xs font-medium">{badge.name}</p>
-                            </div>
-                        )
-                    })}
-                </div>
+              <Alert>
+                <Trophy className="h-4 w-4" />
+                <p className="font-semibold">Funkcja w budowie</p>
+                <p className="text-xs text-muted-foreground">
+                  System odznak i nagród za osiągnięcia (w tym za rekordy
+                  życiowe) zostanie dodany w przyszłości.
+                </p>
+              </Alert>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-4">
+                {/* Mock Badges */}
+                {[
+                  { name: "Mistrz Przysiadu: 140kg", icon: Dumbbell },
+                  { name: "Klub 100kg: Wyciskanie", icon: Award },
+                  { name: "Wytrwały Biegacz: 30 min", icon: Medal },
+                  { name: "Siłacz Podciągania: 15xBW", icon: Star },
+                ].map((badge, idx) => {
+                  const Icon = badge.icon;
+                  return (
+                    <div
+                      key={idx}
+                      className="flex flex-col items-center text-center p-3 border rounded-lg bg-muted/50"
+                    >
+                      <Icon className="h-10 w-10 text-amber-500 mb-2" />
+                      <p className="text-xs font-medium">{badge.name}</p>
+                    </div>
+                  );
+                })}
+              </div>
             </CardContent>
           </Card>
-
         </div>
       </main>
     </div>
   );
 }
-

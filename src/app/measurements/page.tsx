@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -15,7 +14,7 @@ import {
   Loader2,
   CalendarDays,
   StickyNote,
-  Ruler, 
+  Ruler,
   Activity, // For BMI icon placeholder
   Download, // For CSV export icon
 } from "lucide-react";
@@ -49,7 +48,7 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip as RechartsTooltip, 
+  Tooltip as RechartsTooltip,
   ResponsiveContainer,
 } from "recharts";
 import {
@@ -60,7 +59,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { AddMeasurementDialog, type MeasurementFormData, PREDEFINED_BODY_PARTS } from "@/components/measurements/add-measurement-dialog";
+import {
+  AddMeasurementDialog,
+  type MeasurementFormData,
+  PREDEFINED_BODY_PARTS,
+} from "@/components/measurements/add-measurement-dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -73,10 +76,15 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Input } from "@/components/ui/input"; // Dodano import Input
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export interface BodyPartData {
   name: string;
@@ -129,7 +137,10 @@ const INITIAL_MOCK_MEASUREMENTS: Measurement[] = [
 // Mock user height in CM. In a real app, this would come from user profile.
 const USER_HEIGHT_CM: number | null = 175; // Example height: 175cm. Set to null to test missing height.
 
-const calculateBMI = (weightKg: number, heightCm: number | null): number | null => {
+const calculateBMI = (
+  weightKg: number,
+  heightCm: number | null
+): number | null => {
   if (!heightCm || heightCm <= 0 || !weightKg || weightKg <= 0) {
     return null;
   }
@@ -145,28 +156,31 @@ const interpretBMI = (bmi: number | null): string => {
   return "Otyłość";
 };
 
-
 export default function MeasurementsPage() {
   const { toast } = useToast();
-  const [measurements, setMeasurements] = React.useState<Measurement[]>(INITIAL_MOCK_MEASUREMENTS);
+  const [measurements, setMeasurements] = React.useState<Measurement[]>(
+    INITIAL_MOCK_MEASUREMENTS
+  );
   const [isAddDialogOpen, setIsAddDialogOpen] = React.useState(false);
-  const [editingMeasurement, setEditingMeasurement] = React.useState<Measurement | null>(null);
+  const [editingMeasurement, setEditingMeasurement] =
+    React.useState<Measurement | null>(null);
   const [isDeleting, setIsDeleting] = React.useState(false);
-  const [measurementToDelete, setMeasurementToDelete] = React.useState<Measurement | null>(null);
+  const [measurementToDelete, setMeasurementToDelete] =
+    React.useState<Measurement | null>(null);
 
-  const [selectedChartMetric, setSelectedChartMetric] = React.useState<string>("Waga (kg)");
+  const [selectedChartMetric, setSelectedChartMetric] =
+    React.useState<string>("Waga (kg)");
 
   // Reminder settings state (placeholders)
   const [enableReminders, setEnableReminders] = React.useState(false);
   const [reminderFrequency, setReminderFrequency] = React.useState("weekly");
   const [reminderTime, setReminderTime] = React.useState("09:00");
 
-
   const availableMetricsForChart = React.useMemo(() => {
     const metrics = ["Waga (kg)", "BMI"]; // Add BMI to chartable metrics
     const bodyPartNames = new Set<string>();
-    measurements.forEach(m => {
-      m.bodyParts.forEach(bp => {
+    measurements.forEach((m) => {
+      m.bodyParts.forEach((bp) => {
         if (bp.value !== null) {
           bodyPartNames.add(bp.name);
         }
@@ -176,26 +190,46 @@ export default function MeasurementsPage() {
   }, [measurements]);
 
   const chartData = React.useMemo(() => {
-    return measurements
-      .sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime())
-      .map(m => {
-        const dataPoint: { date: string; [key: string]: any } = {
-          date: format(parseISO(m.date), "dd MMM yy", { locale: pl }),
-          "Waga (kg)": m.weight,
-        };
-        const bmi = calculateBMI(m.weight, USER_HEIGHT_CM);
-        if (bmi !== null) {
-          dataPoint["BMI"] = bmi;
-        }
-        m.bodyParts.forEach(bp => {
-          if (bp.value !== null) {
-            dataPoint[bp.name] = bp.value;
+    return (
+      measurements
+        .filter((m) => {
+          // Dodatkowe filtrowanie na początku w celu usunięcia nieprawidłowych dat
+          if (!m.date) return false;
+          try {
+            const parsedDate = parseISO(m.date);
+            return !isNaN(parsedDate.getTime());
+          } catch (e) {
+            return false;
           }
-        });
-        return dataPoint;
-      })
-      .filter(dp => dp[selectedChartMetric] !== undefined && dp[selectedChartMetric] !== null);
-  }, [measurements, selectedChartMetric]);
+        })
+        .sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime())
+        .map((m) => {
+          // Pewność, że m.date jest prawidłowe po filtrowaniu powyżej
+          const dateStr = format(parseISO(m.date), "dd MMM yy", { locale: pl });
+          const dataPoint: { date: string; [key: string]: any } = {
+            date: dateStr,
+            "Waga (kg)": m.weight,
+          };
+          const bmi = calculateBMI(m.weight, USER_HEIGHT_CM);
+          if (bmi !== null) {
+            dataPoint["BMI"] = bmi;
+          }
+          m.bodyParts.forEach((bp) => {
+            if (bp.value !== null) {
+              dataPoint[bp.name] = bp.value;
+            }
+          });
+          return dataPoint;
+        })
+        // Filtracja po wartościach metryk - upewniamy się, że data jest nadal prawidłowa (choć powinna być po pierwszym filtrze)
+        .filter(
+          (dp) =>
+            dp[selectedChartMetric] !== undefined &&
+            dp[selectedChartMetric] !== null &&
+            dp.date !== "Invalid Date"
+        )
+    );
+  }, [measurements, selectedChartMetric, USER_HEIGHT_CM]); // Dodano USER_HEIGHT_CM do zależności, ponieważ wpływa na BMI
 
   const chartConfig = React.useMemo(() => {
     const config: any = {};
@@ -208,15 +242,30 @@ export default function MeasurementsPage() {
     return config;
   }, [availableMetricsForChart]);
 
-
   const handleSaveMeasurement = (data: MeasurementFormData) => {
     if (editingMeasurement) {
-      setMeasurements(prev => prev.map(m => m.id === editingMeasurement.id ? { ...data, id: editingMeasurement.id } : m));
-      toast({ title: "Pomiar zaktualizowany", description: "Dane pomiaru zostały pomyślnie zaktualizowane." });
+      setMeasurements((prev) =>
+        prev.map((m) =>
+          m.id === editingMeasurement.id
+            ? { ...data, id: editingMeasurement.id }
+            : m
+        )
+      );
+      toast({
+        title: "Pomiar zaktualizowany",
+        description: "Dane pomiaru zostały pomyślnie zaktualizowane.",
+      });
     } else {
       const newMeasurement: Measurement = { ...data, id: uuidv4() };
-      setMeasurements(prev => [...prev, newMeasurement].sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime()));
-      toast({ title: "Pomiar dodany", description: "Nowy pomiar został pomyślnie zapisany." });
+      setMeasurements((prev) =>
+        [...prev, newMeasurement].sort(
+          (a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime()
+        )
+      );
+      toast({
+        title: "Pomiar dodany",
+        description: "Nowy pomiar został pomyślnie zapisany.",
+      });
     }
     setIsAddDialogOpen(false);
     setEditingMeasurement(null);
@@ -226,7 +275,7 @@ export default function MeasurementsPage() {
     setEditingMeasurement(measurement);
     setIsAddDialogOpen(true);
   };
-  
+
   const openDeleteConfirmation = (measurement: Measurement) => {
     setMeasurementToDelete(measurement);
   };
@@ -234,40 +283,61 @@ export default function MeasurementsPage() {
   const handleDeleteMeasurement = async () => {
     if (!measurementToDelete) return;
     setIsDeleting(true);
-    await new Promise(resolve => setTimeout(resolve, 500));
-    setMeasurements(prev => prev.filter(m => m.id !== measurementToDelete.id));
-    toast({ title: "Pomiar usunięty", description: "Pomiar został pomyślnie usunięty." });
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    setMeasurements((prev) =>
+      prev.filter((m) => m.id !== measurementToDelete.id)
+    );
+    toast({
+      title: "Pomiar usunięty",
+      description: "Pomiar został pomyślnie usunięty.",
+    });
     setMeasurementToDelete(null);
     setIsDeleting(false);
   };
 
-  const getBodyPartValue = (measurement: Measurement, partName: string): string => {
-    const part = measurement.bodyParts.find(p => p.name === partName);
+  const getBodyPartValue = (
+    measurement: Measurement,
+    partName: string
+  ): string => {
+    const part = measurement.bodyParts.find((p) => p.name === partName);
     return part && part.value !== null ? part.value.toString() : "-";
-  }
+  };
 
   const handleExportToCSV = () => {
     if (measurements.length === 0) {
-      toast({ title: "Brak danych", description: "Nie ma żadnych pomiarów do wyeksportowania.", variant: "destructive" });
+      toast({
+        title: "Brak danych",
+        description: "Nie ma żadnych pomiarów do wyeksportowania.",
+        variant: "destructive",
+      });
       return;
     }
 
     // Dynamically determine all unique body part names for headers
-    const allBodyPartNames = Array.from(new Set(measurements.flatMap(m => m.bodyParts.map(bp => bp.name)))).sort();
+    const allBodyPartNames = Array.from(
+      new Set(measurements.flatMap((m) => m.bodyParts.map((bp) => bp.name)))
+    ).sort();
 
     let csvContent = "data:text/csv;charset=utf-8,";
     // Headers
-    const headers = ["Data", "Waga (kg)", "BMI", "Interpretacja BMI", ...allBodyPartNames, "Notatki"];
+    const headers = [
+      "Data",
+      "Waga (kg)",
+      "BMI",
+      "Interpretacja BMI",
+      ...allBodyPartNames,
+      "Notatki",
+    ];
     csvContent += headers.join(";") + "\r\n";
 
     // Rows
-    measurements.forEach(m => {
+    measurements.forEach((m) => {
       const date = format(parseISO(m.date), "yyyy-MM-dd", { locale: pl });
       const bmi = calculateBMI(m.weight, USER_HEIGHT_CM);
       const bmiInterpretation = interpretBMI(bmi);
-      
-      const bodyPartValues = allBodyPartNames.map(bpName => {
-        const part = m.bodyParts.find(p => p.name === bpName);
+
+      const bodyPartValues = allBodyPartNames.map((bpName) => {
+        const part = m.bodyParts.find((p) => p.name === bpName);
         return part && part.value !== null ? part.value.toString() : "";
       });
 
@@ -277,8 +347,10 @@ export default function MeasurementsPage() {
         bmi !== null ? bmi.toString() : "",
         bmiInterpretation !== "-" ? bmiInterpretation : "",
         ...bodyPartValues,
-        m.notes || ""
-      ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(";"); // Escape quotes and ensure string
+        m.notes || "",
+      ]
+        .map((field) => `"${String(field).replace(/"/g, '""')}"`)
+        .join(";"); // Escape quotes and ensure string
       csvContent += row + "\r\n";
     });
 
@@ -286,12 +358,14 @@ export default function MeasurementsPage() {
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
     link.setAttribute("download", "pomiary_ciala.csv");
-    document.body.appendChild(link); 
+    document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast({ title: "Eksport zakończony", description: "Dane pomiarów zostały wyeksportowane do CSV." });
+    toast({
+      title: "Eksport zakończony",
+      description: "Dane pomiarów zostały wyeksportowane do CSV.",
+    });
   };
-
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -307,7 +381,12 @@ export default function MeasurementsPage() {
             <Scale className="h-8 w-8 text-primary" />
             <h1 className="text-2xl font-bold">Pomiary Ciała</h1>
           </div>
-          <Button onClick={() => { setEditingMeasurement(null); setIsAddDialogOpen(true); }}>
+          <Button
+            onClick={() => {
+              setEditingMeasurement(null);
+              setIsAddDialogOpen(true);
+            }}
+          >
             <PlusCircle className="mr-2 h-5 w-5" />
             Dodaj Pomiar
           </Button>
@@ -322,20 +401,35 @@ export default function MeasurementsPage() {
             onSave={handleSaveMeasurement}
             initialData={editingMeasurement}
           />
-          
-           {measurementToDelete && (
-            <AlertDialog open={!!measurementToDelete} onOpenChange={() => setMeasurementToDelete(null)}>
+
+          {measurementToDelete && (
+            <AlertDialog
+              open={!!measurementToDelete}
+              onOpenChange={() => setMeasurementToDelete(null)}
+            >
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Usunąć pomiar?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Czy na pewno chcesz usunąć ten pomiar z dnia {format(parseISO(measurementToDelete.date), "PPP", { locale: pl })}? Tej akcji nie można cofnąć.
+                    Czy na pewno chcesz usunąć ten pomiar z dnia{" "}
+                    {format(parseISO(measurementToDelete.date), "PPP", {
+                      locale: pl,
+                    })}
+                    ? Tej akcji nie można cofnąć.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel disabled={isDeleting}>Anuluj</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDeleteMeasurement} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
-                    {isDeleting ? <Loader2 className="animate-spin mr-2"/> : null}
+                  <AlertDialogCancel disabled={isDeleting}>
+                    Anuluj
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleDeleteMeasurement}
+                    disabled={isDeleting}
+                    className="bg-destructive hover:bg-destructive/90"
+                  >
+                    {isDeleting ? (
+                      <Loader2 className="animate-spin mr-2" />
+                    ) : null}
                     Potwierdź i usuń
                   </AlertDialogAction>
                 </AlertDialogFooter>
@@ -347,20 +441,31 @@ export default function MeasurementsPage() {
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="flex items-center gap-2">
-                  <CalendarDays className="h-6 w-6 text-primary" /> Historia Pomiarów
+                  <CalendarDays className="h-6 w-6 text-primary" /> Historia
+                  Pomiarów
                 </CardTitle>
-                <CardDescription>Przeglądaj i zarządzaj swoimi zapisanymi pomiarami.</CardDescription>
+                <CardDescription>
+                  Przeglądaj i zarządzaj swoimi zapisanymi pomiarami.
+                </CardDescription>
               </div>
-              <Button variant="outline" onClick={handleExportToCSV} disabled={measurements.length === 0}>
-                <Download className="mr-2 h-4 w-4"/> Eksportuj dane do CSV
+              <Button
+                variant="outline"
+                onClick={handleExportToCSV}
+                disabled={measurements.length === 0}
+              >
+                <Download className="mr-2 h-4 w-4" /> Eksportuj dane do CSV
               </Button>
             </CardHeader>
             <CardContent>
               {measurements.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-10 text-center">
                   <Ruler className="h-16 w-16 text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">Brak zapisanych pomiarów.</p>
-                  <p className="text-sm text-muted-foreground">Kliknij "Dodaj Pomiar", aby rozpocząć śledzenie.</p>
+                  <p className="text-muted-foreground">
+                    Brak zapisanych pomiarów.
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Kliknij "Dodaj Pomiar", aby rozpocząć śledzenie.
+                  </p>
                 </div>
               ) : (
                 <ScrollArea className="max-h-[400px] w-full">
@@ -370,10 +475,17 @@ export default function MeasurementsPage() {
                         <TableHead>Data</TableHead>
                         <TableHead className="text-right">Waga (kg)</TableHead>
                         <TableHead className="text-right">BMI</TableHead>
-                        {PREDEFINED_BODY_PARTS.map(part => (
-                          <TableHead key={part.key} className="text-right hidden sm:table-cell">{part.label}</TableHead>
+                        {PREDEFINED_BODY_PARTS.map((part) => (
+                          <TableHead
+                            key={part.key}
+                            className="text-right hidden sm:table-cell"
+                          >
+                            {part.label}
+                          </TableHead>
                         ))}
-                        <TableHead className="hidden md:table-cell">Notatki</TableHead>
+                        <TableHead className="hidden md:table-cell">
+                          Notatki
+                        </TableHead>
                         <TableHead className="text-right">Akcje</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -383,8 +495,12 @@ export default function MeasurementsPage() {
                         const bmiInterpretation = interpretBMI(bmi);
                         return (
                           <TableRow key={m.id}>
-                            <TableCell>{format(parseISO(m.date), "PPP", { locale: pl })}</TableCell>
-                            <TableCell className="text-right font-medium">{m.weight.toFixed(1)}</TableCell>
+                            <TableCell>
+                              {format(parseISO(m.date), "PPP", { locale: pl })}
+                            </TableCell>
+                            <TableCell className="text-right font-medium">
+                              {m.weight.toFixed(1)}
+                            </TableCell>
                             <TableCell className="text-right">
                               {bmi !== null ? (
                                 <TooltipProvider>
@@ -397,26 +513,49 @@ export default function MeasurementsPage() {
                                     <TooltipContent>
                                       <p>BMI: {bmi}</p>
                                       <p>Interpretacja: {bmiInterpretation}</p>
-                                      <p className="text-xs text-muted-foreground">(Wzrost: {USER_HEIGHT_CM || 'N/A'} cm)</p>
+                                      <p className="text-xs text-muted-foreground">
+                                        (Wzrost: {USER_HEIGHT_CM || "N/A"} cm)
+                                      </p>
                                     </TooltipContent>
                                   </Tooltip>
                                 </TooltipProvider>
-                              ) : (USER_HEIGHT_CM ? "-" : <span className="text-xs text-destructive">Podaj wzrost w profilu</span>)}
+                              ) : USER_HEIGHT_CM ? (
+                                "-"
+                              ) : (
+                                <span className="text-xs text-destructive">
+                                  Podaj wzrost w profilu
+                                </span>
+                              )}
                             </TableCell>
-                            {PREDEFINED_BODY_PARTS.map(part => (
-                              <TableCell key={part.key} className="text-right hidden sm:table-cell">{getBodyPartValue(m, part.name)}</TableCell>
+                            {PREDEFINED_BODY_PARTS.map((part) => (
+                              <TableCell
+                                key={part.key}
+                                className="text-right hidden sm:table-cell"
+                              >
+                                {getBodyPartValue(m, part.name)}
+                              </TableCell>
                             ))}
                             <TableCell className="text-xs text-muted-foreground hidden md:table-cell max-w-[200px] truncate">
                               {m.notes || "-"}
                             </TableCell>
                             <TableCell className="text-right">
-                              <Button variant="ghost" size="icon" onClick={() => handleEditMeasurement(m)} className="mr-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEditMeasurement(m)}
+                                className="mr-1"
+                              >
                                 <Edit className="h-4 w-4" />
                                 <span className="sr-only">Edytuj</span>
                               </Button>
-                              <Button variant="ghost" size="icon" onClick={() => openDeleteConfirmation(m)} className="text-destructive hover:text-destructive">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => openDeleteConfirmation(m)}
+                                className="text-destructive hover:text-destructive"
+                              >
                                 <Trash2 className="h-4 w-4" />
-                                 <span className="sr-only">Usuń</span>
+                                <span className="sr-only">Usuń</span>
                               </Button>
                             </TableCell>
                           </TableRow>
@@ -435,38 +574,51 @@ export default function MeasurementsPage() {
                 <CardTitle className="flex items-center gap-2">
                   <LineChart className="h-6 w-6 text-primary" /> Wykresy Postępu
                 </CardTitle>
-                <CardDescription>Wizualizuj zmiany swoich pomiarów w czasie.</CardDescription>
+                <CardDescription>
+                  Wizualizuj zmiany swoich pomiarów w czasie.
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="mb-4">
-                  <Select value={selectedChartMetric} onValueChange={setSelectedChartMetric}>
+                  <Select
+                    value={selectedChartMetric}
+                    onValueChange={setSelectedChartMetric}
+                  >
                     <SelectTrigger className="w-full sm:w-[280px]">
                       <SelectValue placeholder="Wybierz metrykę do wyświetlenia" />
                     </SelectTrigger>
                     <SelectContent>
-                      {availableMetricsForChart.map(metric => (
-                        <SelectItem key={metric} value={metric}>{metric}</SelectItem>
+                      {availableMetricsForChart.map((metric) => (
+                        <SelectItem key={metric} value={metric}>
+                          {metric}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-                {chartData.length >= 1 ? ( 
-                  <ChartContainer config={chartConfig} className="h-[300px] w-full">
-                    <RechartsLineChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                {chartData.length >= 1 ? (
+                  <ChartContainer
+                    config={chartConfig}
+                    className="h-[300px] w-full"
+                  >
+                    <RechartsLineChart
+                      data={chartData}
+                      margin={{ top: 5, right: 20, left: -10, bottom: 5 }}
+                    >
                       <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                      <XAxis 
-                        dataKey="date" 
-                        tickLine={false} 
-                        axisLine={false} 
+                      <XAxis
+                        dataKey="date"
+                        tickLine={false}
+                        axisLine={false}
                         tickMargin={8}
                       />
-                      <YAxis 
-                        tickLine={false} 
-                        axisLine={false} 
+                      <YAxis
+                        tickLine={false}
+                        axisLine={false}
                         tickMargin={8}
-                        domain={['auto', 'auto']}
+                        domain={["auto", "auto"]}
                         allowDecimals={true}
-                        width={selectedChartMetric === 'BMI' ? 30 : undefined} // Adjust YAxis width for BMI
+                        width={selectedChartMetric === "BMI" ? 30 : undefined} // Adjust YAxis width for BMI
                       />
                       <ChartTooltip
                         cursor={false}
@@ -475,10 +627,16 @@ export default function MeasurementsPage() {
                       <Line
                         dataKey={selectedChartMetric}
                         type="monotone"
-                        stroke={`var(--color-${selectedChartMetric.replace(/[()\s./]/g, '_')})`} // Sanitize name for CSS variable
+                        stroke={`var(--color-${selectedChartMetric.replace(
+                          /[()\s./]/g,
+                          "_"
+                        )})`} // Sanitize name for CSS variable
                         strokeWidth={2}
                         dot={{
-                          fill: `var(--color-${selectedChartMetric.replace(/[()\s./]/g, '_')})`,
+                          fill: `var(--color-${selectedChartMetric.replace(
+                            /[()\s./]/g,
+                            "_"
+                          )})`,
                         }}
                         activeDot={{
                           r: 6,
@@ -488,11 +646,12 @@ export default function MeasurementsPage() {
                   </ChartContainer>
                 ) : (
                   <p className="text-muted-foreground text-center py-8">
-                    Za mało danych dla wybranej metryki, aby wygenerować wykres. Zarejestruj więcej pomiarów.
+                    Za mało danych dla wybranej metryki, aby wygenerować wykres.
+                    Zarejestruj więcej pomiarów.
                   </p>
                 )}
               </CardContent>
-               <CardFooter>
+              <CardFooter>
                 <p className="text-xs text-muted-foreground">
                   Wykres przedstawia dostępne dane dla wybranej metryki.
                 </p>
@@ -500,55 +659,79 @@ export default function MeasurementsPage() {
             </Card>
           )}
 
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><Activity className="h-6 w-6 text-primary" /> Ustawienia Przypomnień o Pomiarach</CardTitle>
-                    <CardDescription>Skonfiguruj przypomnienia, aby regularnie aktualizować swoje pomiary.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                    <Alert>
-                        <Activity className="h-4 w-4"/>
-                        <AlertTitle>Funkcja w budowie</AlertTitle>
-                        <AlertDescription>
-                            Możliwość konfigurowania przypomnień o pomiarach (np. codziennie, co tydzień) zostanie dodana w przyszłości.
-                        </AlertDescription>
-                    </Alert>
-                    <div className="flex items-center space-x-2">
-                        <Switch id="enable-measurement-reminders" checked={enableReminders} onCheckedChange={setEnableReminders} disabled/>
-                        <Label htmlFor="enable-measurement-reminders">Włącz przypomnienia o pomiarach (Wkrótce)</Label>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="h-6 w-6 text-primary" /> Ustawienia
+                Przypomnień o Pomiarach
+              </CardTitle>
+              <CardDescription>
+                Skonfiguruj przypomnienia, aby regularnie aktualizować swoje
+                pomiary.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <Alert>
+                <Activity className="h-4 w-4" />
+                <AlertTitle>Funkcja w budowie</AlertTitle>
+                <AlertDescription>
+                  Możliwość konfigurowania przypomnień o pomiarach (np.
+                  codziennie, co tydzień) zostanie dodana w przyszłości.
+                </AlertDescription>
+              </Alert>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="enable-measurement-reminders"
+                  checked={enableReminders}
+                  onCheckedChange={setEnableReminders}
+                  disabled
+                />
+                <Label htmlFor="enable-measurement-reminders">
+                  Włącz przypomnienia o pomiarach (Wkrótce)
+                </Label>
+              </div>
+              {enableReminders && (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="reminder-frequency">Częstotliwość</Label>
+                      <Select
+                        value={reminderFrequency}
+                        onValueChange={setReminderFrequency}
+                        disabled
+                      >
+                        <SelectTrigger id="reminder-frequency">
+                          <SelectValue placeholder="Wybierz częstotliwość" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="daily">Codziennie</SelectItem>
+                          <SelectItem value="weekly">Co tydzień</SelectItem>
+                          <SelectItem value="monthly">Co miesiąc</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                    {enableReminders && (
-                        <>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div>
-                                    <Label htmlFor="reminder-frequency">Częstotliwość</Label>
-                                    <Select value={reminderFrequency} onValueChange={setReminderFrequency} disabled>
-                                        <SelectTrigger id="reminder-frequency">
-                                            <SelectValue placeholder="Wybierz częstotliwość" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="daily">Codziennie</SelectItem>
-                                            <SelectItem value="weekly">Co tydzień</SelectItem>
-                                            <SelectItem value="monthly">Co miesiąc</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div>
-                                    <Label htmlFor="reminder-time">Godzina</Label>
-                                    <Input id="reminder-time" type="time" value={reminderTime} onChange={(e) => setReminderTime(e.target.value)} disabled/>
-                                </div>
-                            </div>
-                            <Button disabled>Zapisz ustawienia przypomnień (Wkrótce)</Button>
-                        </>
-                    )}
-                </CardContent>
-            </Card>
-
-
+                    <div>
+                      <Label htmlFor="reminder-time">Godzina</Label>
+                      <Input
+                        id="reminder-time"
+                        type="time"
+                        value={reminderTime}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                          setReminderTime(e.target.value)
+                        }
+                        disabled
+                      />
+                    </div>
+                  </div>
+                  <Button disabled>
+                    Zapisz ustawienia przypomnień (Wkrótce)
+                  </Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </main>
     </div>
   );
 }
-
-    
