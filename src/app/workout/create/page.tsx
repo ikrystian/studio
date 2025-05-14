@@ -19,7 +19,8 @@ import {
   XCircle,
   Loader2,
   PlusSquare,
-  Edit3, // Keep Edit3 if used for general edit icons, but not for the dialog
+  Copy, // Added for copy icon
+  ClipboardList, // Added for load defaults icon
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -52,8 +53,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ExerciseSelectionDialog, type Exercise as SelectableExercise } from "@/components/workout/exercise-selection-dialog";
-// Removed import for EditExerciseParametersDialog
-import { QuickAddExerciseDialog, type QuickAddExerciseFormData } from "@/components/workout/quick-add-exercise-dialog";
+import { QuickAddExerciseDialog, type QuickAddExerciseFormData } from "@/components/workout/quick-add-exercise-dialog"; 
 
 // Initial mock database - will be turned into state
 const INITIAL_MOCK_EXERCISES_DATABASE: SelectableExercise[] = [
@@ -81,12 +81,12 @@ export { INITIAL_MOCK_EXERCISES_DATABASE as MOCK_EXERCISES_DATABASE };
 
 // Schema for an individual exercise in the workout form
 const exerciseInWorkoutSchema = z.object({
-  id: z.string(), // Keep as string if UUIDs are generated on client or come from mock
+  id: z.string(), 
   name: z.string().min(1, "Nazwa ćwiczenia jest wymagana."),
   sets: z.coerce.number({invalid_type_error: "Serie muszą być liczbą."}).positive("Liczba serii musi być dodatnia.").optional().or(z.literal("")),
-  reps: z.string().optional(), // e.g., "8-10", "Max", "30s"
+  reps: z.string().optional(), 
   restTimeSeconds: z.coerce.number({invalid_type_error: "Czas odpoczynku musi być liczbą."}).int("Czas odpoczynku musi być liczbą całkowitą.").min(0, "Czas odpoczynku nie może być ujemny.").optional().or(z.literal("")),
-  targetRpe: z.string().optional(), // e.g., "7-8"
+  targetRpe: z.string().optional(), 
   exerciseNotes: z.string().optional(),
 });
 
@@ -134,15 +134,15 @@ export default function CreateWorkoutPage() {
     const exercisesToAppend = selectedExercises.map(ex => ({
         id: ex.id,
         name: ex.name,
-        sets: undefined, // Default to undefined or a sensible default like 3
-        reps: undefined, // Default to undefined or "8-12"
-        restTimeSeconds: undefined, // Default to undefined or 60
+        sets: undefined, 
+        reps: undefined, 
+        restTimeSeconds: undefined, 
         targetRpe: undefined,
         exerciseNotes: undefined,
     }));
     append(exercisesToAppend);
     if (form.formState.errors.exercises && typeof form.formState.errors.exercises.message === 'string') {
-        form.clearErrors("exercises.root.message" as any); // Clear general array error
+        form.clearErrors("exercises.root.message" as any); 
         form.clearErrors("exercises");
     }
   };
@@ -163,17 +163,15 @@ export default function CreateWorkoutPage() {
     setIsQuickAddExerciseDialogOpen(true);
   };
 
-  const handleQuickExerciseCreated = (newExerciseData: { name: string; category: string }) => {
+  const handleQuickExerciseCreated = (newExerciseData: QuickAddExerciseFormData) => {
     const newDbExercise: SelectableExercise = {
-      id: uuidv4(), // Generate unique ID for the new exercise
+      id: uuidv4(),
       name: newExerciseData.name,
-      category: newExerciseData.category,
+      category: newExerciseData.workoutType || "Inne", // Assuming QuickAddExerciseFormData has workoutType for category
     };
     
-    // Add to master list (simulating save to DB)
     setMasterExerciseList(prev => [...prev, newDbExercise]);
 
-    // Add to current workout form
     append({
       id: newDbExercise.id,
       name: newDbExercise.name,
@@ -188,11 +186,28 @@ export default function CreateWorkoutPage() {
       title: "Ćwiczenie Dodane!",
       description: `"${newDbExercise.name}" zostało dodane do bazy i obecnego treningu.`,
     });
-    setIsQuickAddExerciseDialogOpen(false); // Close the dialog
+    setIsQuickAddExerciseDialogOpen(false);
     if (form.formState.errors.exercises && typeof form.formState.errors.exercises.message === 'string') {
         form.clearErrors("exercises.root.message" as any);
         form.clearErrors("exercises");
     }
+  };
+
+  const handleCopyFromPrevious = (index: number) => {
+    if (index === 0) return; // Cannot copy from previous for the first exercise
+
+    const previousExerciseData = form.getValues(`exercises.${index - 1}`);
+    
+    form.setValue(`exercises.${index}.sets`, previousExerciseData.sets || undefined);
+    form.setValue(`exercises.${index}.reps`, previousExerciseData.reps || undefined);
+    form.setValue(`exercises.${index}.restTimeSeconds`, previousExerciseData.restTimeSeconds || undefined);
+    form.setValue(`exercises.${index}.targetRpe`, previousExerciseData.targetRpe || undefined);
+    form.setValue(`exercises.${index}.exerciseNotes`, previousExerciseData.exerciseNotes || undefined);
+
+    toast({
+      title: "Parametry Skopiowane",
+      description: `Parametry zostały skopiowane z ćwiczenia: ${previousExerciseData.name}.`,
+    });
   };
 
 
@@ -200,30 +215,17 @@ export default function CreateWorkoutPage() {
     setIsLoading(true);
     setServerError(null);
     console.log("Workout data submitted:", values);
-    console.log("Current Master Exercise List:", masterExerciseList); // To verify quick-adds
+    console.log("Current Master Exercise List:", masterExerciseList);
 
-    // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1500));
 
     toast({
       title: "Trening zapisany (Symulacja)!",
-      description: (
-        <div>
-          <p>Trening "{values.workoutName}" został pomyślnie utworzony (symulacja).</p>
-          {/* 
-          <p className="mt-2">Co chcesz teraz zrobić?</p>
-          <div className="flex gap-2 mt-1">
-            <Button size="sm" onClick={() => router.push(`/workout/active/${'mock-new-id'}`)}>Rozpocznij ten trening</Button>
-            <Button size="sm" variant="outline" onClick={() => router.push('/workout/start')}>Wróć do listy</Button>
-          </div>
-          */}
-        </div>
-      ),
+      description: `Trening "${values.workoutName}" został pomyślnie utworzony.`,
       variant: "default",
-      duration: 5000, // Longer duration for the example with buttons
+      duration: 3000,
     });
-    router.push("/workout/start"); // Or wherever appropriate after saving
-
+    router.push("/workout/start"); 
     setIsLoading(false);
   }
 
@@ -380,6 +382,29 @@ export default function CreateWorkoutPage() {
                               </div>
                             </div>
                             
+                            <div className="flex items-center gap-2 mb-3">
+                              {index > 0 && (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleCopyFromPrevious(index)}
+                                  disabled={isLoading}
+                                >
+                                  <Copy className="mr-1 h-3 w-3" /> Kopiuj z pop.
+                                </Button>
+                              )}
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => toast({ description: "Funkcja wczytywania domyślnych ustawień wkrótce!"})}
+                                disabled={isLoading}
+                              >
+                                <ClipboardList className="mr-1 h-3 w-3" /> Domyślne (Wkrótce)
+                              </Button>
+                            </div>
+
                             <div className="space-y-4">
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <FormField
@@ -388,7 +413,7 @@ export default function CreateWorkoutPage() {
                                   render={({ field }) => (
                                     <FormItem>
                                       <FormLabel>Serie</FormLabel>
-                                      <FormControl><Input type="number" placeholder="Np. 3" {...field} onChange={e => field.onChange(e.target.value === '' ? "" : Number(e.target.value))} value={field.value === undefined ? "" : field.value} disabled={isLoading} /></FormControl>
+                                      <FormControl><Input type="number" placeholder="Np. 3" {...field} onChange={e => field.onChange(e.target.value === '' ? "" : Number(e.target.value))} value={field.value === undefined || field.value === null ? "" : field.value} disabled={isLoading} /></FormControl>
                                       <FormMessage />
                                     </FormItem>
                                   )}
@@ -412,7 +437,7 @@ export default function CreateWorkoutPage() {
                                   render={({ field }) => (
                                     <FormItem>
                                       <FormLabel>Odpoczynek (s)</FormLabel>
-                                      <FormControl><Input type="number" placeholder="Np. 60" {...field} onChange={e => field.onChange(e.target.value === '' ? "" : Number(e.target.value))} value={field.value === undefined ? "" : field.value} disabled={isLoading} /></FormControl>
+                                      <FormControl><Input type="number" placeholder="Np. 60" {...field} onChange={e => field.onChange(e.target.value === '' ? "" : Number(e.target.value))} value={field.value === undefined || field.value === null ? "" : field.value} disabled={isLoading} /></FormControl>
                                       <FormMessage />
                                     </FormItem>
                                   )}
@@ -481,5 +506,3 @@ export default function CreateWorkoutPage() {
     </div>
   );
 }
-
-    
