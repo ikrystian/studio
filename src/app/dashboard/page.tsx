@@ -75,6 +75,7 @@ const navItems = [
   { href: '/measurements', label: 'Pomiary', icon: Scale, description: 'Log your metrics' },
   { href: '/progress-photos', label: 'Zdjęcia Postępu', icon: Camera, description: 'Track visual changes' },
   { href: `/profile/${userData.id}`, label: 'Mój Profil', icon: UserIcon, description: 'View & edit your profile' },
+  { href: '/settings', label: 'Ustawienia', icon: Settings, description: 'Manage app settings' },
 ];
 
 export default function DashboardPage() {
