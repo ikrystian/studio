@@ -32,9 +32,9 @@ import {
   Trash2,
   StickyNote,
   Lightbulb,
-  Edit2, // For exercise notes icon
-  Edit3, // For edit set icon
-  HelpCircle, // For "why this suggestion"
+  Edit2, 
+  Edit3, 
+  HelpCircle,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -89,12 +89,14 @@ const MOCK_EXERCISES_DATABASE: { id: string; name: string; category: string, ins
   { id: "ex4", name: "Podciąganie na drążku", category: "Plecy", instructions: "Złap drążek nachwytem szerzej niż barki. Podciągnij się, aż broda znajdzie się nad drążkiem. Kontrolowanie opuść ciało." },
   { id: "ex5", name: "Pompki", category: "Klatka", instructions: "Przyjmij pozycję podporu przodem, dłonie na szerokość barków. Opuść ciało, uginając łokcie, aż klatka piersiowa znajdzie się blisko podłoża. Wypchnij ciało w górę." },
   { id: "ex6", name: "Bieg na bieżni (30 min)", category: "Cardio", instructions: "Ustaw odpowiednią prędkość i nachylenie na bieżni. Utrzymuj stałe tempo przez określony czas." },
+  { id: "ex7", name: "Skakanka (15 min)", category: "Cardio", instructions: "Skacz na skakance, zmieniając tempo i styl dla urozmaicenia."},
+  { id: "ex8", name: "Plank (deska)", category: "Brzuch", instructions: "Oprzyj się na przedramionach i palcach stóp, utrzymując ciało w linii prostej od głowy do pięt."},
   { id: "ex9", name: "Wyciskanie żołnierskie (OHP)", category: "Barki", instructions: "Stań prosto, sztanga na wysokości obojczyków. Wypchnij sztangę pionowo nad głowę, blokując łokcie. Kontrolowanie opuść." },
   { id: "ex10", name: "Uginanie ramion ze sztangą", category: "Ramiona", instructions: "Stań prosto, chwyć sztangę podchwytem na szerokość barków. Ugnij ramiona, unosząc sztangę w kierunku barków. Opuść kontrolowanie." },
+  { id: "ex11", name: "Allahy (brzuszki na wyciągu)", category: "Brzuch", instructions: "Klęcząc przodem do wyciągu górnego, chwyć linkę i przyciągaj ją w dół, wykonując skłon tułowia."},
   { id: "ex12", name: "Wiosłowanie sztangą", category: "Plecy", instructions: "Pochyl tułów, utrzymując proste plecy. Chwyć sztangę nachwytem. Przyciągnij sztangę do dolnej części brzucha, ściągając łopatki. Opuść kontrolowanie." },
 ];
 
-// Simulated workout data
 export interface ExerciseInWorkout {
   id: string;
   name: string;
@@ -115,15 +117,16 @@ const MOCK_WORKOUTS: Workout[] = [
     name: "Poranny Trening Siłowy",
     exercises: [
       { id: "ex1", name: "Wyciskanie sztangi na ławce płaskiej", defaultSets: 3, defaultReps: "8-10", defaultRest: 90 },
-      { id: "ex2", name: "Przysiady ze sztangą", defaultSets: 4, defaultReps: "10-12", defaultRest: 120 },
+      { id: "ex2", name: "Przysiady ze sztangą", defaultSets: 4, defaultReps: "6-8", defaultRest: 120 },
       { id: "ex4", name: "Podciąganie na drążku", defaultSets: 3, defaultReps: "Max", defaultRest: 90 },
     ],
   },
   {
     id: "wk2",
-    name: "Szybkie Cardio HIIT",
+    name: "Szybkie Cardio i Core",
     exercises: [
       { id: "ex6", name: "Bieg na bieżni (30 min)", defaultSets: 1, defaultReps: "30 min", defaultRest: 0 },
+      { id: "ex8", name: "Plank (deska)", defaultSets: 3, defaultReps: "60s", defaultRest: 45 },
       { id: "ex5", name: "Pompki", defaultSets: 3, defaultReps: "15-20", defaultRest: 60 },
     ],
   },
@@ -139,11 +142,10 @@ export interface RecordedSet {
 
 interface EditingSetInfo {
   exerciseId: string;
-  setIndex: number; // index in the recordedSets[exerciseId] array
-  setData: RecordedSet; // Store the original data of the set being edited
+  setIndex: number; 
+  setData: RecordedSet; 
 }
 
-// Simplified mock history for progression suggestions
 interface MockSetRecord { weight: string | number; reps: string | number; }
 interface MockPastSession {
   sessionId: string;
@@ -156,13 +158,15 @@ const MOCK_WORKOUT_HISTORY_FOR_SUGGESTIONS: MockPastSession[] = [
   { sessionId: 's2', exerciseId: 'ex1', date: '2024-07-22T09:00:00Z', setsPerformed: [{ weight: 62.5, reps: 8 }, { weight: 62.5, reps: 8 }, { weight: 62.5, reps: 7 }] },
   { sessionId: 's3', exerciseId: 'ex2', date: '2024-07-15T10:00:00Z', setsPerformed: [{ weight: 100, reps: 10 }, { weight: 100, reps: 10 }] },
   { sessionId: 's4', exerciseId: 'ex4', date: '2024-07-15T11:00:00Z', setsPerformed: [{ weight: 'BW', reps: 8 }, { weight: 'BW', reps: 7 }] },
+  { sessionId: 's5', exerciseId: 'ex8', date: '2024-07-18T10:00:00Z', setsPerformed: [{ weight: 'N/A', reps: '60s' }, { weight: 'N/A', reps: '50s'}] },
+  { sessionId: 's6', exerciseId: 'ex6', date: '2024-07-20T08:00:00Z', setsPerformed: [{ weight: 'Poziom 7', reps: '30 min' }] },
 ];
 const PROGRESSION_SETTINGS_LOCAL_STORAGE_KEY = "workoutWiseProgressionSettings";
 
 
 const setFormSchema = z.object({
-  weight: z.string().min(1, "Waga jest wymagana."),
-  reps: z.string().min(1, "Liczba powtórzeń jest wymagana."),
+  weight: z.string().optional(), // Now optional, as it might not apply to time/distance
+  reps: z.string().min(1, "Wartość jest wymagana (np. powtórzenia, czas, dystans)."),
   rpe: z.coerce.number().min(1).max(10).optional().or(z.literal("")),
   notes: z.string().optional(),
 });
@@ -170,6 +174,28 @@ const setFormSchema = z.object({
 type SetFormValues = z.infer<typeof setFormSchema>;
 
 const DEFAULT_REST_TIME = 60; // seconds
+
+type ExerciseTrackingType = 'weight_reps' | 'time' | 'distance' | 'reps_only' | 'other';
+
+function getExerciseTrackingType(exerciseName: string, category?: string): ExerciseTrackingType {
+  const lowerName = exerciseName.toLowerCase();
+  const lowerCategory = category?.toLowerCase();
+
+  if (lowerName.includes('bieg') || lowerName.includes('rower') || lowerName.includes('orbitrek') || lowerName.includes('wiosł') || lowerCategory === 'cardio') {
+    if (lowerName.includes('km') || lowerName.includes('metr') || lowerName.includes('dystans')) return 'distance';
+    if (lowerName.includes('min') || lowerName.includes('sek') || lowerName.includes('godz') || lowerName.includes('czas')) return 'time';
+    return 'time'; // Default for cardio if not explicitly distance or time in name
+  }
+  if (lowerName.includes('plank') || lowerName.includes('deska') || lowerName.includes('wall sit')) {
+    return 'time';
+  }
+  if (lowerName.includes('podciąganie') || lowerName.includes('pompki') || lowerName.includes('dipy')) {
+    // Could be weight_reps if weighted, or reps_only if bodyweight. For form purposes, 'reps_only' guides placeholder.
+    return 'reps_only';
+  }
+  return 'weight_reps';
+}
+
 
 interface ProgressionSuggestion {
   suggestionText: string;
@@ -194,7 +220,7 @@ export default function ActiveWorkoutPage() {
 
 
   const [workoutStartTime, setWorkoutStartTime] = React.useState<Date | null>(null);
-  const [elapsedTime, setElapsedTime] = React.useState(0); // in seconds
+  const [elapsedTime, setElapsedTime] = React.useState(0); 
 
   const [restTimer, setRestTimer] = React.useState(0);
   const [isResting, setIsResting] = React.useState(false);
@@ -211,12 +237,13 @@ export default function ActiveWorkoutPage() {
 
   React.useEffect(() => {
     setIsLoading(true);
-    // Simulate fetching workout details
     setTimeout(() => {
       const foundWorkout = MOCK_WORKOUTS.find((w) => w.id === workoutId);
       if (foundWorkout) {
         setCurrentWorkout(foundWorkout);
-        setWorkoutStartTime(new Date());
+        if (!workoutStartTime) { // Set start time only once
+            setWorkoutStartTime(new Date());
+        }
         try {
           const storedSettings = localStorage.getItem(PROGRESSION_SETTINGS_LOCAL_STORAGE_KEY);
           if (storedSettings) {
@@ -231,7 +258,7 @@ export default function ActiveWorkoutPage() {
       }
       setIsLoading(false);
     }, 500);
-  }, [workoutId, router, toast]);
+  }, [workoutId, router, toast, workoutStartTime]); // Added workoutStartTime to deps
 
   React.useEffect(() => {
     if (!workoutStartTime || isResting) return; 
@@ -258,19 +285,36 @@ export default function ActiveWorkoutPage() {
 
   const currentExercise = currentWorkout?.exercises[currentExerciseIndex];
   const currentExerciseDetails = currentExercise ? MOCK_EXERCISES_DATABASE.find(ex => ex.id === currentExercise.id) : null;
+  const currentExerciseTrackingType = currentExercise ? getExerciseTrackingType(currentExercise.name, currentExerciseDetails?.category) : 'weight_reps';
+
 
   React.useEffect(() => {
     if (currentExercise) {
       const getSuggestion = (
         exerciseId: string,
+        exerciseName: string,
+        trackingType: ExerciseTrackingType,
         history: MockPastSession[],
         settings: ProgressionSettings | null
       ): ProgressionSuggestion | null => {
+        
+        const noSuggestion = { 
+          suggestionText: "Brak sugestii dla tego typu ćwiczenia lub ustawień.",
+          reasoning: "Modele progresji są głównie dla ćwiczeń siłowych (ciężar/powtórzenia)."
+        };
+
         if (!settings?.enableProgression) {
           return { 
             suggestionText: "Sugestie progresji są wyłączone w ustawieniach.",
             reasoning: "Aby włączyć, przejdź do Ustawienia > Ustawienia Progresji Obciążenia."
           };
+        }
+        
+        if (trackingType === 'time' || trackingType === 'distance') {
+            return {
+                suggestionText: `Dla ${exerciseName}: skup się na poprawie wyniku z ostatniego razu lub celuj w ${currentExercise.defaultReps || 'założony cel'}.`,
+                reasoning: "Automatyczne sugestie dla ćwiczeń na czas/dystans - wkrótce!"
+            };
         }
 
         const relevantSessions = history
@@ -309,7 +353,7 @@ export default function ActiveWorkoutPage() {
                     baseSuggestionText = `Sugestia (Podwójna Progresja): Osiągnięto max powt. (${lastReps}). Spróbuj ${suggestedValues.weight}kg x ${suggestedValues.reps} powt.`;
                     baseReasoning += ` i modelu 'Podwójna Progresja'. Osiągnięto górny zakres powtórzeń, zwiększ ciężar o ${weightIncrement}kg i celuj w ${minReps} powt.`;
                 } else {
-                    suggestedValues = {weight: lastWeight, reps: lastReps}; // Or suggest aiming for more reps within range
+                    suggestedValues = {weight: lastWeight, reps: lastReps}; 
                     baseSuggestionText = `Sugestia (Podwójna Progresja): Celuj w ${settings.doubleProgressionRepRange} powt. z ${lastWeight}${typeof lastWeight === 'number' ? 'kg' : ''}.`;
                     baseReasoning += ` i modelu 'Podwójna Progresja'. Celuj w zakres ${settings.doubleProgressionRepRange} powt.`;
                 }
@@ -320,21 +364,29 @@ export default function ActiveWorkoutPage() {
         }
         return { suggestionText: baseSuggestionText, suggestedValues, reasoning: baseReasoning };
       };
-      setProgressionSuggestion(getSuggestion(currentExercise.id, MOCK_WORKOUT_HISTORY_FOR_SUGGESTIONS, userProgressionSettings));
+      setProgressionSuggestion(getSuggestion(currentExercise.id, currentExercise.name, currentExerciseTrackingType, MOCK_WORKOUT_HISTORY_FOR_SUGGESTIONS, userProgressionSettings));
       
       if (!editingSetInfo || editingSetInfo.exerciseId !== currentExercise.id) {
         setEditingSetInfo(null); 
         const setsForThisExercise = recordedSets[currentExercise.id] || [];
         const lastSetForThisExercise = setsForThisExercise[setsForThisExercise.length -1];
+        
+        let defaultWeight = "";
+        if (currentExerciseTrackingType === 'weight_reps' || currentExerciseTrackingType === 'reps_only') {
+            defaultWeight = lastSetForThisExercise?.weight?.toString() || "";
+        } else if (currentExerciseTrackingType === 'time' || currentExerciseTrackingType === 'distance') {
+            defaultWeight = lastSetForThisExercise?.weight?.toString() || "N/A"; // Or "" if intensity isn't usually logged
+        }
+
         setForm.reset({
-          weight: lastSetForThisExercise?.weight?.toString() || "",
-          reps: "",
+          weight: defaultWeight,
+          reps: "", // Reps/Time/Distance always cleared for new set
           rpe: "",
           notes: ""
         });
       }
     }
-  }, [currentExercise, recordedSets, userProgressionSettings, editingSetInfo, setForm]);
+  }, [currentExercise, recordedSets, userProgressionSettings, editingSetInfo, setForm, currentExerciseTrackingType]);
 
 
   const formatTime = (totalSeconds: number) => {
@@ -348,8 +400,8 @@ export default function ActiveWorkoutPage() {
     if (!currentExercise) return;
 
     const setEntry: Omit<RecordedSet, 'setNumber'> = {
-      weight: isNaN(parseFloat(values.weight)) ? values.weight : parseFloat(values.weight),
-      reps: isNaN(parseInt(values.reps, 10)) ? values.reps : parseInt(values.reps, 10),
+      weight: (currentExerciseTrackingType === 'time' || currentExerciseTrackingType === 'distance') && (!values.weight || values.weight.trim() === "") ? "N/A" : values.weight || "N/A",
+      reps: values.reps, // Already validated as string min 1
       rpe: values.rpe ? Number(values.rpe) : undefined,
       notes: values.notes || undefined,
     };
@@ -366,7 +418,13 @@ export default function ActiveWorkoutPage() {
       }));
       toast({ title: "Seria zaktualizowana!" });
       setEditingSetInfo(null); 
-      setForm.reset({ weight: String(setEntry.weight), reps: "", rpe: "", notes: "" });
+      
+      let defaultWeightForNext = String(setEntry.weight);
+       if ((currentExerciseTrackingType === 'time' || currentExerciseTrackingType === 'distance') && defaultWeightForNext.trim() === "") {
+            defaultWeightForNext = "N/A";
+       }
+
+      setForm.reset({ weight: defaultWeightForNext, reps: "", rpe: "", notes: "" });
 
     } else {
       const newSet: RecordedSet = {
@@ -377,7 +435,13 @@ export default function ActiveWorkoutPage() {
         ...prev,
         [currentExercise.id]: [...(prev[currentExercise.id] || []), newSet],
       }));
-      setForm.reset({ weight: String(newSet.weight), reps: "", rpe: "", notes: "" });
+      
+      let defaultWeightForNext = String(newSet.weight);
+      if ((currentExerciseTrackingType === 'time' || currentExerciseTrackingType === 'distance') && defaultWeightForNext.trim() === "") {
+            defaultWeightForNext = "N/A";
+      }
+      setForm.reset({ weight: defaultWeightForNext, reps: "", rpe: "", notes: "" });
+
       const restDuration = currentExercise.defaultRest || DEFAULT_REST_TIME;
       setRestTimer(restDuration);
       setIsResting(true);
@@ -408,8 +472,16 @@ export default function ActiveWorkoutPage() {
     setEditingSetInfo(null);
     const setsForThisExercise = currentExercise ? recordedSets[currentExercise.id] || [] : [];
     const lastSetForThisExercise = setsForThisExercise[setsForThisExercise.length -1];
+    
+    let defaultWeight = "";
+    if (currentExerciseTrackingType === 'weight_reps' || currentExerciseTrackingType === 'reps_only') {
+        defaultWeight = lastSetForThisExercise?.weight?.toString() || "";
+    } else if (currentExerciseTrackingType === 'time' || currentExerciseTrackingType === 'distance') {
+        defaultWeight = lastSetForThisExercise?.weight?.toString() || "N/A";
+    }
+
     setForm.reset({
-        weight: lastSetForThisExercise?.weight?.toString() || "",
+        weight: defaultWeight,
         reps: "",
         rpe: "",
         notes: ""
@@ -430,6 +502,7 @@ export default function ActiveWorkoutPage() {
     if (editingSetInfo && editingSetInfo.exerciseId === exerciseId && editingSetInfo.setIndex === setIndexToDelete) {
       handleCancelEdit(); 
     } else if (editingSetInfo && editingSetInfo.exerciseId === exerciseId && editingSetInfo.setIndex > setIndexToDelete) {
+      // Adjust the index of the set being edited if a preceding set is deleted
       setEditingSetInfo(info => info ? ({ ...info, setIndex: info.setIndex - 1 }) : null);
     }
     toast({
@@ -509,9 +582,13 @@ export default function ActiveWorkoutPage() {
   const handleApplySuggestion = () => {
     if (progressionSuggestion?.suggestedValues) {
       const { weight, reps } = progressionSuggestion.suggestedValues;
-      if (weight !== undefined) setForm.setValue('weight', String(weight));
-      if (reps !== undefined) setForm.setValue('reps', String(reps));
-      toast({ title: "Sugestia zastosowana!", description: "Pola wagi i powtórzeń zostały zaktualizowane." });
+      if (weight !== undefined && (currentExerciseTrackingType === 'weight_reps' || currentExerciseTrackingType === 'reps_only')) {
+        setForm.setValue('weight', String(weight));
+      }
+      if (reps !== undefined) {
+        setForm.setValue('reps', String(reps));
+      }
+      toast({ title: "Sugestia zastosowana!", description: "Pola formularza zostały zaktualizowane." });
     }
   };
 
@@ -520,8 +597,56 @@ export default function ActiveWorkoutPage() {
       toast({
         title: "Logika Sugestii",
         description: progressionSuggestion.reasoning,
-        duration: 10000, // Longer duration for reading
+        duration: 10000, 
       });
+    }
+  };
+
+  const getSetFormFieldLabel = (fieldName: 'weight' | 'reps'): string => {
+    if (fieldName === 'weight') {
+      switch (currentExerciseTrackingType) {
+        case 'time':
+        case 'distance':
+          return "Intensywność / Poziom (opcjonalne)";
+        case 'reps_only':
+          return "Obciążenie Dodatkowe (kg/opis, opcjonalne)";
+        default: // weight_reps or other
+          return "Ciężar (kg/opis)";
+      }
+    } else { // reps field
+      switch (currentExerciseTrackingType) {
+        case 'time':
+          return "Czas Trwania";
+        case 'distance':
+          return "Dystans";
+        default: // weight_reps, reps_only or other
+          return "Powtórzenia";
+      }
+    }
+  };
+
+ const getSetFormFieldPlaceholder = (fieldName: 'weight' | 'reps'): string => {
+    if (fieldName === 'weight') {
+      switch (currentExerciseTrackingType) {
+        case 'time':
+        case 'distance':
+          return "np. Poziom 5, 150W";
+        case 'reps_only':
+          return "np. BW, +10kg";
+        default:
+          return "np. 50 lub BW";
+      }
+    } else { // reps field
+      const defaultReps = currentExercise?.defaultReps;
+      if (defaultReps) return defaultReps;
+      switch (currentExerciseTrackingType) {
+        case 'time':
+          return "np. 30s, 2min30s";
+        case 'distance':
+          return "np. 5km, 1000m";
+        default:
+          return "np. 10 lub Max";
+      }
     }
   };
 
@@ -614,7 +739,7 @@ export default function ActiveWorkoutPage() {
                 {currentExercise.name}
               </CardTitle>
               {currentExerciseDetails?.category && (
-                <CardDescription>Kategoria: {currentExerciseDetails.category}</CardDescription>
+                <CardDescription>Kategoria: {currentExerciseDetails.category} (Typ śledzenia: {currentExerciseTrackingType})</CardDescription>
               )}
             </CardHeader>
             <CardContent className="pt-0 space-y-4">
@@ -645,7 +770,7 @@ export default function ActiveWorkoutPage() {
                         variant="ghost" 
                         size="sm" 
                         onClick={handleApplySuggestion}
-                        disabled={!progressionSuggestion.suggestedValues}
+                        disabled={!progressionSuggestion.suggestedValues || currentExerciseTrackingType === 'time' || currentExerciseTrackingType === 'distance'}
                        >
                          <CheckCircle className="mr-2 h-4 w-4"/> Zastosuj sugestię
                        </Button>
@@ -710,7 +835,7 @@ export default function ActiveWorkoutPage() {
                     (!editingSetInfo && setsForCurrentExercise.length > 0 ? ` (Seria ${setsForCurrentExercise.length + 1})` : (!editingSetInfo ? ` (Seria 1)`: ''))
                   }
                 </CardTitle>
-                 {currentExercise.defaultReps && !editingSetInfo && <CardDescription>Sugerowane powtórzenia: {currentExercise.defaultReps}</CardDescription>}
+                 {currentExercise.defaultReps && !editingSetInfo && <CardDescription>Sugerowany cel: {currentExercise.defaultReps}</CardDescription>}
               </CardHeader>
               <CardContent>
                 <Form {...setForm}>
@@ -721,9 +846,9 @@ export default function ActiveWorkoutPage() {
                         name="weight"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="flex items-center"><Weight className="mr-1 h-4 w-4"/>Ciężar (kg/opis)</FormLabel>
+                            <FormLabel className="flex items-center"><Weight className="mr-1 h-4 w-4"/>{getSetFormFieldLabel('weight')}</FormLabel>
                             <FormControl>
-                              <Input placeholder="np. 50 lub BW" {...field} />
+                              <Input placeholder={getSetFormFieldPlaceholder('weight')} {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -734,9 +859,9 @@ export default function ActiveWorkoutPage() {
                         name="reps"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="flex items-center"><Repeat className="mr-1 h-4 w-4"/>Powtórzenia</FormLabel>
+                            <FormLabel className="flex items-center"><Repeat className="mr-1 h-4 w-4"/>{getSetFormFieldLabel('reps')}</FormLabel>
                             <FormControl>
-                              <Input placeholder="np. 10 lub Max" {...field} />
+                              <Input placeholder={getSetFormFieldPlaceholder('reps')} {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -799,7 +924,9 @@ export default function ActiveWorkoutPage() {
                     <li key={`${currentExercise.id}-set-${index}`} className="flex flex-col sm:flex-row justify-between sm:items-start p-3 bg-muted/50 rounded-md text-sm gap-2">
                       <div className="flex-grow">
                         <span className="font-semibold">Seria {set.setNumber}: </span>
-                        <span>{set.weight} x {set.reps} powt.</span>
+                        { (currentExerciseTrackingType === 'weight_reps' || currentExerciseTrackingType === 'reps_only') && <span>{set.weight} x {set.reps} powt.</span> }
+                        { currentExerciseTrackingType === 'time' && <span>{getSetFormFieldLabel('reps')}: {set.reps} {set.weight !== 'N/A' && set.weight !== '' ? `(Intensywność: ${set.weight})` : ''}</span> }
+                        { currentExerciseTrackingType === 'distance' && <span>{getSetFormFieldLabel('reps')}: {set.reps} {set.weight !== 'N/A' && set.weight !== '' ? `(Intensywność: ${set.weight})` : ''}</span> }
                         {set.rpe && <span className="ml-2 text-muted-foreground">(RPE: {set.rpe})</span>}
                         {set.notes && <p className="text-xs text-muted-foreground mt-1 italic">Notatka: {set.notes}</p>}
                       </div>
@@ -874,3 +1001,4 @@ export default function ActiveWorkoutPage() {
     </div>
   );
 }
+
