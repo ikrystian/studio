@@ -12,7 +12,7 @@ import { v4 as uuidv4 } from "uuid";
 import {
   ArrowLeft,
   HeartPulse,
-  CalendarIcon as CalendarDays, // Renamed to avoid conflict with Calendar component
+  CalendarIcon as CalendarDays, 
   Smile,
   Zap,
   Bed,
@@ -124,6 +124,7 @@ const CONTEXT_OPTIONS = [
     { value: "after_workout", label: "Po treningu" },
     { value: "morning", label: "Rano" },
     { value: "evening", label: "Wieczorem" },
+    { value: "other", label: "Inny (opisz w notatkach)"},
 ];
 
 
@@ -182,7 +183,7 @@ export default function WellnessJournalPage() {
       sleepQuality: values.sleepQuality,
       stressLevel: values.stressLevel === "" ? undefined : Number(values.stressLevel),
       muscleSoreness: values.muscleSoreness === "" ? undefined : Number(values.muscleSoreness),
-      context: values.context === "general" || values.context === "" ? undefined : values.context,
+      context: values.context === "general" || !values.context ? undefined : values.context,
       notes: values.notes,
     };
 
@@ -209,18 +210,19 @@ export default function WellnessJournalPage() {
     await new Promise(resolve => setTimeout(resolve, 500));
     setEntries(prev => prev.filter(e => e.id !== entryToDelete.id));
     toast({ title: "Wpis usunięty", description: "Wpis został pomyślnie usunięty z dziennika." });
-    setEntryToDelete(null); // This will also close the dialog via onOpenChange on AlertDialog root
+    setEntryToDelete(null);
     setIsSaving(false);
   };
 
-  const getRatingLabel = (value: number | undefined, type: 'general' | 'soreness' = 'general'): string => {
-    if (value === undefined || value === null || value === "" as any) return "-";
+  const getRatingLabel = (value: number | undefined | "", type: 'general' | 'soreness' = 'general'): string => {
+    if (value === undefined || value === null || value === "") return "-";
     const options = type === 'soreness' ? SORENESS_RATING_OPTIONS : RATING_OPTIONS;
-    return options.find(opt => opt.value === value)?.label || String(value);
+    const numericValue = Number(value); // Ensure it's a number for comparison
+    return options.find(opt => opt.value === numericValue)?.label || String(numericValue);
   };
-
+  
   const getContextLabel = (value?: string): string => {
-    if (!value) return "-";
+    if (!value || value === "general") return "Ogólny";
     return CONTEXT_OPTIONS.find(opt => opt.value === value)?.label || value;
   }
 
@@ -352,12 +354,16 @@ export default function WellnessJournalPage() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="flex items-center"><Brain className="mr-2 h-4 w-4"/>Poziom Stresu (opcjonalnie)</FormLabel>
-                          <Select onValueChange={(val) => field.onChange(val === "" ? "" : Number(val))} value={String(field.value)} disabled={isSaving}>
+                          <Select 
+                            onValueChange={(val) => field.onChange(val === "none" ? "" : Number(val))} 
+                            value={field.value === "" || field.value === undefined ? "none" : String(field.value)} 
+                            disabled={isSaving}
+                          >
                             <FormControl>
                               <SelectTrigger><SelectValue placeholder="Oceń (1-5)" /></SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="">- Brak oceny -</SelectItem>
+                              <SelectItem value="none">- Brak oceny -</SelectItem>
                               {RATING_OPTIONS.map(opt => <SelectItem key={opt.value} value={String(opt.value)}>{opt.label}</SelectItem>)}
                             </SelectContent>
                           </Select>
@@ -371,12 +377,16 @@ export default function WellnessJournalPage() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="flex items-center"><Accessibility className="mr-2 h-4 w-4"/>Bolesność Mięśni (DOMS) (opcjonalnie)</FormLabel>
-                           <Select onValueChange={(val) => field.onChange(val === "" ? "" : Number(val))} value={String(field.value)} disabled={isSaving}>
+                           <Select 
+                             onValueChange={(val) => field.onChange(val === "none" ? "" : Number(val))} 
+                             value={field.value === "" || field.value === undefined ? "none" : String(field.value)} 
+                             disabled={isSaving}
+                           >
                             <FormControl>
                               <SelectTrigger><SelectValue placeholder="Oceń (1-5)" /></SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="">- Brak oceny -</SelectItem>
+                              <SelectItem value="none">- Brak oceny -</SelectItem>
                               {SORENESS_RATING_OPTIONS.map(opt => <SelectItem key={opt.value} value={String(opt.value)}>{opt.label}</SelectItem>)}
                             </SelectContent>
                           </Select>
@@ -492,7 +502,7 @@ export default function WellnessJournalPage() {
               </CardContent>
             </Card>
             
-            {entryToDelete && ( // Content is only rendered if entryToDelete is not null
+            {entryToDelete && ( 
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Usunąć wpis z dziennika?</AlertDialogTitle>
