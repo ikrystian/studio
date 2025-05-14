@@ -27,6 +27,7 @@ import {
   Timer, // Added for Rest Timer
   User as UserIcon, // Renamed to avoid conflict
   Users,
+  GlassWater, // Added for Hydration
 } from 'lucide-react';
 import type { Metadata } from 'next';
 
@@ -77,6 +78,7 @@ const navItems = [
   { href: '/measurements', label: 'Pomiary', icon: Scale, description: 'Log your metrics' },
   { href: '/progress-photos', label: 'Zdjęcia Postępu', icon: Camera, description: 'Track visual changes' },
   { href: '/wellness-journal', label: 'Dziennik Samopoczucia', icon: HeartPulse, description: 'Log your well-being' },
+  { href: '/hydration', label: 'Śledzenie Nawodnienia', icon: GlassWater, description: 'Monitor your water intake' },
   { href: `/profile/${userData.id}`, label: 'Mój Profil', icon: UserIcon, description: 'View & edit your profile' },
   { href: '/settings', label: 'Ustawienia', icon: Settings, description: 'Manage app settings' },
   { href: '/tools/rest-timer', label: 'Timer Odpoczynku', icon: Timer, description: 'Standalone rest timer' },
