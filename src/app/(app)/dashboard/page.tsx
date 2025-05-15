@@ -71,14 +71,13 @@ const MOCK_UPCOMING_REMINDERS = [
 ];
 
 interface NavItem {
-  id: string; // Unique ID for localStorage key
+  id: string; 
   href: string;
   label: string;
   icon: React.ElementType;
   description: string;
 }
 
-// Make sure ALL_NAV_ITEMS are defined at the top level or imported
 const ALL_NAV_ITEMS: NavItem[] = [
   { id: 'workout-start', href: '/dashboard/workout/start', label: 'Rozpocznij trening', icon: PlayCircle, description: 'Rozpocznij nową sesję lub kontynuuj.' },
   { id: 'plans', href: '/dashboard/plans', label: 'Plany treningowe', icon: BookOpen, description: 'Przeglądaj i zarządzaj planami.' },
@@ -113,7 +112,6 @@ const QuickActionsWidget: React.FC = () => {
     }
 
     const itemsToDisplay = ALL_NAV_ITEMS.filter(item => {
-      // Default to visible if not explicitly set
       return visibilityMap[item.id] === undefined ? true : visibilityMap[item.id];
     });
     setVisibleItems(itemsToDisplay);
@@ -361,7 +359,7 @@ const INITIAL_DASHBOARD_LAYOUT: DashboardWidgetConfig[] = [
   { id: 'upcoming-reminders', title: 'Nadchodzące Przypomnienia', component: <UpcomingRemindersWidget />, skeletonComponent: <UpcomingRemindersWidgetSkeleton />, area: 'sidebar', defaultOrder: 3, defaultVisible: true },
 ];
 
-const DASHBOARD_LAYOUT_STORAGE_KEY = "dashboardLayoutConfigV2"; // Changed key for safety if old structure exists
+const DASHBOARD_LAYOUT_STORAGE_KEY = "dashboardLayoutConfigV2"; 
 
 export default function DashboardPage() {
   const { toast } = useToast();
@@ -385,11 +383,10 @@ export default function DashboardPage() {
             ...defaultWidget,
             isVisible: savedWidgetSettings?.isVisible !== undefined ? savedWidgetSettings.isVisible : defaultWidget.defaultVisible,
             currentOrder: savedWidgetSettings?.currentOrder !== undefined ? savedWidgetSettings.currentOrder : defaultWidget.defaultOrder,
-            area: savedWidgetSettings?.area !== undefined ? savedWidgetSettings.area : defaultWidget.area, // Keep saved area
+            area: savedWidgetSettings?.area !== undefined ? savedWidgetSettings.area : defaultWidget.area, 
           };
         });
 
-        // Ensure all INITIAL_DASHBOARD_LAYOUT widgets are present, add if missing
         INITIAL_DASHBOARD_LAYOUT.forEach(initialWidget => {
           if (!loadedLayout.find(w => w.id === initialWidget.id)) {
             loadedLayout.push({
@@ -416,7 +413,6 @@ export default function DashboardPage() {
       }));
     }
     setDashboardWidgets(loadedLayout);
-    // Simulate loading time
     setTimeout(() => setPageIsLoading(false), 750); 
   }, []);
 
@@ -474,7 +470,6 @@ export default function DashboardPage() {
   };
 
   const handleCancelEdit = () => {
-    // Re-load from localStorage or defaults
      let layoutToRestore: DashboardWidgetConfig[] = [];
     try {
         const savedLayoutJson = localStorage.getItem(DASHBOARD_LAYOUT_STORAGE_KEY);
@@ -536,9 +531,7 @@ export default function DashboardPage() {
   
   return (
     <>
-      {/* Page-specific sub-header for Dashboard */}
       <div className="sticky top-16 z-30 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/50"> 
-          {/* Adjust top based on AppHeader height */}
         <div className="container mx-auto flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-4">
             <h2 className="text-2xl font-semibold tracking-tight">
@@ -589,8 +582,6 @@ export default function DashboardPage() {
                     </div>
                   )}
                   <div className={cn(isEditMode && "pt-6")}> 
-                    {/* Conditionally add padding if in edit mode and controls are shown, or adjust controls position*/}
-                     {/* For main widgets, if they are a title + content structure, we can inject title here */}
                     {isEditMode && (
                         <p className="text-xs font-semibold text-primary/70 mb-1 ml-1">{widget.title}</p>
                     )}
