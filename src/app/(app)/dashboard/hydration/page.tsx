@@ -38,12 +38,14 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"; // Removed AlertDialogTrigger as it's used from root
+  AlertDialogTrigger, // Added AlertDialogTrigger
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AddEditPortionDialog, type Portion } from "@/components/hydration/add-edit-portion-dialog";
+import { Alert, AlertTitle } from "@/components/ui/alert"; // Added Alert and AlertTitle
 
 
 const LOCAL_STORAGE_KEY = "workoutWiseHydrationData";
