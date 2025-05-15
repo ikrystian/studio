@@ -65,7 +65,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Alert } from "@/components/ui/alert";
-import { MOCK_EXERCISES_DATABASE } from "@/app/(app)/dashboard/workout/create/page"; // Corrected path
+import { MOCK_EXERCISES_DATABASE } from "@/lib/mockData"; // Corrected import path
 import { PbProgressionChartDialog } from "@/components/personal-bests/pb-progression-chart-dialog";
 
 export interface PersonalBest {
