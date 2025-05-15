@@ -52,46 +52,46 @@ export function LoginForm() {
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: "",
-      password: "",
+      email: "test@example.com", // Pre-filled email
+      password: "password", // Pre-filled password
     },
   });
 
 
   React.useEffect(() => {
+    if (pathname !== "/login") return;
+
     const currentSearchParams = new URLSearchParams(searchParams.toString());
     let paramsModified = false;
     
-    if (pathname === "/login") { // Only proceed if we are actually on the login page
-      if (currentSearchParams.get("registered") === "true") {
-        setSuccessMessage("Rejestracja zakończona sukcesem! Możesz się teraz zalogować.");
-        toast({
-          title: "Rejestracja Zakończona Sukcesem!",
-          description: "Możesz teraz zalogować się na swoje nowe konto.",
-          variant: "default",
-          duration: 6000,
+    if (currentSearchParams.get("registered") === "true") {
+      setSuccessMessage("Rejestracja zakończona sukcesem! Możesz się teraz zalogować.");
+      toast({
+        title: "Rejestracja Zakończona Sukcesem!",
+        description: "Możesz teraz zalogować się na swoje nowe konto.",
+        variant: "default",
+        duration: 6000,
+      });
+      currentSearchParams.delete("registered");
+      paramsModified = true;
+    }
+    if (currentSearchParams.get("verified") === "true") {
+      if (!successMessage) { 
+          toast({
+            title: "Email Zweryfikowany!",
+            description: "Twój email został pomyślnie zweryfikowany. Proszę się zalogować.",
+            variant: "default",
+            duration: 6000,
         });
-        currentSearchParams.delete("registered");
-        paramsModified = true;
       }
-      if (currentSearchParams.get("verified") === "true") {
-        if (!successMessage) { 
-           toast({
-              title: "Email Zweryfikowany!",
-              description: "Twój email został pomyślnie zweryfikowany. Proszę się zalogować.",
-              variant: "default",
-              duration: 6000,
-          });
-        }
-        currentSearchParams.delete("verified");
-        paramsModified = true;
-      }
+      currentSearchParams.delete("verified");
+      paramsModified = true;
+    }
 
-      if (paramsModified) {
-        const newQueryString = currentSearchParams.toString();
-        const newPath = newQueryString ? `/login?${newQueryString}` : "/login";
-        router.replace(newPath, { scroll: false });
-      }
+    if (paramsModified) {
+      const newQueryString = currentSearchParams.toString();
+      const newPath = newQueryString ? `/login?${newQueryString}` : "/login";
+      router.replace(newPath, { scroll: false });
     }
   }, [searchParams, router, toast, pathname, successMessage]);
 
@@ -99,7 +99,7 @@ export function LoginForm() {
   async function onSubmit(values: LoginFormValues) {
     setIsLoading(true);
     setErrorMessage(null);
-    setSuccessMessage(null);
+    setSuccessMessage(null); 
     let navigated = false;
 
     // Direct credential check without simulated API delay
