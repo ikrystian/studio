@@ -25,7 +25,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
+  DialogDescription as DialogDescriptionComponent, // Renamed to avoid conflict if DialogDescription is also used from alert
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
@@ -34,18 +34,18 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
+  AlertDialogDescription as AlertDialogDescriptionComponent, // Renamed
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger, // Added AlertDialogTrigger
+  AlertDialogTrigger, 
 } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AddEditPortionDialog, type Portion } from "@/components/hydration/add-edit-portion-dialog";
-import { Alert, AlertTitle } from "@/components/ui/alert"; // Added Alert and AlertTitle
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"; // Added AlertDescription
 
 
 const LOCAL_STORAGE_KEY = "workoutWiseHydrationData";
@@ -362,9 +362,9 @@ export default function HydrationTrackingPage() {
                 <AlertDialogContent>
                   <AlertDialogHeader>
                     <AlertDialogTitle>Zresetować dzisiejsze spożycie?</AlertDialogTitle>
-                    <AlertDialogDescription>
+                    <AlertDialogDescriptionComponent>
                       Czy na pewno chcesz usunąć wszystkie dzisiejsze wpisy dotyczące spożycia wody? Tej akcji nie można cofnąć.
-                    </AlertDialogDescription>
+                    </AlertDialogDescriptionComponent>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Anuluj</AlertDialogCancel>
@@ -438,9 +438,9 @@ export default function HydrationTrackingPage() {
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
                 <DialogTitle>Ustaw Dzienny Cel Nawodnienia</DialogTitle>
-                <DialogDescription>
+                <DialogDescriptionComponent>
                   Podaj swój docelowy dzienny limit spożycia wody w mililitrach.
-                </DialogDescription>
+                </DialogDescriptionComponent>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-4 items-center gap-4">
@@ -476,9 +476,9 @@ export default function HydrationTrackingPage() {
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Usunąć własną porcję?</AlertDialogTitle>
-                <AlertDialogDescription>
+                <AlertDialogDescriptionComponent>
                   Czy na pewno chcesz usunąć porcję "{portionToDelete?.name} ({portionToDelete?.amount}ml)"?
-                </AlertDialogDescription>
+                </AlertDialogDescriptionComponent>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel onClick={() => setPortionToDelete(null)}>Anuluj</AlertDialogCancel>
