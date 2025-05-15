@@ -46,9 +46,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger, // Added AlertDialogTrigger
+  AlertDialogTrigger, // Ensure this is imported
 } from "@/components/ui/alert-dialog";
-import type { UserPrivacySettings } from "@/components/profile/profile-privacy-settings-dialog"; // Import UserPrivacySettings
+import type { UserPrivacySettings } from "@/components/profile/profile-privacy-settings-dialog";
 
 // Mock data structures
 interface MockActivityItem {
@@ -93,10 +93,9 @@ interface MockUserProfile {
   activities?: MockActivityItem[];
   friends?: MockFriend[];
   sharedPlans?: MockSharedPlan[];
-  privacySettings?: UserPrivacySettings; // Added privacy settings
+  privacySettings?: UserPrivacySettings;
 }
 
-// Mock user data
 const MOCK_USER_PROFILES_DB: MockUserProfile[] = [
   {
     id: "current_user_id",
