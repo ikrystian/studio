@@ -22,7 +22,7 @@ import {
   PlusSquare,
   Copy,
   ClipboardList,
-  Edit3, // Keep Edit3 if we are using its icon
+  Edit3, 
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -54,14 +54,14 @@ import {
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-// import { ExerciseSelectionDialog, type Exercise as SelectableExerciseType } from "@/components/workout/exercise-selection-dialog";
-// import { QuickAddExerciseDialog, type QuickAddExerciseFormData } from "@/components/workout/quick-add-exercise-dialog";
 import type { Exercise as SelectableExerciseType } from "@/components/workout/exercise-selection-dialog";
 import type { QuickAddExerciseFormData } from "@/components/workout/quick-add-exercise-dialog";
 
-import { MOCK_EXERCISES_DATABASE } from "@/lib/mockData"; // Updated import
+// MOCK_EXERCISES_DATABASE is now imported from centralized mockData
+import { MOCK_EXERCISES_DATABASE } from "@/lib/mockData";
 import { CreateWorkoutPageSkeleton } from "@/components/workout/CreateWorkoutPageSkeleton";
 
+// Lazy load dialogs
 const ExerciseSelectionDialog = dynamic(() =>
   import("@/components/workout/exercise-selection-dialog").then((mod) => mod.ExerciseSelectionDialog), {
   loading: () => <div className="fixed inset-0 bg-background/50 flex items-center justify-center z-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>,
@@ -76,12 +76,12 @@ const QuickAddExerciseDialog = dynamic(() =>
 
 
 const exerciseInWorkoutSchema = z.object({
-  id: z.string(),
+  id: z.string(), // Exercise ID from the database/master list
   name: z.string().min(1, "Nazwa ćwiczenia jest wymagana."),
   sets: z.union([z.coerce.number({invalid_type_error: "Serie muszą być liczbą."}).positive("Liczba serii musi być dodatnia.").optional().nullable(), z.literal("")]),
-  reps: z.string().optional().nullable(),
+  reps: z.string().optional().nullable(), // Can be "8-10", "Max", "30s", etc.
   restTimeSeconds: z.union([z.coerce.number({invalid_type_error: "Czas odpoczynku musi być liczbą."}).int("Czas odpoczynku musi być liczbą całkowitą.").min(0, "Czas odpoczynku nie może być ujemny.").optional().nullable(), z.literal("")]),
-  targetRpe: z.string().optional().nullable(),
+  targetRpe: z.string().optional().nullable(), // Target RPE, e.g., "7-8"
   exerciseNotes: z.string().optional().nullable(),
 });
 
@@ -89,7 +89,7 @@ export type ExerciseInWorkoutFormValues = z.infer<typeof exerciseInWorkoutSchema
 
 const workoutFormSchema = z.object({
   workoutName: z.string().min(1, "Nazwa treningu jest wymagana."),
-  workoutType: z.string().optional(),
+  workoutType: z.string().optional(), // e.g., "Siłowy", "Cardio"
   exercises: z.array(exerciseInWorkoutSchema).min(1, "Trening musi zawierać przynajmniej jedno ćwiczenie."),
 });
 
@@ -99,20 +99,22 @@ type WorkoutFormValues = z.infer<typeof workoutFormSchema>;
 export default function CreateWorkoutPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [pageIsLoading, setPageIsLoading] = React.useState(true); // For skeleton
-  const [isLoading, setIsLoading] = React.useState(false); // For form submission
+  const [pageIsLoading, setPageIsLoading] = React.useState(true);
+  const [isLoading, setIsLoading] = React.useState(false); // For form submission itself
   const [serverError, setServerError] = React.useState<string | null>(null);
   
   const [isExerciseSelectionDialogOpen, setIsExerciseSelectionDialogOpen] = React.useState(false);
   const [isQuickAddExerciseDialogOpen, setIsQuickAddExerciseDialogOpen] = React.useState(false);
 
+  // This list simulates a global exercise database that can be updated by Quick Add.
+  // In a real app, Quick Add would likely call an API to add to a central DB.
   const [masterExerciseList, setMasterExerciseList] = React.useState<SelectableExerciseType[]>(MOCK_EXERCISES_DATABASE);
 
   const form = useForm<WorkoutFormValues>({
     resolver: zodResolver(workoutFormSchema),
     defaultValues: {
       workoutName: "",
-      workoutType: "Mieszany",
+      workoutType: "Mieszany", // Default workout type
       exercises: [],
     },
   });
@@ -122,8 +124,9 @@ export default function CreateWorkoutPage() {
     name: "exercises",
   });
 
+  // Simulate page loading
   React.useEffect(() => {
-    const timer = setTimeout(() => setPageIsLoading(false), 750); // Simulate loading
+    const timer = setTimeout(() => setPageIsLoading(false), 750);
     return () => clearTimeout(timer);
   }, []);
 
@@ -132,20 +135,23 @@ export default function CreateWorkoutPage() {
     setIsExerciseSelectionDialogOpen(true);
   };
 
+  // Called when exercises are selected from the dialog.
   const handleExercisesSelected = (selectedExercises: { id: string; name: string }[]) => {
     const exercisesToAppend = selectedExercises.map(ex => ({
         id: ex.id,
         name: ex.name,
-        sets: "",
+        // Default empty values for other fields, user will fill them.
+        sets: "", // Changed to empty string to match schema if expecting coerce
         reps: "",
         restTimeSeconds: "",
         targetRpe: "",
         exerciseNotes: "",
     }));
     append(exercisesToAppend);
+    // Clear potential "must have one exercise" error
     if (form.formState.errors.exercises && typeof form.formState.errors.exercises.message === 'string') {
-        form.clearErrors("exercises.root.message" as any);
-        form.clearErrors("exercises");
+        form.clearErrors("exercises.root.message" as any); // For array-level error
+        form.clearErrors("exercises"); // General array error
     }
   };
 
@@ -165,15 +171,19 @@ export default function CreateWorkoutPage() {
     setIsQuickAddExerciseDialogOpen(true);
   };
 
+  // Called when a new exercise is quickly created.
+  // This simulates adding the new exercise to a global database and then to the current workout.
   const handleQuickExerciseCreated = (newExerciseData: QuickAddExerciseFormData) => {
     const newDbExercise: SelectableExerciseType = {
-      id: uuidv4(),
+      id: uuidv4(), // Generate a unique ID for the new exercise
       name: newExerciseData.name,
-      category: newExerciseData.category || "Inne",
+      category: newExerciseData.category || "Inne", // Default category if not provided
     };
     
+    // Simulate adding to a master list (in a real app, this would be an API call)
     setMasterExerciseList(prev => [...prev, newDbExercise]);
 
+    // Add the new exercise to the current workout form
     append({
       id: newDbExercise.id,
       name: newDbExercise.name,
@@ -189,14 +199,16 @@ export default function CreateWorkoutPage() {
       description: `"${newDbExercise.name}" zostało dodane do bazy i obecnego treningu.`,
     });
     setIsQuickAddExerciseDialogOpen(false);
+    // Clear potential "must have one exercise" error
     if (form.formState.errors.exercises && typeof form.formState.errors.exercises.message === 'string') {
         form.clearErrors("exercises.root.message" as any);
         form.clearErrors("exercises");
     }
   };
 
+  // Simulates copying parameters from the previous exercise to the current one.
   const handleCopyFromPrevious = (index: number) => {
-    if (index === 0) return;
+    if (index === 0) return; // Cannot copy if it's the first exercise
 
     const previousExerciseData = form.getValues(`exercises.${index - 1}`);
     
@@ -212,7 +224,9 @@ export default function CreateWorkoutPage() {
     });
   };
   
+  // Simulates loading mock default parameters for an exercise.
   const handleLoadMockDefaults = (index: number) => {
+    // These are just example defaults.
     form.setValue(`exercises.${index}.sets`, 3);
     form.setValue(`exercises.${index}.reps`, "10");
     form.setValue(`exercises.${index}.restTimeSeconds`, 60);
@@ -225,13 +239,21 @@ export default function CreateWorkoutPage() {
   };
 
 
+  // Simulates saving the workout to a backend.
   async function onSubmit(values: WorkoutFormValues) {
     setIsLoading(true);
     setServerError(null);
-    console.log("Workout data submitted:", values);
-    console.log("Current Master Exercise List:", masterExerciseList);
+    console.log("Workout data submitted (simulated save):", values);
+    // In a real app, an API call would be made here.
+    // MOCK_EXERCISES_DATABASE would be updated if new exercises were added via Quick Add.
+    console.log("Current Master Exercise List (simulated DB state):", masterExerciseList);
 
+    // Simulate network delay
     await new Promise(resolve => setTimeout(resolve, 1500));
+
+    // Here, you might add the created workout to a list in localStorage or a global state
+    // for demonstration purposes, e.g., to make it appear on the "Start Workout" page.
+    // For this prototype, we'll just show a success message and redirect.
 
     toast({
       title: "Trening zapisany (Symulacja)!",
@@ -239,7 +261,7 @@ export default function CreateWorkoutPage() {
       variant: "default",
       duration: 3000,
     });
-    router.push("/dashboard/workout/start");
+    router.push("/dashboard/workout/start"); // Redirect after successful "save"
     setIsLoading(false);
   }
 
@@ -259,7 +281,6 @@ export default function CreateWorkoutPage() {
                 <span className="sr-only">Powrót do wyboru treningu</span>
               </Link>
             </Button>
-            {/* <Dumbbell className="h-7 w-7 text-primary" /> */}
             <h1 className="text-xl font-bold">Stwórz Nowy Trening</h1>
           </div>
           <div className="flex items-center gap-2">
@@ -515,7 +536,7 @@ export default function CreateWorkoutPage() {
       <ExerciseSelectionDialog
         isOpen={isExerciseSelectionDialogOpen}
         onOpenChange={setIsExerciseSelectionDialogOpen}
-        availableExercises={masterExerciseList}
+        availableExercises={masterExerciseList} // Use the state that can be updated
         onExercisesSelected={handleExercisesSelected}
       />
       <QuickAddExerciseDialog

@@ -19,25 +19,29 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
-import { SettingsHealthIntegrationsPageSkeleton } from "@/components/settings/SettingsHealthIntegrationsPageSkeleton"; // Import skeleton
+import { SettingsHealthIntegrationsPageSkeleton } from "@/components/settings/SettingsHealthIntegrationsPageSkeleton";
 
+// Interface for the status of a health integration (e.g., Apple Health, Google Fit)
 interface IntegrationStatus {
   connected: boolean;
-  lastSync?: Date | null;
+  lastSync?: Date | null; // Stores the timestamp of the last successful synchronization
 }
 
+// Interface for all health integration settings managed on this page
 interface HealthIntegrationSettings {
   appleHealth: IntegrationStatus;
   googleFit: IntegrationStatus;
-  syncWorkouts: boolean;
-  syncWeight: boolean;
-  syncSleep: boolean; 
+  syncWorkouts: boolean; // Sync completed workouts
+  syncWeight: boolean;   // Sync weight measurements
+  syncSleep: boolean;    // Sync sleep data
 }
 
+// Key for storing these settings in localStorage
 const LOCAL_STORAGE_KEY = "workoutWiseHealthIntegrationSettings";
 
 export default function HealthIntegrationsPage() {
   const { toast } = useToast();
+  // State for managing the health integration settings
   const [settings, setSettings] = React.useState<HealthIntegrationSettings>({
     appleHealth: { connected: false, lastSync: null },
     googleFit: { connected: false, lastSync: null },
@@ -45,11 +49,14 @@ export default function HealthIntegrationsPage() {
     syncWeight: true,
     syncSleep: false,
   });
-  const [pageIsLoading, setPageIsLoading] = React.useState(true); // isLoading renamed to pageIsLoading
+  const [pageIsLoading, setPageIsLoading] = React.useState(true);
 
+  // Effect to load settings from localStorage on component mount
   React.useEffect(() => {
     setPageIsLoading(true);
-    const timer = setTimeout(() => { // Simulate loading delay
+    const timer = setTimeout(() => { 
+      // Simulate loading settings from localStorage.
+      // In a real app, this might be an API call to a backend.
       try {
         const storedSettings = localStorage.getItem(LOCAL_STORAGE_KEY);
         if (storedSettings) {
@@ -68,10 +75,12 @@ export default function HealthIntegrationsPage() {
      return () => clearTimeout(timer);
   }, [toast]);
 
+  // Saves the current settings to localStorage.
+  // This simulates a backend save operation.
   const saveSettings = (newSettings: HealthIntegrationSettings) => {
     try {
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newSettings));
-      setSettings(newSettings); 
+      setSettings(newSettings); // Update local component state
       toast({
         title: "Ustawienia Zapisane",
         description: "Twoje preferencje integracji zostały zaktualizowane.",
@@ -86,17 +95,21 @@ export default function HealthIntegrationsPage() {
     }
   };
 
+  // Toggles the connection status for a given service (Apple Health or Google Fit).
+  // Simulates the OAuth flow and connection process.
   const handleToggleConnection = (service: "appleHealth" | "googleFit") => {
     const currentStatus = settings[service].connected;
     const newSettings = {
       ...settings,
       [service]: {
         connected: !currentStatus,
-        lastSync: !currentStatus ? new Date() : null, 
+        lastSync: !currentStatus ? new Date() : null, // Set lastSync on connect, clear on disconnect
       },
     };
     saveSettings(newSettings);
 
+    // Simulate the connection/disconnection toast message.
+    // A real app would handle OAuth redirects and API calls here.
     toast({
       title: `${service === "appleHealth" ? "Apple Health" : "Google Fit"}`,
       description: `Symulacja ${!currentStatus ? "połączenia" : "rozłączenia"}. W prawdziwej aplikacji tutaj nastąpiłby proces autoryzacji.`,
@@ -104,6 +117,7 @@ export default function HealthIntegrationsPage() {
     });
   };
 
+  // Toggles individual data synchronization options (workouts, weight, sleep).
   const handleToggleSyncOption = (option: keyof Pick<HealthIntegrationSettings, "syncWorkouts" | "syncWeight" | "syncSleep">) => {
     const newSettings = {
       ...settings,
@@ -118,21 +132,6 @@ export default function HealthIntegrationsPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      {/* <header className="sticky top-16 z-30 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/50">
-        <div className="container mx-auto flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" asChild>
-              <Link href="/dashboard/settings">
-                <ArrowLeft className="h-5 w-5" />
-                <span className="sr-only">Powrót do Ustawień</span>
-              </Link>
-            </Button>
-            <Activity className="h-7 w-7 text-primary" />
-            <h1 className="text-xl font-bold">Integracje z Aplikacjami Zdrowotnymi</h1>
-          </div>
-        </div>
-      </header> */}
-
       <main className="flex-1 p-4 sm:p-6 lg:p-8">
         <div className="container mx-auto max-w-2xl space-y-8">
           <Alert>
@@ -197,6 +196,7 @@ export default function HealthIntegrationsPage() {
             </CardContent>
           </Card>
 
+          {/* Show sync options only if at least one service is connected */}
           {(settings.appleHealth.connected || settings.googleFit.connected) && (
             <Card>
               <CardHeader>
@@ -256,5 +256,3 @@ export default function HealthIntegrationsPage() {
     </div>
   );
 }
-
-    

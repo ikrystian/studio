@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import Link from 'next/link';
-import { useParams, useRouter, useSearchParams } from 'next/navigation'; // Added useSearchParams
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { format, parseISO, isValid } from "date-fns";
 import { pl } from "date-fns/locale";
 import { Button } from '@/components/ui/button';
@@ -14,9 +14,11 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ArrowLeft, Info, History as HistoryIcon, Loader2, Dumbbell, Clock, TrendingUp, ListOrdered, RotateCcw, Edit3, Target } from 'lucide-react';
 import { WorkoutSessionDetailSkeleton } from "@/components/history/WorkoutSessionDetailSkeleton";
-import { MOCK_HISTORY_SESSIONS, type HistoricalWorkoutSession, type RecordedSet } from "@/lib/mockData"; // Import from centralized mockData
-import { useToast } from "@/hooks/use-toast"; // Import useToast
+// Import mock data and types from the centralized location
+import { MOCK_HISTORY_SESSIONS, type HistoricalWorkoutSession, type RecordedSet } from "@/lib/mockData";
+import { useToast } from "@/hooks/use-toast";
 
+// Helper to format time from seconds to a readable string
 const formatTime = (totalSeconds: number) => {
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -25,6 +27,7 @@ const formatTime = (totalSeconds: number) => {
   return `${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
 };
 
+// Calculates the total volume for a single exercise based on its recorded sets.
 const calculateExerciseVolume = (sets: RecordedSet[]): number => {
   let volume = 0;
   sets.forEach(set => {
@@ -40,19 +43,22 @@ const calculateExerciseVolume = (sets: RecordedSet[]): number => {
 export default function WorkoutSessionDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const searchParams = useSearchParams(); // Get search params
-  const { toast } = useToast(); // Initialize toast
+  const searchParams = useSearchParams(); // Get search params for potential future use (e.g., `?source=plan`)
+  const { toast } = useToast();
   const sessionId = params.sessionId as string;
 
   const [sessionData, setSessionData] = React.useState<HistoricalWorkoutSession | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
+  // Effect to fetch (simulate fetching) session data based on sessionId
   React.useEffect(() => {
     setIsLoading(true);
     setError(null);
-    // Simulate data fetching
+    // Simulate data fetching delay.
     const timer = setTimeout(() => {
+      // In a real app, this would be an API call: fetch(`/api/history/${sessionId}`)
+      // For this prototype, we find the session in our MOCK_HISTORY_SESSIONS.
       const foundSession = MOCK_HISTORY_SESSIONS.find(s => s.id === sessionId);
       if (foundSession) {
         setSessionData(foundSession);
@@ -65,12 +71,16 @@ export default function WorkoutSessionDetailPage() {
         });
       }
       setIsLoading(false);
-    }, 750); 
+    }, 750); // Simulate 750ms loading time
     return () => clearTimeout(timer);
   }, [sessionId, toast]);
 
+  // Handles the "Repeat Workout" button click.
+  // It navigates to the active workout page, passing the original workoutId and current sessionId
+  // as query parameters. The active workout page can then use these to pre-fill the workout.
   const handleRepeatWorkout = () => {
     if (sessionData) {
+      // This query param tells the active workout page to load data from this specific past session.
       router.push(`/dashboard/workout/active/${sessionData.workoutId}?repeatSessionId=${sessionData.id}`);
     }
   };
@@ -97,7 +107,8 @@ export default function WorkoutSessionDetailPage() {
   }
 
   if (!sessionData) {
-    // Should be caught by error state, but as a fallback
+    // This case should ideally be caught by the error state if a session isn't found.
+    // It serves as a fallback if `foundSession` is null but `error` wasn't set.
     return (
         <div className="flex min-h-screen flex-col items-center justify-center bg-background p-6 text-foreground">
              <Alert variant="destructive" className="max-w-lg">
@@ -138,6 +149,7 @@ export default function WorkoutSessionDetailPage() {
       
       <main className="flex-1 py-6 px-4 sm:px-6 lg:px-8">
         <div className="container mx-auto max-w-3xl space-y-6">
+          {/* Overview Card: Displays general session information */}
           <Card>
             <CardHeader>
               <CardTitle className="text-2xl">{sessionData.workoutName}</CardTitle>
@@ -160,6 +172,7 @@ export default function WorkoutSessionDetailPage() {
                   <TrendingUp className="h-5 w-5 text-primary" />
                   <div>
                     <p className="font-medium">Całkowita Objętość</p>
+                    {/* Total volume is pre-calculated in mock data; real app might calculate here or store it. */}
                     <p>{sessionData.calculatedTotalVolume.toLocaleString('pl-PL')} kg</p>
                   </div>
                 </div>
@@ -182,17 +195,19 @@ export default function WorkoutSessionDetailPage() {
             </CardContent>
           </Card>
 
+          {/* Exercises Card: Lists all exercises performed and their sets */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><ListOrdered className="h-6 w-6 text-primary"/>Wykonane Ćwiczenia</CardTitle>
             </CardHeader>
             <CardContent>
+              {/* Filter out exercises that have no recorded sets to avoid empty entries */}
               {sessionData.exercises.filter(ex => sessionData.recordedSets[ex.id]?.length > 0).length > 0 ? (
-                <ScrollArea className="max-h-[60vh] pr-3">
+                <ScrollArea className="max-h-[60vh] pr-3"> {/* Scroll for long lists */}
                   <ul className="space-y-6">
                     {sessionData.exercises.map((exercise) => {
                       const sets = sessionData.recordedSets[exercise.id];
-                      if (!sets || sets.length === 0) return null;
+                      if (!sets || sets.length === 0) return null; // Skip if no sets recorded for this exercise
                       
                       const exerciseVolume = calculateExerciseVolume(sets);
 
@@ -202,14 +217,14 @@ export default function WorkoutSessionDetailPage() {
                             <Dumbbell className="h-5 w-5 text-primary/80"/>
                             {exercise.name}
                           </h3>
-                          {exerciseVolume > 0 && (
+                          {exerciseVolume > 0 && ( // Only show volume if it's calculable
                               <p className="text-xs text-muted-foreground mb-2">Objętość dla ćwiczenia: {exerciseVolume.toLocaleString('pl-PL')} kg</p>
                           )}
                           <Table className="text-xs sm:text-sm">
                             <TableHeader>
                               <TableRow>
                                 <TableHead className="w-[15%]">Seria</TableHead>
-                                <TableHead className="w-[25%]">Ciężar</TableHead>
+                                <TableHead className="w-[25%]">Ciężar/Intens.</TableHead>
                                 <TableHead className="w-[25%]">Powt./Czas</TableHead>
                                 <TableHead className="w-[15%] text-center">RPE</TableHead>
                                 <TableHead className="w-[20%]">Notatki</TableHead>

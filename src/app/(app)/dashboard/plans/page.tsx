@@ -10,18 +10,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dumbbell, Search, ListFilter, ArrowLeft, PlusCircle, Target, CalendarClock, BookOpen, Loader2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { TrainingPlansPageSkeleton } from '@/components/plans/TrainingPlansPageSkeleton'; // Added import
+import { TrainingPlansPageSkeleton } from '@/components/plans/TrainingPlansPageSkeleton';
 
+// Interface for a training plan summary displayed on this list page.
 interface TrainingPlan {
   id: string;
   name: string;
   description: string;
   goal: string; 
   duration: string; 
-  icon?: React.ElementType;
+  icon?: React.ElementType; // For a visual cue, optional
 }
 
-// Placeholder for StretchHorizontal if not in lucide-react or if custom SVG is preferred
+// Placeholder icon for "StretchHorizontal" if not available in Lucide or if a custom SVG is preferred.
 function StretchHorizontalIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
@@ -30,6 +31,8 @@ function StretchHorizontalIcon(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+// MOCK_TRAINING_PLANS: Simulates data that would be fetched from a backend.
+// In a real application, this would be replaced with an API call in a useEffect hook.
 const MOCK_TRAINING_PLANS: TrainingPlan[] = [
   {
     id: 'plan1',
@@ -65,6 +68,7 @@ const MOCK_TRAINING_PLANS: TrainingPlan[] = [
   },
 ];
 
+// Options for the goal filter dropdown.
 const PLAN_GOALS_FILTER_OPTIONS = [
     "Wszystkie", 
     "Budowa podstawowej siły i masy mięśniowej", 
@@ -74,18 +78,22 @@ const PLAN_GOALS_FILTER_OPTIONS = [
 ];
 
 export default function TrainingPlansPage() {
-  const [isLoading, setIsLoading] = React.useState(true); // Added loading state
+  const [isLoading, setIsLoading] = React.useState(true);
   const [searchTerm, setSearchTerm] = React.useState('');
   const [selectedGoal, setSelectedGoal] = React.useState(PLAN_GOALS_FILTER_OPTIONS[0]);
 
+  // Simulate data fetching with a delay to show the skeleton.
   React.useEffect(() => {
-    // Simulate data fetching
+    // In a real app, you would fetch data here, e.g., from an API.
+    // For now, we just simulate the loading process.
     const timer = setTimeout(() => {
       setIsLoading(false);
-    }, 750); // Adjust delay as needed
+    }, 750); // Simulate 750ms loading time
     return () => clearTimeout(timer);
   }, []);
 
+  // Memoized filtering of plans based on search term and selected goal.
+  // This client-side filtering works with the MOCK_TRAINING_PLANS.
   const filteredPlans = React.useMemo(() => {
     return MOCK_TRAINING_PLANS.filter(plan => {
       const matchesSearch = plan.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -101,28 +109,6 @@ export default function TrainingPlansPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      {/* Header part of AppLayout */}
-      {/* <header className="sticky top-16 z-30 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/50">
-        <div className="container mx-auto flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" asChild>
-              <Link href="/dashboard">
-                <ArrowLeft className="h-5 w-5" />
-                <span className="sr-only">Powrót do Panelu</span>
-              </Link>
-            </Button>
-            <BookOpen className="h-7 w-7 text-primary" />
-            <h1 className="text-xl font-bold">Plany Treningowe</h1>
-          </div>
-          <Button asChild>
-            <Link href="/dashboard/plans/create">
-              <PlusCircle className="mr-2 h-5 w-5" />
-              Nowy Plan
-            </Link>
-          </Button>
-        </div>
-      </header> */}
-
       <main className="flex-1 py-6 px-4 sm:px-6 lg:px-8">
         <div className="container mx-auto">
           <section className="mb-6 flex justify-between items-center">
@@ -170,7 +156,7 @@ export default function TrainingPlansPage() {
             <ScrollArea className="h-[calc(100vh-25rem)] pr-4"> 
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {filteredPlans.map((plan) => {
-                  const IconComponent = plan.icon || Dumbbell;
+                  const IconComponent = plan.icon || Dumbbell; // Default to Dumbbell if no icon specified
                   return (
                     <Card key={plan.id} className="flex flex-col hover:shadow-lg transition-shadow duration-200">
                       <CardHeader>
@@ -220,4 +206,3 @@ export default function TrainingPlansPage() {
     </div>
   );
 }
-

@@ -17,9 +17,9 @@ import {
   Clock,
   Dumbbell,
   Activity,
-  BarChart,
+  BarChart, // Assuming BarChart can represent 'Rozciąganie' or 'Inny' if needed
   RotateCcw, 
-  FileDown, 
+  FileDown, // For CSV export icon
   Loader2,
 } from "lucide-react";
 
@@ -48,21 +48,23 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 // Import types and mock data from centralized location
 import { MOCK_HISTORY_SESSIONS, type HistoricalWorkoutSession, type RecordedSet, type ExerciseInWorkout } from "@/lib/mockData";
-import { WorkoutHistoryPageSkeleton } from "@/components/history/WorkoutHistoryPageSkeleton"; // Added import
+import { WorkoutHistoryPageSkeleton } from "@/components/history/WorkoutHistoryPageSkeleton";
 
 
 const WORKOUT_TYPES = ["Wszystkie", "Siłowy", "Cardio", "Mieszany", "Rozciąganie", "Inny"];
-const ITEMS_PER_PAGE = 5;
+const ITEMS_PER_PAGE = 5; // For pagination
 
+// Define colors for workout types for the calendar view
 const WORKOUT_TYPE_COLORS: Record<string, string> = {
   "Siłowy": "bg-blue-500",
   "Cardio": "bg-green-500",
   "Rozciąganie": "bg-yellow-500",
   "Mieszany": "bg-purple-500",
   "Inny": "bg-gray-500",
-  "default": "bg-slate-400",
+  "default": "bg-slate-400", // Fallback color
 };
 
+// Helper to format time from seconds to a readable string
 const formatTime = (totalSeconds: number) => {
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -73,20 +75,25 @@ const formatTime = (totalSeconds: number) => {
 
 export default function WorkoutHistoryPage() {
   const { toast } = useToast();
+  // Holds all historical sessions, loaded once.
   const [allSessions, setAllSessions] = React.useState<HistoricalWorkoutSession[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
 
+  // State for filtering and pagination
   const [searchTerm, setSearchTerm] = React.useState("");
   const [selectedType, setSelectedType] = React.useState("Wszystkie");
   const [filterStartDate, setFilterStartDate] = React.useState<Date | undefined>(undefined);
   const [filterEndDate, setFilterEndDate] = React.useState<Date | undefined>(undefined);
   const [currentPage, setCurrentPage] = React.useState(1);
 
+  // State for calendar view
   const [calendarViewMonth, setCalendarViewMonth] = React.useState(new Date());
 
+  // Effect to load initial data (simulated fetch)
   React.useEffect(() => {
     setIsLoading(true);
-    // Simulate fetching data
+    // Simulate fetching data from a backend or global state.
+    // Here, we're just using MOCK_HISTORY_SESSIONS.
     setTimeout(() => {
       setAllSessions(MOCK_HISTORY_SESSIONS);
       setIsLoading(false);
@@ -94,14 +101,18 @@ export default function WorkoutHistoryPage() {
   }, []);
 
 
+  // Memoized calculation for filtered sessions based on current filter states.
+  // This re-runs whenever `allSessions` or any filter state changes.
   const filteredSessions = React.useMemo(() => {
     return allSessions.filter((session) => {
+      // Validate session date before parsing
       const sessionDate = parseISO(session.startTime);
-      if (!isValid(sessionDate)) return false;
+      if (!isValid(sessionDate)) return false; // Skip invalid dates
 
       const matchesSearch = session.workoutName.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesType = selectedType === "Wszystkie" || session.workoutType === selectedType;
       
+      // Date filtering logic
       let matchesDate = true;
       if (filterStartDate && sessionDate < startOfDay(filterStartDate)) {
         matchesDate = false;
@@ -110,15 +121,17 @@ export default function WorkoutHistoryPage() {
         matchesDate = false;
       }
       return matchesSearch && matchesType && matchesDate;
-    }).sort((a,b) => parseISO(b.startTime).getTime() - parseISO(a.startTime).getTime());
+    }).sort((a,b) => parseISO(b.startTime).getTime() - parseISO(a.startTime).getTime()); // Sort newest first
   }, [allSessions, searchTerm, selectedType, filterStartDate, filterEndDate]);
 
+  // Pagination logic
   const totalPages = Math.ceil(filteredSessions.length / ITEMS_PER_PAGE);
   const paginatedSessions = filteredSessions.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   );
 
+  // Filter change handlers - reset to page 1 when filters change
   const handleTypeChange = (value: string) => {
     setSelectedType(value);
     setCurrentPage(1);
@@ -148,39 +161,44 @@ export default function WorkoutHistoryPage() {
     toast({ title: "Filtry wyczyszczone", description: "Wyświetlono wszystkie historyczne sesje." });
   };
 
+  // Helper to get an icon for workout type
   const getWorkoutTypeIcon = (type: string) => {
     switch (type) {
       case "Siłowy": return <Dumbbell className="h-4 w-4 text-muted-foreground" />;
       case "Cardio": return <Activity className="h-4 w-4 text-muted-foreground" />;
-      case "Rozciąganie": return <BarChart className="h-4 w-4 text-muted-foreground transform rotate-90" />; 
-      default: return <FileText className="h-4 w-4 text-muted-foreground" />;
+      case "Rozciąganie": return <BarChart className="h-4 w-4 text-muted-foreground transform rotate-90" />; // Using BarChart for "Stretch" as a placeholder
+      default: return <FileText className="h-4 w-4 text-muted-foreground" />; // Default icon
     }
   };
   
+  // Handles CSV export of filtered sessions.
+  // This is a client-side operation.
   const handleExportToCSV = () => {
     if (filteredSessions.length === 0) {
         toast({ title: "Brak danych do eksportu", variant: "destructive" });
         return;
     }
     let csvContent = "data:text/csv;charset=utf-8,";
+    // Define headers for CSV
     const headers = [
         "ID Sesji", "Nazwa Treningu", "Typ Treningu", "Data Rozpoczęcia", "Data Zakończenia", 
         "Całkowity Czas (s)", "Całkowita Objętość (kg)", "Trudność", "Notatki Ogólne",
-        "Nazwa Ćwiczenia", "Numer Serii", "Ciężar", "Powtórzenia", "RPE", "Notatki do Serii"
+        "Nazwa Ćwiczenia", "Numer Serii", "Ciężar", "Powtórzenia/Czas", "RPE", "Notatki do Serii"
     ];
     csvContent += headers.join(";") + "\r\n";
 
+    // Iterate over each session and its exercises/sets
     filteredSessions.forEach(session => {
         session.exercises.forEach(exercise => {
             const sets = session.recordedSets[exercise.id] || [];
-            if (sets.length === 0) { 
+            if (sets.length === 0) { // If an exercise has no sets, still include a row for the exercise in the session
                  const row = [
                     session.id, session.workoutName, session.workoutType, 
                     format(parseISO(session.startTime), "yyyy-MM-dd HH:mm:ss"), 
                     format(parseISO(session.endTime), "yyyy-MM-dd HH:mm:ss"),
                     session.totalTimeSeconds.toString(), session.calculatedTotalVolume.toString(),
                     session.difficulty || "", session.generalNotes || "",
-                    exercise.name, "", "", "", "", "" 
+                    exercise.name, "", "", "", "", "" // Empty fields for set details
                 ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(";");
                 csvContent += row + "\r\n";
             } else {
@@ -193,11 +211,12 @@ export default function WorkoutHistoryPage() {
                         session.difficulty || "", session.generalNotes || "",
                         exercise.name, set.setNumber.toString(), String(set.weight), String(set.reps), 
                         set.rpe?.toString() || "", set.notes || ""
-                    ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(";");
+                    ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(";"); // Escape quotes and ensure string
                     csvContent += row + "\r\n";
                 });
             }
         });
+         // If a session has no exercises listed but has general data (edge case)
          if (session.exercises.length === 0) { 
              const row = [
                 session.id, session.workoutName, session.workoutType, 
@@ -205,12 +224,13 @@ export default function WorkoutHistoryPage() {
                 format(parseISO(session.endTime), "yyyy-MM-dd HH:mm:ss"),
                 session.totalTimeSeconds.toString(), session.calculatedTotalVolume.toString(),
                 session.difficulty || "", session.generalNotes || "",
-                "", "", "", "", "", "" 
+                "", "", "", "", "", "" // Empty for exercise/set details
             ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(";");
             csvContent += row + "\r\n";
         }
     });
 
+    // Create and trigger download link
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -222,16 +242,20 @@ export default function WorkoutHistoryPage() {
   };
 
 
+  // Prepare data for the calendar view
+  // This groups workout types by date for displaying dots on the calendar.
   const firstDayCurrentMonth = startOfMonth(calendarViewMonth);
   const lastDayCurrentMonth = endOfMonth(calendarViewMonth);
   const daysInMonth = React.useMemo(() => eachDayOfInterval({ start: firstDayCurrentMonth, end: lastDayCurrentMonth }), [firstDayCurrentMonth, lastDayCurrentMonth]);
   
-  let startingDayOfWeek = getDay(firstDayCurrentMonth); 
-  if (startingDayOfWeek === 0) startingDayOfWeek = 7; 
+  // Calculate empty cells needed before the first day of the month for calendar grid
+  let startingDayOfWeek = getDay(firstDayCurrentMonth); // Sunday is 0, Monday is 1
+  if (startingDayOfWeek === 0) startingDayOfWeek = 7; // Adjust so Monday is 1 and Sunday is 7
   const daysBeforeMonth = Array.from({ length: startingDayOfWeek - 1 });
 
+  // Memoized map of dates to workout types for efficient calendar rendering.
   const workoutsByDate = React.useMemo(() => {
-    const map = new Map<string, string[]>();
+    const map = new Map<string, string[]>(); // Date string -> array of workout types
     allSessions.forEach(session => {
       try {
         if (!session.startTime || !isValid(parseISO(session.startTime))) {
@@ -278,6 +302,7 @@ export default function WorkoutHistoryPage() {
 
       <main className="flex-1 p-4 sm:p-6 lg:p-8">
         <div className="container mx-auto">
+        {/* Calendar View Card */}
         <Card className="mb-6">
             <CardHeader>
                 <CardTitle>Kalendarz Aktywności</CardTitle>
@@ -295,12 +320,15 @@ export default function WorkoutHistoryPage() {
                     </Button>
                 </div>
                 <div className="grid grid-cols-7 gap-px border-l border-t bg-border">
+                    {/* Day labels (Pn, Wt, etc.) */}
                     {["Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd"].map(dayLabel => (
                         <div key={dayLabel} className="py-2 text-center text-xs font-medium text-muted-foreground bg-card border-b border-r">{dayLabel}</div>
                     ))}
+                    {/* Empty cells for days before start of month */}
                     {daysBeforeMonth.map((_, i) => (
                          <div key={`empty-start-${i}`} className="bg-muted/30 border-b border-r min-h-[60px] sm:min-h-[80px]"></div>
                     ))}
+                    {/* Actual days of the month */}
                     {daysInMonth.map(day => {
                         const dayStr = format(day, "yyyy-MM-dd");
                         const workoutTypesOnDay = workoutsByDate.get(dayStr) || [];
@@ -309,21 +337,23 @@ export default function WorkoutHistoryPage() {
                                 key={day.toString()} 
                                 className={cn(
                                     "p-1.5 sm:p-2 border-b border-r min-h-[60px] sm:min-h-[80px] text-xs relative transition-colors",
-                                    isSameMonth(day, calendarViewMonth) ? "bg-card hover:bg-muted/50" : "bg-muted/30",
+                                    isSameMonth(day, calendarViewMonth) ? "bg-card hover:bg-muted/50" : "bg-muted/30", // Different bg for days not in current month
                                     !isSameMonth(day, calendarViewMonth) && "text-muted-foreground/50"
                                 )}
                             >
                                 <span className={cn("font-medium", isSameDay(day, new Date()) && "text-primary font-bold underline")}>
                                     {format(day, "d")}
                                 </span>
+                                {/* Dots indicating workout types */}
                                 <div className="absolute bottom-1 left-1 right-1 flex justify-center space-x-1">
-                                    {workoutTypesOnDay.slice(0,3).map((type, index) => ( 
+                                    {workoutTypesOnDay.slice(0,3).map((type, index) => ( // Show max 3 dots
                                         <div key={index} title={type} className={`h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full ${WORKOUT_TYPE_COLORS[type] || WORKOUT_TYPE_COLORS.default}`}></div>
                                     ))}
                                 </div>
                             </div>
                         );
                     })}
+                    {/* Empty cells for days after end of month to fill the grid */}
                     {Array.from({ length: (7 - (daysBeforeMonth.length + daysInMonth.length) % 7) % 7 }).map((_, i) => (
                        <div key={`empty-end-${i}`} className="bg-muted/30 border-b border-r min-h-[60px] sm:min-h-[80px]"></div>
                     ))}
@@ -331,6 +361,7 @@ export default function WorkoutHistoryPage() {
             </CardContent>
           </Card>
 
+          {/* Filters Card */}
           <Card className="mb-6">
             <CardHeader>
               <CardTitle>Filtruj Historię</CardTitle>
@@ -420,6 +451,7 @@ export default function WorkoutHistoryPage() {
 
           <Separator className="my-6" />
           
+          {/* Workout List */}
           {paginatedSessions.length > 0 ? (
             <>
               <ScrollArea className="h-[calc(100vh-40rem)] "> {/* Adjust height as needed */}
@@ -462,6 +494,7 @@ export default function WorkoutHistoryPage() {
                 ))}
                 </div>
               </ScrollArea>
+              {/* Pagination Controls */}
               {totalPages > 1 && (
                 <div className="mt-6 flex items-center justify-center space-x-4">
                   <Button
@@ -502,5 +535,3 @@ export default function WorkoutHistoryPage() {
     </div>
   );
 }
-
-    

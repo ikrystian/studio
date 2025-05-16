@@ -3,12 +3,12 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation"; // Added useRouter
+import { useParams, useRouter } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import { pl } from "date-fns/locale";
 import dynamic from 'next/dynamic';
 import {
-  User as UserIcon, // Renamed to avoid conflict with component
+  User as UserIcon, 
   Settings,
   Edit3,
   Users,
@@ -23,10 +23,10 @@ import {
   Mail,
   Info,
   Loader2,
-  ArrowLeft, // For a potential back button if not using global AppHeader one
+  ArrowLeft,
   UserPlus,
   Check,
-  Image as ImageIcon, // Lucide Image icon
+  Image as ImageIcon,
   Dumbbell, 
 } from "lucide-react";
 
@@ -47,46 +47,51 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+// Import mock data and UserProfile type from the centralized location
 import { MOCK_USER_PROFILES_DB, MOCK_CURRENT_USER_PROFILE, type UserProfile } from "@/lib/mockData";
-// import { ProfilePrivacySettingsDialog, type UserPrivacySettings } from "@/components/profile/profile-privacy-settings-dialog";
 import type { UserPrivacySettings } from "@/components/profile/profile-privacy-settings-dialog";
-import { ProfilePageSkeleton } from "@/components/profile/profile-page-skeleton"; // Added import
+import { ProfilePageSkeleton } from "@/components/profile/profile-page-skeleton";
 
+// Lazy load the privacy settings dialog
 const ProfilePrivacySettingsDialog = dynamic(() =>
   import("@/components/profile/profile-privacy-settings-dialog").then((mod) => mod.ProfilePrivacySettingsDialog), {
   loading: () => <div className="fixed inset-0 bg-background/50 flex items-center justify-center z-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>,
   ssr: false
 });
 
-// Key for localStorage
-const PROFILE_PRIVACY_SETTINGS_KEY_PREFIX = "userPrivacySettings_";
-const USER_FOLLOW_STATUS_KEY_PREFIX = "userFollowStatus_";
-const CURRENT_USER_PROFILE_DATA_KEY = "currentUserProfileData";
+// Keys for localStorage items
+const PROFILE_PRIVACY_SETTINGS_KEY_PREFIX = "userPrivacySettings_"; // Stores privacy settings for specific user IDs
+const USER_FOLLOW_STATUS_KEY_PREFIX = "userFollowStatus_"; // Stores follow status for specific user IDs
+const CURRENT_USER_PROFILE_DATA_KEY = "currentUserProfileData"; // Stores the profile data of the currently logged-in user
 
 
 export default function UserProfilePage() {
   const params = useParams();
-  const router = useRouter(); // Added for navigation
+  const router = useRouter();
   const { toast } = useToast();
-  const userId = params.userId as string;
+  const userId = params.userId as string; // Get userId from URL params
 
+  // State for profile data, loading status, follow status, and dialog visibility
   const [profileData, setProfileData] = React.useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isFollowing, setIsFollowing] = React.useState(false);
   const [isPrivacySettingsOpen, setIsPrivacySettingsOpen] = React.useState(false);
 
 
+  // Effect to load user profile data.
+  // This simulates fetching data from a backend or global state.
   React.useEffect(() => {
     setIsLoading(true);
     let userToDisplay: UserProfile | null = null;
 
-    // Simulate a short delay for data fetching for skeleton visibility
+    // Simulate a short delay for data fetching to make skeleton visible
     const fetchData = async () => {
-        await new Promise(resolve => setTimeout(resolve, 500)); // Adjust delay as needed
+        await new Promise(resolve => setTimeout(resolve, 500));
 
         if (typeof window !== 'undefined') {
-            const loggedInUserEmail = localStorage.getItem('loggedInUserEmail');
-            const currentUserProfileStr = localStorage.getItem(CURRENT_USER_PROFILE_DATA_KEY);
+            // Determine which user's data to load based on userId and localStorage
+            const loggedInUserEmail = localStorage.getItem('loggedInUserEmail'); // Email of the currently logged-in user
+            const currentUserProfileStr = localStorage.getItem(CURRENT_USER_PROFILE_DATA_KEY); // Full profile of logged-in user
             let currentUserFromStorage: UserProfile | null = null;
 
             if (currentUserProfileStr) {
@@ -95,68 +100,82 @@ export default function UserProfilePage() {
                 } catch (e) { console.error("Error parsing current user profile from storage", e); }
             }
 
-            if (userId === "current_user_id") {
+            if (userId === "current_user_id") { // If viewing own profile
+                // Prioritize data from localStorage if it matches the logged-in user's email
                 if (currentUserFromStorage && currentUserFromStorage.email === loggedInUserEmail) {
                     userToDisplay = currentUserFromStorage;
                 } else {
+                    // Fallback to mock current user profile if localStorage data is inconsistent or missing
                     userToDisplay = MOCK_CURRENT_USER_PROFILE;
+                    // If the fallback mock matches the logged-in user's email, update localStorage
                     if (loggedInUserEmail === MOCK_CURRENT_USER_PROFILE.email) {
                        localStorage.setItem(CURRENT_USER_PROFILE_DATA_KEY, JSON.stringify(MOCK_CURRENT_USER_PROFILE));
                     }
                 }
-            } else {
+            } else { // If viewing another user's profile
                 userToDisplay = MOCK_USER_PROFILES_DB.find(p => p.id === userId) || null;
             }
         }
 
         if (userToDisplay) {
+          // Load or default privacy settings
           if (!userToDisplay.privacySettings) {
             const storedPrivacy = typeof window !== 'undefined' ? localStorage.getItem(`${PROFILE_PRIVACY_SETTINGS_KEY_PREFIX}${userToDisplay.id}`) : null;
             userToDisplay.privacySettings = storedPrivacy ? JSON.parse(storedPrivacy) : {
-              isActivityPublic: true, isFriendsListPublic: true, isSharedPlansPublic: true
+              isActivityPublic: true, isFriendsListPublic: true, isSharedPlansPublic: true // Default privacy
             };
           }
           setProfileData(userToDisplay);
 
+          // Load follow status if viewing another user's profile
           if (userId !== "current_user_id" && typeof window !== 'undefined') {
             const followStatus = localStorage.getItem(`${USER_FOLLOW_STATUS_KEY_PREFIX}${userId}`);
             setIsFollowing(followStatus === "true");
           }
         } else {
+          // Handle case where user profile is not found
           toast({
             title: "Profil nie znaleziony",
             description: "Nie można załadować danych tego użytkownika.",
             variant: "destructive",
           });
+          // Optionally, redirect: router.push('/dashboard/community/discover');
         }
         setIsLoading(false);
     };
     
     fetchData();
 
-  }, [userId, toast]);
+  }, [userId, toast, router]); // Added router to dependency array
 
+  // Toggles the follow status for the currently viewed profile (if not own profile).
+  // Simulates following/unfollowing by updating localStorage.
   const handleFollowToggle = () => {
-    if (userId === "current_user_id") return; 
+    if (userId === "current_user_id" || !profileData) return; // Cannot follow oneself
 
     const newFollowStatus = !isFollowing;
     setIsFollowing(newFollowStatus);
     if (typeof window !== 'undefined') {
+        // Persist follow status in localStorage
         localStorage.setItem(`${USER_FOLLOW_STATUS_KEY_PREFIX}${userId}`, String(newFollowStatus));
     }
     toast({
       title: newFollowStatus ? "Obserwujesz!" : "Przestałeś obserwować",
       description: `Teraz ${newFollowStatus ? "obserwujesz" : "nie obserwujesz już"} ${profileData?.username || "tego użytkownika"}.`,
     });
+    // In a real app, an API call would be made here to update follow status on the server.
   };
 
+  // Saves updated privacy settings for the current user's profile.
+  // Simulates saving to localStorage.
   const handleSavePrivacySettings = (newSettings: UserPrivacySettings) => {
     if (!profileData) return;
     
     const updatedProfile = { ...profileData, privacySettings: newSettings };
-    setProfileData(updatedProfile);
+    setProfileData(updatedProfile); // Update local state immediately
 
     if (typeof window !== 'undefined') {
+        // If editing current user's privacy settings, update the main profile data in localStorage
         if (profileData.id === "current_user_id") {
             const currentUserDataStr = localStorage.getItem(CURRENT_USER_PROFILE_DATA_KEY);
             if(currentUserDataStr){
@@ -167,6 +186,7 @@ export default function UserProfilePage() {
                 } catch (e) {console.error("Failed to update main profile data with privacy settings", e);}
             }
         }
+        // Persist privacy settings specifically for this profile ID (useful if viewing other profiles' settings in future)
         localStorage.setItem(`${PROFILE_PRIVACY_SETTINGS_KEY_PREFIX}${profileData.id}`, JSON.stringify(newSettings));
     }
 
@@ -174,7 +194,7 @@ export default function UserProfilePage() {
         title: "Ustawienia prywatności zapisane!",
         description: "Twoje preferencje prywatności dla tego profilu zostały zaktualizowane."
     });
-    setIsPrivacySettingsOpen(false);
+    setIsPrivacySettingsOpen(false); // Close the dialog
   };
 
 
@@ -183,6 +203,7 @@ export default function UserProfilePage() {
   }
 
   if (!profileData) {
+    // This handles the case where profile data couldn't be loaded after loading state.
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-6 text-foreground">
         <Alert variant="destructive" className="max-w-lg">
@@ -199,8 +220,9 @@ export default function UserProfilePage() {
     );
   }
   
+  // Determine content visibility based on privacy settings
   const canViewActivity = userId === "current_user_id" || (profileData.privacySettings?.isActivityPublic ?? true);
-  const canViewFriends = userId === "current_user_id" || (profileData.privacySettings?.isFriendsListPublic ?? true);
+  const canViewFriends = userId === "current_user_id" || (profileData.privacySettings?.isFriendsListPublic ?? true); // Not used in current UI, but for completeness
   const canViewSharedPlans = userId === "current_user_id" || (profileData.privacySettings?.isSharedPlansPublic ?? true);
 
 
@@ -210,6 +232,7 @@ export default function UserProfilePage() {
         <div className="container mx-auto flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2">
             <Button variant="outline" size="icon" asChild>
+              {/* Link back to community discover or a more relevant page */}
               <Link href="/dashboard/community/discover">
                 <ArrowLeft className="h-5 w-5" />
                 <span className="sr-only">Powrót do Odkrywaj</span>
@@ -218,6 +241,7 @@ export default function UserProfilePage() {
             <UserIcon className="h-7 w-7 text-primary" />
             <h1 className="text-xl font-bold">Profil Użytkownika</h1>
           </div>
+          {/* Show "Edit Profile" button only if viewing own profile */}
           {userId === "current_user_id" && (
             <Button variant="outline" size="sm" asChild>
               <Link href="/dashboard/profile/edit">
@@ -235,6 +259,7 @@ export default function UserProfilePage() {
               <Avatar className="h-28 w-28 sm:h-32 sm:w-32 border-2 border-primary">
                 <AvatarImage src={profileData.avatarUrl} alt={profileData.fullName} data-ai-hint="profile avatar large" />
                 <AvatarFallback className="text-4xl">
+                    {/* Generate initials for fallback avatar */}
                     {profileData.fullName.substring(0,1).toUpperCase()}
                     {profileData.fullName.split(' ')[1]?.substring(0,1).toUpperCase()}
                 </AvatarFallback>
@@ -248,6 +273,7 @@ export default function UserProfilePage() {
                 <p className="mt-2 text-sm text-muted-foreground">Poziom: {profileData.fitnessLevel}</p>
                 <p className="text-xs text-muted-foreground">Dołączył(a): {format(parseISO(profileData.joinDate), "PPP", { locale: pl })}</p>
               </div>
+              {/* Show Follow/Unfollow button if not viewing own profile */}
               {userId !== "current_user_id" && (
                 <Button onClick={handleFollowToggle} variant={isFollowing ? "secondary" : "default"} className="w-full sm:w-auto mt-4 sm:mt-0">
                   {isFollowing ? <Check className="mr-2 h-4 w-4"/> : <UserPlus className="mr-2 h-4 w-4"/>}
@@ -270,6 +296,7 @@ export default function UserProfilePage() {
                     <span className="text-2xl font-bold">{profileData.following}</span>
                     <span className="text-xs text-muted-foreground">Obserwowani</span>
                 </div>
+                {/* Privacy Settings button only for own profile */}
                 {userId === "current_user_id" && (
                      <Button variant="ghost" size="sm" onClick={() => setIsPrivacySettingsOpen(true)} className="sm:ml-auto mt-2 sm:mt-0">
                         <ShieldCheck className="mr-2 h-4 w-4"/> Ustawienia Prywatności
@@ -292,8 +319,9 @@ export default function UserProfilePage() {
                   <CardTitle>Ostatnia Aktywność</CardTitle>
                 </CardHeader>
                 <CardContent>
+                  {/* Check if activity can be viewed based on privacy settings */}
                   {canViewActivity ? (
-                    profileData.recentActivity.length > 0 ? (
+                    (profileData.recentActivity && profileData.recentActivity.length > 0) ? (
                       <ScrollArea className="h-[300px]">
                         <ul className="space-y-4">
                           {profileData.recentActivity.map((activity) => (
@@ -349,6 +377,7 @@ export default function UserProfilePage() {
                  <Card>
                     <CardHeader><CardTitle>Udostępnione Plany Treningowe</CardTitle></CardHeader>
                     <CardContent>
+                    {/* Check if shared plans can be viewed */}
                     {canViewSharedPlans ? (
                         <Alert>
                             <Info className="h-4 w-4"/>
@@ -382,6 +411,7 @@ export default function UserProfilePage() {
                     <div className="flex items-center gap-2">
                         <LinkIcon className="h-4 w-4 text-muted-foreground"/>
                         <span className="text-sm">Połączone konta:</span>
+                         {/* Display linked social accounts if available */}
                          {profileData.linkedSocialAccounts?.google && <Badge variant="outline">Google</Badge>}
                          {profileData.linkedSocialAccounts?.facebook && <Badge variant="outline">Facebook</Badge>}
                          {(!profileData.linkedSocialAccounts || (!profileData.linkedSocialAccounts.google && !profileData.linkedSocialAccounts.facebook)) && <span className="text-xs text-muted-foreground">Brak</span>}
@@ -397,11 +427,12 @@ export default function UserProfilePage() {
               </Card>
             </TabsContent>
           </Tabs>
+          {/* Conditionally render the ProfilePrivacySettingsDialog */}
           {profileData && (
             <ProfilePrivacySettingsDialog
                   isOpen={isPrivacySettingsOpen}
                   onOpenChange={setIsPrivacySettingsOpen}
-                  initialSettings={profileData.privacySettings || { isActivityPublic: true, isFriendsListPublic: true, isSharedPlansPublic: true}}
+                  initialSettings={profileData.privacySettings || { isActivityPublic: true, isFriendsListPublic: true, isSharedPlansPublic: true}} // Provide default if undefined
                   onSave={handleSavePrivacySettings}
               />
           )}

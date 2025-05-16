@@ -57,7 +57,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import type { Workout, ExerciseInWorkout, RecordedSet } from "./../active/[workoutId]/page";
+// Import types from the active workout page for consistency
+import type { Workout, ExerciseInWorkout, RecordedSet } from "./../active/[workoutId]/page"; 
 import {
   AlertDialog,
   AlertDialogAction,
@@ -67,7 +68,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger, // Added missing import
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -77,17 +78,19 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 
+// Interface for the data expected on the summary page
 interface WorkoutSummaryData {
   workoutId: string;
   workoutName: string;
   startTime: string; // ISO string
   endTime: string;   // ISO string
   totalTimeSeconds: number;
-  recordedSets: Record<string, RecordedSet[]>;
+  recordedSets: Record<string, RecordedSet[]>; // exerciseId -> RecordedSet[]
   exercises: ExerciseInWorkout[];
-  exerciseNotes?: Record<string, string>;
+  exerciseNotes?: Record<string, string>; // Optional notes for each exercise
 }
 
+// Enum for difficulty rating
 enum DifficultyRating {
   BardzoLatwy = "Bardzo Łatwy",
   Latwy = "Łatwy",
@@ -97,23 +100,26 @@ enum DifficultyRating {
   Ekstremalny = "Ekstremalny",
 }
 
+// Mock existing Personal Bests. In a real app, this would be fetched.
 interface MockPB {
-  value: number | string;
-  reps?: number;
+  value: number | string; // Weight, time, distance
+  reps?: number; // For weight_reps or max_reps
 }
-const MOCK_EXISTING_PBS: Record<string, MockPB> = {
-  "ex1": { value: 95, reps: 5 },
-  "ex2": { value: 130, reps: 5 },
-  "ex4": { value: "BW", reps: 12 },
+const MOCK_EXISTING_PBS: Record<string, MockPB> = { // exerciseId -> PB
+  "ex1": { value: 95, reps: 5 }, // Wyciskanie sztangi - 95kg x 5
+  "ex2": { value: 130, reps: 5 }, // Przysiady - 130kg x 5
+  "ex4": { value: "BW", reps: 12 }, // Podciąganie - 12 powt. z wagą ciała
 };
 
+// Interface for Personal Best suggestions
 interface PBSuggestion {
   exerciseId: string;
   exerciseName: string;
-  achievedValue: string;
-  status: 'suggested' | 'accepted' | 'rejected';
+  achievedValue: string; // Formatted string of what was achieved, e.g., "100kg x 5"
+  status: 'suggested' | 'accepted' | 'rejected'; // Status of the suggestion
 }
 
+// Mock motivational messages
 const MOCK_MOTIVATIONAL_MESSAGES = [
   "Świetna robota! Każdy trening to krok bliżej celu.",
   "Dobra robota! Pamiętaj, że konsekwencja jest kluczem.",
@@ -139,24 +145,31 @@ export default function WorkoutSummaryPage() {
   const [showShareConfirmDialog, setShowShareConfirmDialog] = React.useState(false);
 
   React.useEffect(() => {
+    // Load workout summary data from localStorage.
+    // This data is temporarily stored by the ActiveWorkoutPage upon finishing a workout.
     const dataString = localStorage.getItem('workoutSummaryData');
     if (dataString) {
       try {
         const parsedData: WorkoutSummaryData = JSON.parse(dataString);
+        // Calculate totalTimeSeconds if not already present (e.g., from older autosave)
         if (parsedData.startTime && parsedData.endTime) {
             parsedData.totalTimeSeconds = differenceInSeconds(parseISO(parsedData.endTime), parseISO(parsedData.startTime));
         }
         setSummaryData(parsedData);
 
+        // Simulate PB suggestion logic based on the workout performed.
+        // In a real app, this would involve fetching user's PBs and comparing.
         const suggestions: PBSuggestion[] = [];
         parsedData.exercises.forEach(exercise => {
           const sets = parsedData.recordedSets[exercise.id];
           if (sets && sets.length > 0) {
+            // Find the "best" set for this exercise (e.g., max weight for target reps, or max reps for BW)
+            // This is a simplified logic for mock purposes.
             const bestSetForExercise = sets.reduce((best, current) => {
               const currentWeightNum = parseFloat(String(current.weight));
               const currentRepsNum = parseInt(String(current.reps), 10);
               
-              if (isNaN(currentWeightNum) || isNaN(currentRepsNum)) return best;
+              if (isNaN(currentWeightNum) || isNaN(currentRepsNum)) return best; // Skip if not valid numbers
 
               const bestWeightNum = parseFloat(String(best.weight));
               const bestRepsNum = parseInt(String(best.reps), 10);
@@ -164,9 +177,9 @@ export default function WorkoutSummaryPage() {
               if (isNaN(bestWeightNum) || currentWeightNum > bestWeightNum) return current;
               if (currentWeightNum === bestWeightNum && (isNaN(bestRepsNum) || currentRepsNum > bestRepsNum)) return current;
               return best;
-            }, { weight: 0, reps: 0, setNumber: 0 } as RecordedSet);
+            }, { weight: 0, reps: 0, setNumber: 0 } as RecordedSet); // Initial best
 
-            if (bestSetForExercise.setNumber > 0) { 
+            if (bestSetForExercise.setNumber > 0) { // Check if a valid best set was found
                 const achievedWeight = bestSetForExercise.weight;
                 const achievedReps = bestSetForExercise.reps;
                 const achievedValueStr = `${achievedWeight}${typeof achievedWeight === 'number' ? 'kg' : ''} x ${achievedReps}powt.`;
@@ -174,8 +187,9 @@ export default function WorkoutSummaryPage() {
                 let isNewPb = false;
 
                 if (!existingPb) {
-                    isNewPb = true;
+                    isNewPb = true; // Any valid performance is a PB if none exists
                 } else {
+                    // Compare with existing PB
                     const existingPbWeight = typeof existingPb.value === 'string' && existingPb.value.toUpperCase() === 'BW' ? 'BW' : parseFloat(String(existingPb.value));
                     const existingPbReps = existingPb.reps ? parseInt(String(existingPb.reps), 10) : 0;
                     const currentAchievedWeightNum = typeof achievedWeight === 'string' && achievedWeight.toUpperCase() === 'BW' ? 'BW' : parseFloat(String(achievedWeight));
@@ -189,8 +203,10 @@ export default function WorkoutSummaryPage() {
                              else if (currentAchievedWeightNum === existingPbWeight && currentAchievedRepsNum > existingPbReps) isNewPb = true;
                         }
                     } else if (typeof currentAchievedWeightNum === 'number' && existingPbWeight === 'BW') {
+                         // If new record is with weight and old was BW, it's a new type of PB or potentially better
                          if (!isNaN(currentAchievedWeightNum) && currentAchievedWeightNum > 0) isNewPb = true;
                     }
+                    // Add more complex logic here if needed (e.g., 1RM calculations)
                 }
                 if (isNewPb) {
                     suggestions.push({
@@ -208,22 +224,25 @@ export default function WorkoutSummaryPage() {
       } catch (error) {
         console.error("Error parsing summary data from localStorage:", error);
         toast({ title: "Błąd", description: "Nie udało się załadować podsumowania treningu.", variant: "destructive" });
-        router.replace("/dashboard");
+        router.replace("/dashboard"); // Redirect if data is malformed
       }
     } else {
+      // No data found, which means user navigated here directly without finishing a workout.
       toast({ title: "Brak danych", description: "Nie znaleziono danych do podsumowania treningu.", variant: "destructive" });
-      router.replace("/dashboard");
+      router.replace("/dashboard"); // Redirect to a safe page
     }
     setIsLoading(false);
   }, [router, toast]);
 
+  // Calculates the total volume lifted during the workout.
+  // Volume = sum of (weight * reps) for all numeric sets.
   const calculateTotalVolume = React.useCallback(() => {
     if (!summaryData) return 0;
     let totalVolume = 0;
     Object.values(summaryData.recordedSets).forEach(exerciseSets => {
       exerciseSets.forEach(set => {
-        const weight = parseFloat(String(set.weight));
-        const reps = parseInt(String(set.reps), 10);
+        const weight = parseFloat(String(set.weight)); // Attempt to parse weight as float
+        const reps = parseInt(String(set.reps), 10);   // Attempt to parse reps as int
         if (!isNaN(weight) && !isNaN(reps) && weight > 0 && reps > 0) {
           totalVolume += weight * reps;
         }
@@ -232,6 +251,7 @@ export default function WorkoutSummaryPage() {
     return totalVolume;
   }, [summaryData]);
 
+  // Formats time from total seconds to HHh MMm SSs or MMm SSs.
   const formatTime = (totalSeconds: number) => {
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -239,28 +259,31 @@ export default function WorkoutSummaryPage() {
     return `${hours > 0 ? String(hours).padStart(2, "0") + "h " : ""}${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
   };
   
+  // Simulates saving the workout summary and sharing to community if selected.
+  // In a real app, this would involve API calls to save to a database and post to a feed.
   const performSaveAndShare = async () => {
     if (!summaryData) return;
     setIsSaving(true);
+    // Prepare data for "saving"
     const acceptedPbs = pbSuggestions.filter(s => s.status === 'accepted').map(s => ({ exercise: s.exerciseName, value: s.achievedValue }));
     
     const fullSummaryToSave = {
       ...summaryData,
       difficulty,
       generalNotes,
-      exerciseNotes: summaryData.exerciseNotes,
+      exerciseNotes: summaryData.exerciseNotes, // Ensure exercise notes are included
       calculatedTotalVolume: calculateTotalVolume(),
-      acceptedPbs,
+      acceptedPbs, // Include accepted PBs
       sharedToCommunity: shareToCommunity,
       communityPostComment: shareToCommunity ? communityPostComment : undefined,
-      userId: "testUser123", // Mock user ID for saving
+      userId: "testUser123", // Mock user ID, replace with actual user ID
     };
     console.log("Saving workout summary (mock):", fullSummaryToSave);
 
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1500));
 
-    // Store last workout date in localStorage (client-side functionality)
+    // Store last workout date in localStorage for inactivity reminder feature (client-side functionality)
     try {
       localStorage.setItem('workoutWiseLastWorkoutDate', new Date().toISOString());
     } catch (e) {
@@ -279,13 +302,14 @@ export default function WorkoutSummaryPage() {
       variant: "default",
       duration: 7000,
     });
-    localStorage.removeItem('workoutSummaryData'); // Remove temp data
-    router.push("/dashboard/history"); 
+    localStorage.removeItem('workoutSummaryData'); // Clean up temporary data
+    router.push("/dashboard/history"); // Navigate to history page
     setIsSaving(false);
     setShowShareConfirmDialog(false);
   };
 
 
+  // Handles the main save button click. Shows confirmation if sharing to community.
   const handleSaveWorkout = () => {
     if (shareToCommunity) {
       setShowShareConfirmDialog(true);
@@ -294,29 +318,34 @@ export default function WorkoutSummaryPage() {
     }
   };
 
+  // Simulates discarding the workout summary.
   const handleDiscardWorkout = async () => {
-    setIsSaving(true); 
+    setIsSaving(true); // Use isSaving to disable buttons during discard
+    // Simulate a quick operation
     await new Promise(resolve => setTimeout(resolve, 500));
     
-    localStorage.removeItem('workoutSummaryData');
+    localStorage.removeItem('workoutSummaryData'); // Remove temporary data
     toast({
       title: "Trening Odrzucony",
       description: "Podsumowanie treningu zostało odrzucone.",
-      variant: "default" 
+      variant: "default" // Changed from destructive to default, or could be specific
     });
-    router.push("/dashboard");
+    router.push("/dashboard"); // Navigate to dashboard or workout start page
     setIsSaving(false);
     setShowDiscardDialog(false);
   };
 
+  // Handles accepting or rejecting a Personal Best suggestion.
   const handlePbSuggestion = (exerciseId: string, newStatus: 'accepted' | 'rejected') => {
     setPbSuggestions(prev => prev.map(s => s.exerciseId === exerciseId ? { ...s, status: newStatus } : s));
+    // In a real app, 'accepted' would trigger saving the PB to the database.
     toast({
         title: `Sugestia PB dla ${pbSuggestions.find(s => s.exerciseId === exerciseId)?.exerciseName}`,
         description: newStatus === 'accepted' ? "Zaakceptowano jako nowy rekord!" : "Odrzucono sugestię.",
     });
   };
 
+  // Memoized data for the volume per exercise bar chart.
   const volumePerExerciseChartData = React.useMemo(() => {
     if (!summaryData) return [];
     return summaryData.exercises
@@ -332,9 +361,10 @@ export default function WorkoutSummaryPage() {
         });
         return { name: exercise.name, volume };
       })
-      .filter(item => item.volume > 0);
+      .filter(item => item.volume > 0); // Only include exercises with actual volume
   }, [summaryData]);
 
+  // Memoized data for the sets per exercise bar chart.
   const setsPerExerciseChartData = React.useMemo(() => {
     if (!summaryData) return [];
     return summaryData.exercises
@@ -342,9 +372,10 @@ export default function WorkoutSummaryPage() {
         const setsCount = (summaryData.recordedSets[exercise.id] || []).length;
         return { name: exercise.name, sets: setsCount };
       })
-      .filter(item => item.sets > 0);
+      .filter(item => item.sets > 0); // Only include exercises with recorded sets
   }, [summaryData]);
 
+  // Configuration for chart colors and labels.
   const chartConfig = {
     volume: { label: "Objętość (kg)", color: "hsl(var(--chart-1))" },
     sets: { label: "Liczba Serii", color: "hsl(var(--chart-2))" },
@@ -352,6 +383,7 @@ export default function WorkoutSummaryPage() {
 
 
   if (isLoading) {
+    // This is a simple loading state, a more detailed skeleton could be used.
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -361,6 +393,8 @@ export default function WorkoutSummaryPage() {
   }
 
   if (!summaryData) {
+    // This state should ideally not be reached if redirection logic works,
+    // but it's a fallback.
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
         <Alert variant="destructive" className="max-w-md">
@@ -486,7 +520,7 @@ export default function WorkoutSummaryPage() {
                     const exerciseNote = summaryData.exerciseNotes?.[exercise.id];
                     const suggestion = pbSuggestions.find(s => s.exerciseId === exercise.id);
 
-                    if (!sets || sets.length === 0) return null;
+                    if (!sets || sets.length === 0) return null; // Skip if no sets recorded for this exercise
 
                     return (
                       <li key={exercise.id}>
@@ -527,6 +561,7 @@ export default function WorkoutSummaryPage() {
                             </li>
                           ))}
                         </ul>
+                        {/* Add separator if not the last exercise with sets */}
                         {summaryData.exercises.filter(ex => summaryData.recordedSets[ex.id]?.length > 0).indexOf(exercise) < summaryData.exercises.filter(ex => summaryData.recordedSets[ex.id]?.length > 0).length - 1 && (
                             <Separator className="my-3"/>
                         )}
@@ -633,6 +668,7 @@ export default function WorkoutSummaryPage() {
             </Button>
           </div>
 
+          {/* Confirmation Dialog for Sharing */}
           <AlertDialog open={showShareConfirmDialog} onOpenChange={setShowShareConfirmDialog}>
             <AlertDialogContent>
               <AlertDialogHeader>
@@ -662,5 +698,3 @@ export default function WorkoutSummaryPage() {
     </div>
   );
 }
-
-    

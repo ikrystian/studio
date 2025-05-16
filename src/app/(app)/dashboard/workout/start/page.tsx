@@ -10,7 +10,7 @@ import { pl } from "date-fns/locale";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Dumbbell, Zap, Search, ListFilter, ArrowLeft, PlusCircle, PlayCircle, Trash2, AlertTriangle, Loader2 } from 'lucide-react'; // Added Loader2
+import { Dumbbell, Zap, Search, ListFilter, ArrowLeft, PlusCircle, PlayCircle, Trash2, AlertTriangle, Loader2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -31,9 +31,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { StartWorkoutPageSkeleton } from '@/components/workout/StartWorkoutPageSkeleton'; // Added import
+import { StartWorkoutPageSkeleton } from '@/components/workout/StartWorkoutPageSkeleton';
 
-// Simulated workout data - replace with actual data fetching
+// Simulated workout data - In a real app, this would be fetched from a backend or global state.
 const availableWorkouts = [
   { id: 'wk1', name: 'Poranny Trening Siłowy', type: 'Siłowy', estimatedDuration: '60 min', icon: Dumbbell, description: 'Kompleksowy trening siłowy całego ciała.' },
   { id: 'wk2', name: 'Szybkie Cardio HIIT', type: 'Cardio', estimatedDuration: '30 min', icon: Zap, description: 'Intensywny trening interwałowy dla poprawy kondycji.' },
@@ -42,7 +42,8 @@ const availableWorkouts = [
   { id: 'wk5', name: 'Długie Wybieganie', type: 'Cardio', estimatedDuration: '90 min', icon: Zap, description: 'Trening wytrzymałościowy na świeżym powietrzu.' },
 ];
 
-function StretchHorizontal(props: React.SVGProps<SVGSVGElement>) { // Placeholder icon if not in lucide
+// Placeholder icon component
+function StretchHorizontal(props: React.SVGProps<SVGSVGElement>) { 
   return (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
       <path d="M4 12h16"/><path d="M4 12l4-4m-4 4l4 4m12-4l-4-4m4 4l-4 4"/>
@@ -51,18 +52,19 @@ function StretchHorizontal(props: React.SVGProps<SVGSVGElement>) { // Placeholde
 }
 
 const WORKOUT_TYPES_FILTER = ["Wszystkie", "Siłowy", "Cardio", "Rozciąganie"];
+// Key prefix for storing autosaved active workout data in localStorage.
 const ACTIVE_WORKOUT_AUTOSAVE_KEY_PREFIX = "activeWorkoutAutosave_";
 
 interface UnfinishedWorkoutInfo {
   workoutId: string;
   workoutName: string;
-  startTime: string;
-  autosaveKey: string;
+  startTime: string; // ISO String
+  autosaveKey: string; // The localStorage key for this specific unfinished workout
 }
 
 export default function StartWorkoutPage() {
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = React.useState(true); // Added loading state
+  const [isLoading, setIsLoading] = React.useState(true);
   const [searchTerm, setSearchTerm] = React.useState('');
   const [selectedWorkoutType, setSelectedWorkoutType] = React.useState('Wszystkie');
   const [unfinishedWorkoutInfo, setUnfinishedWorkoutInfo] = React.useState<UnfinishedWorkoutInfo | null>(null);
@@ -72,6 +74,9 @@ export default function StartWorkoutPage() {
   React.useEffect(() => {
     setIsLoading(true);
     let foundUnfinished = false;
+    // This effect simulates checking for an unfinished workout session.
+    // In a real app, this might involve an API call or more complex local storage logic.
+    // Here, it checks localStorage for any key starting with ACTIVE_WORKOUT_AUTOSAVE_KEY_PREFIX.
     if (typeof window !== 'undefined') {
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
@@ -80,6 +85,7 @@ export default function StartWorkoutPage() {
           if (savedDataString) {
             try {
               const parsedData = JSON.parse(savedDataString);
+              // Basic validation of the parsed data
               if (parsedData.workoutId && parsedData.workoutName && parsedData.workoutStartTime) {
                 setUnfinishedWorkoutInfo({
                   workoutId: parsedData.workoutId,
@@ -88,10 +94,11 @@ export default function StartWorkoutPage() {
                   autosaveKey: key,
                 });
                 foundUnfinished = true;
-                break; 
+                break; // Found an unfinished workout, no need to check further
               }
             } catch (e) {
               console.error("Error parsing autosaved workout data:", e);
+              // Potentially remove the malformed key: localStorage.removeItem(key);
             }
           }
         }
@@ -100,11 +107,12 @@ export default function StartWorkoutPage() {
     // Simulate a delay for fetching/checking data
     const timer = setTimeout(() => {
         setIsLoading(false);
-    }, 750); // Adjust delay as needed
+    }, 750); 
 
     return () => clearTimeout(timer);
   }, []);
 
+  // Simulates discarding an unfinished workout by removing its data from localStorage.
   const handleDiscardUnfinishedWorkout = () => {
     if (unfinishedWorkoutInfo) {
       localStorage.removeItem(unfinishedWorkoutInfo.autosaveKey);
@@ -117,6 +125,8 @@ export default function StartWorkoutPage() {
     }
   };
 
+  // Filters available workouts based on search term and selected type.
+  // This is a client-side filtering of mock data.
   const filteredWorkouts = availableWorkouts.filter(workout => {
     const matchesSearch = workout.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           workout.description.toLowerCase().includes(searchTerm.toLowerCase());
@@ -143,11 +153,9 @@ export default function StartWorkoutPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      {/* Header is part of AppLayout now */}
       <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2">
-            {/* Back button to Dashboard is in AppHeader, this can be a specific page title or action */}
              <Dumbbell className="h-7 w-7 text-primary" />
              <h1 className="text-xl font-bold">Rozpocznij Trening</h1>
           </div>
@@ -245,7 +253,7 @@ export default function StartWorkoutPage() {
           <Separator className="my-6" />
 
           {filteredWorkouts.length > 0 ? (
-            <ScrollArea className=" pr-4"> {/* Adjust height if header is taller */}
+            <ScrollArea className=" pr-4"> 
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {filteredWorkouts.map((workout) => (
                   <Card key={workout.id} className="flex flex-col hover:shadow-lg transition-shadow duration-200">

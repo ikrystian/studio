@@ -29,6 +29,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
+// Zod schema for validating the forgot password form.
 const forgotPasswordSchema = z.object({
   email: z.string().email("Nieprawidłowy adres email.").min(1, "Email jest wymagany."),
 });
@@ -38,7 +39,7 @@ type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;
 export default function ForgotPasswordPage() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = React.useState(false);
-  const [isSubmitted, setIsSubmitted] = React.useState(false);
+  const [isSubmitted, setIsSubmitted] = React.useState(false); // To show success message
 
   const form = useForm<ForgotPasswordFormValues>({
     resolver: zodResolver(forgotPasswordSchema),
@@ -47,21 +48,24 @@ export default function ForgotPasswordPage() {
     },
   });
 
+  // Handles form submission.
+  // Simulates an API call to request a password reset link.
   async function onSubmit(values: ForgotPasswordFormValues) {
     setIsLoading(true);
-    console.log("Password reset requested for:", values.email);
+    console.log("Password reset requested for (simulated):", values.email);
 
-    // Simulate API call
+    // Simulate API call delay
     await new Promise(resolve => setTimeout(resolve, 1500));
 
-    // In a real app, you'd call your backend here to handle password reset logic.
-    // For this mock, we'll just assume it's successful.
+    // In a real app, you'd call your backend here to handle password reset logic
+    // (e.g., generate a token, send an email with a reset link).
+    // For this mock, we'll just assume it's successful if the email is "valid" (placeholder logic).
     setIsSubmitted(true);
     toast({
       title: "Instrukcje Wysłane (Symulacja)",
       description: "Jeśli ten adres email jest zarejestrowany, wysłaliśmy na niego instrukcje resetowania hasła.",
       variant: "default",
-      duration: 7000,
+      duration: 7000, // Show toast for longer
     });
     setIsLoading(false);
   }
@@ -77,6 +81,7 @@ export default function ForgotPasswordPage() {
         </CardHeader>
         <CardContent className="space-y-6">
           {isSubmitted ? (
+            // Show success message after "submission"
             <Alert variant="default" className="border-green-500 dark:border-green-400">
               <CheckCircle2 className="h-4 w-4 text-green-500 dark:text-green-400" />
               <AlertTitle className="text-green-700 dark:text-green-300">Sprawdź Email</AlertTitle>
@@ -85,6 +90,7 @@ export default function ForgotPasswordPage() {
               </AlertDescription>
             </Alert>
           ) : (
+            // Show the form if not yet submitted
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField

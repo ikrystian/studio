@@ -7,20 +7,22 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { ArrowLeft, ListChecks, Loader2 } from "lucide-react"; // Added Loader2
+import { ArrowLeft, ListChecks, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { SettingsQuickActionsPageSkeleton } from "@/components/settings/SettingsQuickActionsPageSkeleton"; // Import skeleton
+import { SettingsQuickActionsPageSkeleton } from "@/components/settings/SettingsQuickActionsPageSkeleton";
 
-// This should ideally be imported from a shared constants file
-// For now, duplicate its structure if not ALL_NAV_ITEMS itself
+// This interface defines the structure for each quick action item.
+// It should ideally match the structure used on the dashboard page (ALL_NAV_ITEMS).
 interface NavItem {
-  id: string; // Unique ID for localStorage key
-  href: string;
-  label: string;
-  icon: React.ElementType; // For display consistency
-  description: string;
+  id: string; // Unique ID for identification and localStorage key
+  href: string; // Navigation path
+  label: string; // Display label for the action
+  icon: React.ElementType; // Icon component
+  description: string; // Brief description of the action
 }
 
+// ALL_QUICK_ACTION_DEFINITIONS: Defines all possible quick actions available for customization.
+// This list should be consistent with what's used on the dashboard.
 const ALL_QUICK_ACTION_DEFINITIONS: NavItem[] = [
   { id: 'workout-start', href: '/dashboard/workout/start', label: 'Rozpocznij trening', icon: PlayCircle, description: 'Rozpocznij nową sesję lub kontynuuj.' },
   { id: 'plans', href: '/dashboard/plans', label: 'Plany treningowe', icon: BookOpen, description: 'Przeglądaj i zarządzaj planami.' },
@@ -36,30 +38,36 @@ const ALL_QUICK_ACTION_DEFINITIONS: NavItem[] = [
   { id: 'app-settings', href: '/dashboard/settings', label: 'Ustawienia Aplikacji', icon: SettingsIcon, description: 'Dostosuj preferencje aplikacji.' },
   { id: 'rest-timer', href: '/dashboard/tools/rest-timer', label: 'Timer Odpoczynku', icon: TimerIcon, description: 'Niezależny stoper odpoczynku.' },
 ];
-// Re-import icons if they are not globally available or directly use lucide-react here
+// Re-import icons for use in this component
 import {
   PlayCircle, BookOpen, History as HistoryIcon, Award, Users, Scale, Camera, HeartPulse, GlassWater, BarChart3, Settings2, Settings as SettingsIcon, Timer as TimerIcon
 } from 'lucide-react';
 
+// Key for storing quick action visibility preferences in localStorage.
 const QUICK_ACTIONS_VISIBILITY_KEY = "dashboardQuickActionItemVisibility";
 
 export default function QuickActionsSettingsPage() {
   const { toast } = useToast();
+  // State to hold the visibility preferences for each quick action item (itemId -> boolean).
   const [visibilityPreferences, setVisibilityPreferences] = React.useState<Record<string, boolean>>({});
-  const [pageIsLoading, setPageIsLoading] = React.useState(true); // Renamed isLoading to pageIsLoading
+  const [pageIsLoading, setPageIsLoading] = React.useState(true);
 
+  // Effect to load visibility preferences from localStorage on component mount.
   React.useEffect(() => {
     setPageIsLoading(true);
     const timer = setTimeout(() => { // Simulate loading delay
-      const storedPrefs = localStorage.getItem(QUICK_ACTIONS_VISIBILITY_KEY);
+      // Initialize preferences: by default, all actions are visible.
       const initialPrefs: Record<string, boolean> = {};
       ALL_QUICK_ACTION_DEFINITIONS.forEach(item => {
-        initialPrefs[item.id] = true; 
+        initialPrefs[item.id] = true; // Default to visible
       });
 
+      // Load saved preferences from localStorage, if any.
+      const storedPrefs = localStorage.getItem(QUICK_ACTIONS_VISIBILITY_KEY);
       if (storedPrefs) {
         try {
           const parsedPrefs = JSON.parse(storedPrefs);
+          // Merge stored preferences with defaults, ensuring all items have a value.
           for (const key in initialPrefs) {
               if (parsedPrefs.hasOwnProperty(key)) {
                   initialPrefs[key] = parsedPrefs[key];
@@ -67,17 +75,20 @@ export default function QuickActionsSettingsPage() {
           }
         } catch (e) {
           console.error("Error parsing quick actions visibility from localStorage", e);
+          // If parsing fails, stick with defaults.
         }
       }
       setVisibilityPreferences(initialPrefs);
       setPageIsLoading(false);
-    }, 500);
+    }, 500); // Simulate 500ms loading delay
     return () => clearTimeout(timer);
   }, []);
 
+  // Handles changing the visibility of a quick action item and saves to localStorage.
   const handleVisibilityChange = (itemId: string, isVisible: boolean) => {
     const newPrefs = { ...visibilityPreferences, [itemId]: isVisible };
     setVisibilityPreferences(newPrefs);
+    // Simulate saving preferences to a backend or localStorage.
     try {
       localStorage.setItem(QUICK_ACTIONS_VISIBILITY_KEY, JSON.stringify(newPrefs));
       toast({
@@ -94,6 +105,7 @@ export default function QuickActionsSettingsPage() {
     }
   };
   
+  // Map item IDs to their corresponding icon components for easy rendering.
   const iconMap: Record<string, React.ElementType> = {
     'workout-start': PlayCircle,
     'plans': BookOpen,
@@ -117,21 +129,6 @@ export default function QuickActionsSettingsPage() {
 
   return (
     <>
-      {/* <header className="sticky top-16 z-30 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/50">
-        <div className="container mx-auto flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" asChild>
-              <Link href="/dashboard/settings">
-                <ArrowLeft className="h-5 w-5" />
-                <span className="sr-only">Powrót do Ustawień</span>
-              </Link>
-            </Button>
-            <ListChecks className="h-7 w-7 text-primary" />
-            <h1 className="text-xl font-bold">Dostosuj Szybkie Akcje</h1>
-          </div>
-        </div>
-      </header> */}
-
       <main className="flex-1 py-6 px-4 sm:px-6 lg:px-8">
         <div className="container mx-auto max-w-2xl">
           <Card>
@@ -143,7 +140,7 @@ export default function QuickActionsSettingsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               {ALL_QUICK_ACTION_DEFINITIONS.map((item) => {
-                const IconComponent = iconMap[item.id] || ListChecks; 
+                const IconComponent = iconMap[item.id] || ListChecks; // Fallback icon
                 return (
                   <div
                     key={item.id}
@@ -157,7 +154,7 @@ export default function QuickActionsSettingsPage() {
                     </div>
                     <Switch
                       id={`switch-${item.id}`}
-                      checked={visibilityPreferences[item.id] !== undefined ? visibilityPreferences[item.id] : true} 
+                      checked={visibilityPreferences[item.id] !== undefined ? visibilityPreferences[item.id] : true} // Default to true if not set
                       onCheckedChange={(checked) => handleVisibilityChange(item.id, checked)}
                     />
                   </div>
