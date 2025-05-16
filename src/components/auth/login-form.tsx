@@ -43,7 +43,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const pathname = usePathname();
+  const pathname = usePathname(); // Get current pathname
   const { toast } = useToast();
   const [isLoading, setIsLoading] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
@@ -59,7 +59,8 @@ export function LoginForm() {
 
 
   React.useEffect(() => {
-    if (pathname !== "/login") return;
+    // Only run this effect if we are on the /login page and there are searchParams
+    if (pathname !== "/login" || !searchParams) return;
 
     const currentSearchParams = new URLSearchParams(searchParams.toString());
     let paramsModified = false;
@@ -76,6 +77,7 @@ export function LoginForm() {
       paramsModified = true;
     }
     if (currentSearchParams.get("verified") === "true") {
+      // Avoid showing duplicate toasts if registered=true was also present
       if (!successMessage) { 
           toast({
             title: "Email Zweryfikowany!",
@@ -89,11 +91,13 @@ export function LoginForm() {
     }
 
     if (paramsModified) {
+      // Construct new path without the processed query parameters
+      // This ensures other query params (if any) are preserved
       const newQueryString = currentSearchParams.toString();
       const newPath = newQueryString ? `/login?${newQueryString}` : "/login";
-      router.replace(newPath, { scroll: false });
+      router.replace(newPath, { scroll: false }); // Use replace to avoid adding to history
     }
-  }, [searchParams, router, toast, pathname, successMessage]);
+  }, [searchParams, router, toast, pathname, successMessage]); // Added pathname and successMessage to dependencies
 
 
   async function onSubmit(values: LoginFormValues) {
@@ -102,20 +106,27 @@ export function LoginForm() {
     setSuccessMessage(null); 
     let navigated = false;
 
-    // Direct credential check without simulated API delay
-    if (values.email === "test@example.com" && values.password === "password") {
-      try {
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(values),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
         await router.push("/dashboard");
         navigated = true;
         // If navigation is successful, component unmounts, setIsLoading(false) might not be needed.
-      } catch (error) {
-        console.error("Navigation to dashboard failed:", error);
-        setErrorMessage("Failed to navigate to dashboard. Please try again.");
-        // navigated remains false
+      } else {
+        setErrorMessage(data.message || "Login failed. Please check your credentials.");
       }
-    } else {
-      setErrorMessage("Invalid email or password. Please try again.");
-      // navigated remains false
+    } catch (error) {
+      console.error("Login API call failed:", error);
+      setErrorMessage("An unexpected error occurred. Please try again.");
     }
 
     if (!navigated) {
@@ -232,7 +243,7 @@ export function LoginForm() {
         </div>
       </CardContent>
       <CardFooter className="flex flex-col items-center space-y-2 text-sm">
-        <Link href="#" className="font-medium text-primary hover:underline">
+        <Link href="/forgot-password" className="font-medium text-primary hover:underline">
           Zapomniałeś hasła?
         </Link>
         <p className="text-muted-foreground">
