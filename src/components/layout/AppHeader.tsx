@@ -15,27 +15,21 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-// Removed useToast import as it's no longer used here directly
 
-// Mock user data for the header
+// Mock user data for the header - Updated to match profile data
 const MOCK_HEADER_USER = {
-  name: 'Alex W.',
-  avatarUrl: 'https://placehold.co/100x100.png?text=AW',
-  initials: 'AW',
-  profileLink: '/dashboard/profile/current_user_id', // Updated to be under /dashboard
-  accountSettingsLink: '/dashboard/account', // Updated to be under /dashboard
+  name: 'Jan Kowalski', // Matched with MOCK_USER_PROFILES_DB for current_user_id
+  avatarUrl: 'https://placehold.co/100x100.png?text=JK', // Matched
+  initials: 'JK', // Matched
+  profileLink: '/dashboard/profile/current_user_id', 
+  accountSettingsLink: '/dashboard/account', 
 };
 
 export function AppHeader() {
   const router = useRouter();
-  // const { toast } = useToast(); // No longer needed here
 
   const handleLogout = () => {
-    // Simulate logout
     console.log("User logging out...");
-    // In a real app, clear session/token here
-    
-    // Redirect to login page with a query parameter
     router.push('/login?status=logged_out'); 
   };
 
