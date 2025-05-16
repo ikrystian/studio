@@ -33,6 +33,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { SettingsProgressionModelPageSkeleton } from "@/components/settings/SettingsProgressionModelPageSkeleton";
 import type { ProgressionSettings } from "@/context/ProgressionSettingsContext"; // Ensure this path is correct
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 
 const PROGRESSION_SETTINGS_LOCAL_STORAGE_KEY = "workoutWiseProgressionSettings";
