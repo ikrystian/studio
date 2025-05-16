@@ -6,12 +6,6 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { ArrowLeft, Users, LayoutList, Search, Award, UserCircle, ChevronRight } from 'lucide-react';
-// import type { Metadata } from 'next'; // Metadata for client components is handled differently
-
-// export const metadata: Metadata = {
-//   title: 'Społeczność | WorkoutWise',
-//   description: 'Odkrywaj, łącz się i rywalizuj w społeczności WorkoutWise.',
-// };
 
 interface CommunityFeature {
   title: string;
