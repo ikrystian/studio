@@ -249,3 +249,98 @@ export const MOCK_HISTORY_SESSIONS: HistoricalWorkoutSession[] = [
   { id: "hist7", workoutId: "wkCustom2", workoutName: "Trening Mieszany - Całe Ciało", workoutType: "Mieszany", startTime: "2024-08-05T18:00:00.000Z", endTime: "2024-08-05T19:00:00.000Z", totalTimeSeconds: 3600, recordedSets: {ex1: [{setNumber:1, weight: 50, reps: 12}], ex6: [{setNumber:1, weight: "N/A", reps: "20 min"}]}, exercises: [{id: "ex1", name: "Wyciskanie sztangi na ławce płaskiej"}, {id: "ex6", name: "Bieg na bieżni"}], calculatedTotalVolume: 8000, difficulty: DifficultyRating.Sredni, userId: "current_user_id" },
   { id: "hist8", workoutId: "wkCustom3", workoutName: "Siłówka Wieczorna", workoutType: "Siłowy", startTime: "2024-08-15T20:00:00.000Z", endTime: "2024-08-15T21:15:00.000Z", totalTimeSeconds: 4500, recordedSets: {ex3: [{setNumber:1, weight:120, reps:5}], ex12: [{setNumber:1, weight:70, reps:8}]}, exercises: [{id:"ex3", name:"Martwy ciąg"}, {id:"ex12", name:"Wiosłowanie sztangą"}], calculatedTotalVolume: 15000, difficulty: DifficultyRating.Trudny, userId: "current_user_id" },
 ];
+
+// --- Training Plan Detail Data ---
+export interface PlanDayDetail {
+  dayName: string; 
+  assignedWorkoutId?: string;
+  assignedWorkoutName?: string;
+  isRestDay: boolean;
+  notes?: string; 
+}
+
+export interface DetailedTrainingPlan {
+  id: string;
+  name: string;
+  description: string;
+  goal: string;
+  duration: string; 
+  schedule: PlanDayDetail[]; 
+  author?: string; 
+  isPublic?: boolean;
+  // Potentially other fields like creationDate, lastUpdated, etc.
+}
+
+export const MOCK_DETAILED_TRAINING_PLANS: DetailedTrainingPlan[] = [
+  {
+    id: 'plan1', 
+    name: 'Siła Początkującego Herkulesa (Detale)',
+    description: 'Kompleksowy plan dla osób rozpoczynających przygodę z treningiem siłowym, skupiony na podstawowych ćwiczeniach wielostawowych. Ten plan zakłada 3 dni treningowe w tygodniu i 4 dni odpoczynku.',
+    goal: 'Budowa podstawowej siły i masy mięśniowej',
+    duration: '8 tygodni',
+    author: 'Krzysztof Trener',
+    isPublic: true,
+    schedule: [
+      { dayName: "Poniedziałek", assignedWorkoutId: "wk1", assignedWorkoutName: "Trening A - Full Body (Wyciskanie, Przysiady, Podciąganie)", isRestDay: false, notes: "Skup się na technice, nie na ciężarze." },
+      { dayName: "Wtorek", isRestDay: true, notes: "Aktywny odpoczynek: spacer lub lekkie rozciąganie." },
+      { dayName: "Środa", assignedWorkoutId: "custom_wk_fb_b", assignedWorkoutName: "Trening B - Full Body (OHP, Martwy Ciąg, Wiosłowanie)", isRestDay: false, notes: "Utrzymaj napięcie mięśniowe." },
+      { dayName: "Czwartek", isRestDay: true },
+      { dayName: "Piątek", assignedWorkoutId: "custom_wk_fb_c", assignedWorkoutName: "Trening C - Full Body (Warianty ćwiczeń A i B, Akcesoria)", isRestDay: false, notes: "Możesz spróbować dodać minimalnie ciężaru." },
+      { dayName: "Sobota", isRestDay: true, notes: "Dłuższy spacer, regeneracja." },
+      { dayName: "Niedziela", isRestDay: true, notes: "Przygotuj posiłki na kolejny tydzień." },
+    ],
+  },
+  {
+    id: 'plan2',
+    name: 'Kardio Spalacz Kalorii (Detale)',
+    description: 'Intensywny plan kardio interwałowego i aerobowego, mający na celu maksymalizację spalania kalorii i poprawę wydolności. Zaplanowane 5 sesji kardio w tygodniu.',
+    goal: 'Redukcja tkanki tłuszczowej i poprawa kondycji',
+    duration: '6 tygodni',
+    author: 'Aleksandra Fit',
+    isPublic: true,
+    schedule: [
+      { dayName: "Poniedziałek", assignedWorkoutId: "wk2", assignedWorkoutName: "HIIT Szybki Spalacz (Bieg, Pompki, Plank)", isRestDay: false },
+      { dayName: "Wtorek", assignedWorkoutId: "custom_cardio_steady", assignedWorkoutName: "Cardio Stabilne Tempo (Rower)", isRestDay: false, notes: "30-40 min w strefie 2." },
+      { dayName: "Środa", assignedWorkoutId: "custom_hiit_2", assignedWorkoutName: "HIIT Interwały Mocy (Skakanka, Burpees)", isRestDay: false },
+      { dayName: "Czwartek", isRestDay: true, notes: "Lekkie rozciąganie." },
+      { dayName: "Piątek", assignedWorkoutId: "custom_cardio_long", assignedWorkoutName: "Długie Kardio Wytrzymałościowe (Bieg)", isRestDay: false, notes: "45-60 min spokojnym tempem." },
+      { dayName: "Sobota", assignedWorkoutId: "custom_active_recovery", assignedWorkoutName: "Aktywna Regeneracja (Pływanie lub Joga)", isRestDay: false },
+      { dayName: "Niedziela", isRestDay: true },
+    ],
+  },
+  {
+    id: 'plan3',
+    name: 'Elastyczność i Mobilność Zen (Detale)',
+    description: 'Plan skupiony na ćwiczeniach rozciągających, jodze i mobilizacji stawów, idealny dla poprawy zakresu ruchu i relaksu.',
+    goal: 'Poprawa elastyczności i mobilności',
+    duration: '4 tygodnie',
+    author: 'Zofia Wójcik',
+    isPublic: false,
+    schedule: [
+      { dayName: "Poniedziałek", assignedWorkoutId: "custom_stretch_1", assignedWorkoutName: "Poranne Rozciąganie Całego Ciała", isRestDay: false },
+      { dayName: "Wtorek", isRestDay: true },
+      { dayName: "Środa", assignedWorkoutId: "custom_yoga_flow", assignedWorkoutName: "Płynna Joga Vinyasa", isRestDay: false },
+      { dayName: "Czwartek", isRestDay: true },
+      { dayName: "Piątek", assignedWorkoutId: "custom_mobility_work", assignedWorkoutName: "Mobilizacja Stawów Biodrowych i Barków", isRestDay: false },
+      { dayName: "Sobota", isRestDay: true },
+      { dayName: "Niedziela", assignedWorkoutId: "custom_relax_stretch", assignedWorkoutName: "Wieczorne Rozciąganie Relaksacyjne", isRestDay: false },
+    ],
+  },
+  // Default plan for unmatched IDs
+   {
+    id: 'default_plan_details',
+    name: 'Przykładowy Plan Treningowy (Detale)',
+    description: 'To jest ogólny plan treningowy. Dostosuj go do swoich potrzeb lub wybierz inny z listy.',
+    goal: 'Ogólny rozwój',
+    duration: 'Elastyczny',
+    schedule: [
+      { dayName: "Poniedziałek", assignedWorkoutName: "Trening Całego Ciała A", isRestDay: false },
+      { dayName: "Wtorek", isRestDay: true, notes: "Aktywny odpoczynek" },
+      { dayName: "Środa", assignedWorkoutName: "Trening Całego Ciała B", isRestDay: false },
+      { dayName: "Czwartek", isRestDay: true },
+      { dayName: "Piątek", assignedWorkoutName: "Trening Całego Ciała C", isRestDay: false },
+      { dayName: "Sobota", isRestDay: true },
+      { dayName: "Niedziela", isRestDay: true, notes: "Pełna regeneracja" },
+    ],
+  },
+];
