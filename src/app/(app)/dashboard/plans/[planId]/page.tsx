@@ -27,7 +27,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"; // Ensure this import is correct
+} from "@/components/ui/alert-dialog";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 const PENDING_CUSTOM_WORKOUT_KEY = 'pendingCustomWorkoutToStart';
 
@@ -69,31 +75,24 @@ export default function TrainingPlanDetailPage() {
       toast({ title: "Błąd", description: "Nie można rozpocząć tego treningu.", variant: "destructive" });
       return;
     }
-    // Try to find the exercises for this workoutId from the general MOCK_EXERCISES_DATABASE
-    // This is a simplification. In a real app, workout structures would be more robustly defined.
-    // For mock: assume a workout named "Trening A - Full Body" might map to a few exercises.
-    // This logic needs to be more sophisticated or workout definitions more complete.
-
+    
     let exercisesToStart: ExerciseInWorkout[] = [];
 
-    // Simplistic mapping: if a workout has a known ID from MOCK_WORKOUTS, use its exercises
-    // For now, we'll mock some exercises if a specific workout ID is provided
-    // This is a placeholder for actual workout structure retrieval
-    if (workoutId === "wk1") { // Example: "Trening A - Full Body"
+    if (workoutId === "wk1") { 
         exercisesToStart = [
             { id: "ex1", name: "Wyciskanie sztangi na ławce płaskiej", defaultSets: 3, defaultReps: "8-10", defaultRest: 90 },
             { id: "ex2", name: "Przysiady ze sztangą", defaultSets: 3, defaultReps: "8-10", defaultRest: 120 },
             { id: "ex4", name: "Podciąganie na drążku", defaultSets: 3, defaultReps: "Max", defaultRest: 90 },
         ];
-    } else if (workoutId.startsWith("custom_wk_")) { // Generic for other "custom" workouts in mock plan
+    } else if (workoutId.startsWith("custom_wk_")) { 
          exercisesToStart = MOCK_EXERCISES_DATABASE
-            .filter(ex => ex.name.toLowerCase().includes(workoutName.split(" (")[0].toLowerCase().substring(0,5)) || ex.category.toLowerCase().includes(workoutName.split(" (")[0].toLowerCase().substring(0,5))) // very basic matching
-            .slice(0, 3) // Max 3 exercises for mock
+            .filter(ex => ex.name.toLowerCase().includes(workoutName.split(" (")[0].toLowerCase().substring(0,5)) || ex.category.toLowerCase().includes(workoutName.split(" (")[0].toLowerCase().substring(0,5))) 
+            .slice(0, 3) 
             .map(ex => ({ id: ex.id, name: ex.name, defaultSets: 3, defaultReps: "10", defaultRest: 60 }));
-        if(exercisesToStart.length === 0) { // Fallback if no matches
+        if(exercisesToStart.length === 0) { 
              exercisesToStart.push({id: MOCK_EXERCISES_DATABASE[0].id, name: MOCK_EXERCISES_DATABASE[0].name, defaultSets: 3, defaultReps: "10", defaultRest: 60});
         }
-    } else { // Fallback for any other workoutId
+    } else { 
         exercisesToStart = [{id: MOCK_EXERCISES_DATABASE[0].id, name: MOCK_EXERCISES_DATABASE[0].name, defaultSets: 3, defaultReps: "10", defaultRest: 60}];
     }
 
@@ -159,10 +158,6 @@ export default function TrainingPlanDetailPage() {
             <Button variant="outline" size="sm" onClick={() => toast({ title: "Funkcja wkrótce!", description: "Edycja planów będzie dostępna niedługo."})}>
               <Edit3 className="mr-2 h-4 w-4" /> Edytuj Plan
             </Button>
-             {/* This start button is more of a "Start this whole plan" if applicable, or removed if starting is per-day */}
-            {/* <Button size="sm" onClick={() => toast({title: "Funkcja wkrótce!", description: "Rozpoczęcie całego planu (śledzenie) będzie dostępne."})}>
-                <PlayCircle className="mr-2 h-4 w-4"/> Rozpocznij Ten Plan
-            </Button> */}
           </div>
         </div>
       </header>
@@ -197,38 +192,70 @@ export default function TrainingPlanDetailPage() {
               <CardDescription>Struktura treningów i dni odpoczynku w cyklu tygodniowym.</CardDescription>
             </CardHeader>
             <CardContent>
-              <ScrollArea className="max-h-[calc(100vh-20rem)]"> {/* Adjust height as needed */}
-                <div className="space-y-4">
+              <ScrollArea className="max-h-[calc(100vh-20rem)]">
+                <Accordion type="single" collapsible className="w-full space-y-2">
                   {planData.schedule.map((day, index) => (
-                    <Card key={index} className="bg-muted/20 p-4 shadow-sm plan-day-card">
-                      <CardTitle className="text-lg font-semibold mb-2">{day.dayName}</CardTitle>
-                      {day.isRestDay ? (
-                        <div className="flex items-center text-green-600 dark:text-green-400">
-                          <Coffee className="mr-2 h-5 w-5" />
-                          <span>Dzień Odpoczynku</span>
-                        </div>
-                      ) : day.assignedWorkoutName ? (
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                            <div className="flex items-center">
-                                <Dumbbell className="mr-2 h-5 w-5 text-primary" />
-                                <span className="font-medium">{day.assignedWorkoutName}</span>
-                            </div>
-                            <Button size="sm" variant="default" onClick={() => handleStartWorkout(day.dayName, day.assignedWorkoutId, day.assignedWorkoutName)} className="w-full sm:w-auto">
+                    day.isRestDay || !day.assignedWorkoutName ? (
+                      <Card key={index} className="bg-muted/20 p-4 shadow-sm plan-day-card">
+                        <CardTitle className="text-lg font-semibold mb-1">{day.dayName}</CardTitle>
+                        {day.isRestDay ? (
+                          <div className="flex items-center text-green-600 dark:text-green-400">
+                            <Coffee className="mr-2 h-5 w-5" />
+                            <span>Dzień Odpoczynku</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center text-muted-foreground">
+                            <Info className="mr-2 h-5 w-5" />
+                            <span>Brak przypisanego treningu</span>
+                          </div>
+                        )}
+                        {day.notes && (
+                          <p className="text-xs text-muted-foreground mt-2 italic">Notatka: {day.notes}</p>
+                        )}
+                      </Card>
+                    ) : (
+                      <AccordionItem value={`day-${index}`} key={index} className="border-none">
+                        <Card className="bg-muted/20 shadow-sm plan-day-card overflow-hidden">
+                          <AccordionTrigger className="p-4 hover:no-underline focus:no-underline data-[state=open]:border-b data-[state=open]:border-border">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 w-full text-left">
+                              <div className="flex-1">
+                                <CardTitle className="text-lg font-semibold mb-1 flex items-center gap-2">
+                                  {day.dayName}
+                                  <FileText className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors"/>
+                                </CardTitle>
+                                <div className="flex items-center text-sm">
+                                  <Dumbbell className="mr-2 h-4 w-4 text-primary" />
+                                  <span className="font-medium">{day.assignedWorkoutName}</span>
+                                </div>
+                              </div>
+                              <Button 
+                                size="sm" 
+                                variant="default" 
+                                onClick={(e) => { e.stopPropagation(); handleStartWorkout(day.dayName, day.assignedWorkoutId, day.assignedWorkoutName);}} 
+                                className="w-full mt-2 sm:mt-0 sm:w-auto self-start sm:self-center"
+                              >
                                 <PlayCircle className="mr-2 h-4 w-4"/> Rozpocznij Trening Dnia
-                            </Button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center text-muted-foreground">
-                          <Info className="mr-2 h-5 w-5" />
-                          <span>Brak przypisanego treningu</span>
-                        </div>
-                      )}
-                      {day.notes && (
-                        <p className="text-xs text-muted-foreground mt-2 italic">Notatka: {day.notes}</p>
-                      )}
-                    </Card>
+                              </Button>
+                            </div>
+                          </AccordionTrigger>
+                          <AccordionContent className="p-4 text-sm">
+                            {day.notes && (
+                              <p className="text-xs text-muted-foreground mb-3 italic">Notatka do dnia: {day.notes}</p>
+                            )}
+                            <h4 className="font-semibold mb-1">Szczegóły Treningu (Placeholder):</h4>
+                            <p className="text-muted-foreground mb-1">Cel: Skupienie na {MOCK_EXERCISES_DATABASE.find(ex => ex.id === day.assignedWorkoutId?.split('_')[0])?.category || "ogólnej sile"}.</p>
+                            <ul className="list-disc list-inside pl-2 text-muted-foreground">
+                              <li>Przykładowe ćwiczenie 1 (np. {MOCK_EXERCISES_DATABASE[index % MOCK_EXERCISES_DATABASE.length]?.name || "Wyciskanie"})</li>
+                              <li>Przykładowe ćwiczenie 2</li>
+                              <li>Przykładowe ćwiczenie 3</li>
+                            </ul>
+                            <p className="mt-2 text-xs text-primary">(Pełna lista ćwiczeń i serii będzie dostępna po integracji z modułem edycji treningów)</p>
+                          </AccordionContent>
+                        </Card>
+                      </AccordionItem>
+                    )
                   ))}
-                </div>
+                </Accordion>
               </ScrollArea>
             </CardContent>
           </Card>
@@ -239,7 +266,7 @@ export default function TrainingPlanDetailPage() {
                 </Button>
                  <AlertDialog>
                     <AlertDialogTrigger asChild>
-                        <Button variant="destructive" onClick={() => { /* Logic to open confirmation */ }}>
+                        <Button variant="destructive">
                             Usuń Plan (Wkrótce)
                         </Button>
                     </AlertDialogTrigger>
@@ -266,3 +293,4 @@ export default function TrainingPlanDetailPage() {
     </div>
   );
 }
+
