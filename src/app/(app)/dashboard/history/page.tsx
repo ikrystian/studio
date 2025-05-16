@@ -18,8 +18,8 @@ import {
   Dumbbell,
   Activity,
   BarChart,
-  RotateCcw, // For clear filters
-  FileDown, // For CSV Export
+  RotateCcw, 
+  FileDown, 
   Loader2,
 } from "lucide-react";
 
@@ -45,102 +45,9 @@ import { Calendar } from "@/components/ui/calendar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import type { RecordedSet, ExerciseInWorkout } from "../workout/active/[workoutId]/page";
 import { useToast } from "@/hooks/use-toast";
-
-
-enum DifficultyRating {
-  BardzoLatwy = "Bardzo Łatwy",
-  Latwy = "Łatwy",
-  Sredni = "Średni",
-  Trudny = "Trudny",
-  BardzoTrudny = "Bardzo Trudny",
-  Ekstremalny = "Ekstremalny",
-}
-
-export interface HistoricalWorkoutSession {
-  id: string;
-  workoutId: string;
-  workoutName: string;
-  workoutType: string;
-  startTime: string; // ISO string
-  endTime: string; // ISO string
-  totalTimeSeconds: number;
-  recordedSets: Record<string, RecordedSet[]>;
-  exercises: ExerciseInWorkout[];
-  difficulty?: DifficultyRating;
-  generalNotes?: string;
-  calculatedTotalVolume: number;
-  userId?: string;
-}
-
-const MOCK_HISTORY_SESSIONS: HistoricalWorkoutSession[] = [
-  {
-    id: "hist1",
-    workoutId: "wk1",
-    workoutName: "Poranny Trening Siłowy",
-    workoutType: "Siłowy",
-    startTime: "2024-07-25T08:00:00.000Z",
-    endTime: "2024-07-25T09:00:00.000Z",
-    totalTimeSeconds: 3600,
-    recordedSets: {
-      ex1: [{ setNumber: 1, weight: "60", reps: "10", notes: "Good form" }, { setNumber: 2, weight: "65", reps: "8" }],
-      ex2: [{ setNumber: 1, weight: "100", reps: "5" }],
-    },
-    exercises: [
-      { id: "ex1", name: "Wyciskanie sztangi na ławce płaskiej", defaultSets: 3, defaultReps: "8-10", defaultRest: 90 },
-      { id: "ex2", name: "Przysiady ze sztangą", defaultSets: 4, defaultReps: "10-12", defaultRest: 120 },
-    ],
-    difficulty: DifficultyRating.Sredni,
-    generalNotes: "Feeling strong today!",
-    calculatedTotalVolume: (60*10) + (65*8) + (100*5),
-    userId: "testUser123"
-  },
-  {
-    id: "hist2",
-    workoutId: "wk2",
-    workoutName: "Szybkie Cardio HIIT",
-    workoutType: "Cardio",
-    startTime: "2024-07-27T17:30:00.000Z",
-    endTime: "2024-07-27T18:00:00.000Z",
-    totalTimeSeconds: 1800,
-    recordedSets: {
-      ex6: [{ setNumber: 1, weight: "N/A", reps: "30 min" }],
-    },
-    exercises: [{ id: "ex6", name: "Bieg na bieżni (30 min)", defaultSets: 1, defaultReps: "30 min", defaultRest: 0 }],
-    difficulty: DifficultyRating.Trudny,
-    generalNotes: "Tough session, pushed hard.",
-    calculatedTotalVolume: 0,
-    userId: "testUser123"
-  },
-  {
-    id: "hist3",
-    workoutId: "wk1",
-    workoutName: "Poranny Trening Siłowy", // Same name, different date
-    startTime: "2024-07-29T08:15:00.000Z", 
-    endTime: "2024-07-29T09:20:00.000Z",
-    totalTimeSeconds: 3900,
-    recordedSets: {
-      ex1: [{ setNumber: 1, weight: "65", reps: "10" }, { setNumber: 2, weight: "70", reps: "8"}, { setNumber: 3, weight: "70", reps: "7"}],
-      ex2: [{ setNumber: 1, weight: "100", reps: "6" }, { setNumber: 2, weight: "105", reps: "5"}],
-      ex4: [{ setNumber: 1, weight: "BW", reps: "8" }, { setNumber: 2, weight: "BW", reps: "7"}],
-    },
-    exercises: [
-      { id: "ex1", name: "Wyciskanie sztangi na ławce płaskiej", defaultSets: 3, defaultReps: "8-10", defaultRest: 90 },
-      { id: "ex2", name: "Przysiady ze sztangą", defaultSets: 3, defaultReps: "5-8", defaultRest: 120 },
-      { id: "ex4", name: "Podciąganie na drążku", defaultSets: 3, defaultReps: "Max", defaultRest: 75 },
-    ],
-    difficulty: DifficultyRating.Sredni,
-    workoutType: "Siłowy",
-    calculatedTotalVolume: (65*10) + (70*8) + (70*7) + (100*6) + (105*5), 
-    userId: "testUser123"
-  },
-  { id: "hist4", workoutId: "wk2", workoutName: "Cardio Popołudniowe", workoutType: "Cardio", startTime: "2024-07-10T16:00:00.000Z", endTime: "2024-07-10T16:45:00.000Z", totalTimeSeconds: 2700, recordedSets: {}, exercises: [], calculatedTotalVolume: 0, difficulty: DifficultyRating.Latwy, userId: "testUser123" },
-  { id: "hist5", workoutId: "wk1", workoutName: "Trening Siłowy - Nogi", workoutType: "Siłowy", startTime: "2024-07-10T09:00:00.000Z", endTime: "2024-07-10T10:15:00.000Z", totalTimeSeconds: 4500, recordedSets: {}, exercises: [], calculatedTotalVolume: 12000, difficulty: DifficultyRating.Trudny, userId: "testUser123" },
-  { id: "hist6", workoutId: "wk3", workoutName: "Joga Poranna", workoutType: "Rozciąganie", startTime: "2024-07-18T07:00:00.000Z", endTime: "2024-07-18T07:30:00.000Z", totalTimeSeconds: 1800, recordedSets: {}, exercises: [], calculatedTotalVolume: 0, difficulty: DifficultyRating.BardzoLatwy, userId: "testUser123" },
-  { id: "hist7", workoutId: "wk4", workoutName: "Trening Mieszany - Całe Ciało", workoutType: "Mieszany", startTime: "2024-08-05T18:00:00.000Z", endTime: "2024-08-05T19:00:00.000Z", totalTimeSeconds: 3600, recordedSets: {}, exercises: [], calculatedTotalVolume: 8000, difficulty: DifficultyRating.Sredni, userId: "testUser123" },
-  { id: "hist8", workoutId: "wk1", workoutName: "Siłówka Wieczorna", workoutType: "Siłowy", startTime: "2024-08-15T20:00:00.000Z", endTime: "2024-08-15T21:15:00.000Z", totalTimeSeconds: 4500, recordedSets: {}, exercises: [], calculatedTotalVolume: 15000, difficulty: DifficultyRating.Trudny, userId: "testUser123" },
-];
+// Import types and mock data from centralized location
+import { MOCK_HISTORY_SESSIONS, type HistoricalWorkoutSession, type RecordedSet, type ExerciseInWorkout } from "@/lib/mockData";
 
 
 const WORKOUT_TYPES = ["Wszystkie", "Siłowy", "Cardio", "Mieszany", "Rozciąganie", "Inny"];

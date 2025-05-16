@@ -1,5 +1,7 @@
 
 import type { Exercise as SelectableExerciseType } from "@/components/workout/exercise-selection-dialog";
+import type { RecordedSet as WorkoutRecordedSet, ExerciseInWorkout as PlanExerciseInWorkout } from "@/app/(app)/dashboard/workout/active/[workoutId]/page";
+
 
 // This was previously in src/app/(app)/dashboard/workout/create/page.tsx
 const INITIAL_MOCK_EXERCISES_DATABASE_DATA: SelectableExerciseType[] = [
@@ -27,12 +29,12 @@ export { INITIAL_MOCK_EXERCISES_DATABASE_DATA as MOCK_EXERCISES_DATABASE };
 export type { SelectableExerciseType }; // Exporting the type as well if needed by other files directly from mockData
 
 
-// --- Moved from src/app/(app)/dashboard/profile/[userId]/page.tsx ---
+// --- User Profile Data (from src/app/(app)/dashboard/profile/[userId]/page.tsx) ---
 export interface UserProfile {
   id: string;
   fullName: string;
   username: string;
-  email: string; // Added for consistency based on how profile data is stored/retrieved
+  email: string; 
   avatarUrl: string;
   bio?: string;
   fitnessLevel: "Początkujący" | "Średniozaawansowany" | "Zaawansowany" | "Ekspert";
@@ -57,7 +59,6 @@ export interface UserProfile {
     isSharedPlansPublic: boolean;
   };
   role?: 'client' | 'trener' | 'admin';
-  // Fields from Account Settings for a more complete profile
   dateOfBirth?: string; // ISO string
   gender?: "male" | "female" | "other" | "prefer_not_to_say";
   weight?: number;
@@ -125,9 +126,8 @@ export const MOCK_USER_PROFILES_DB: UserProfile[] = [
   },
 ];
 
-// Mock for current user (this user is logged in)
 export const MOCK_CURRENT_USER_PROFILE: UserProfile = {
-  id: "current_user_id", // Special ID for logged-in user
+  id: "current_user_id",
   fullName: "Jan Testowy",
   username: "jan_tester",
   email: "jan.tester@example.com",
@@ -143,11 +143,109 @@ export const MOCK_CURRENT_USER_PROFILE: UserProfile = {
   ],
   linkedSocialAccounts: { google: true, facebook: false },
   privacySettings: { isActivityPublic: true, isFriendsListPublic: true, isSharedPlansPublic: true},
-  role: 'admin', // Current test user can be an admin
+  role: 'admin', 
   dateOfBirth: new Date(1992, 3, 10).toISOString(),
   gender: "male",
   weight: 80,
   height: 182,
 };
-// Add current user to the DB so they can be "found" by ID
 MOCK_USER_PROFILES_DB.push(MOCK_CURRENT_USER_PROFILE);
+
+
+// --- Workout History Data (from src/app/(app)/dashboard/history/page.tsx) ---
+export enum DifficultyRating {
+  BardzoLatwy = "Bardzo Łatwy",
+  Latwy = "Łatwy",
+  Sredni = "Średni",
+  Trudny = "Trudny",
+  BardzoTrudny = "Bardzo Trudny",
+  Ekstremalny = "Ekstremalny",
+}
+
+// Re-using types from active workout page for consistency, aliasing them
+export type RecordedSet = WorkoutRecordedSet;
+export type ExerciseInWorkout = PlanExerciseInWorkout;
+
+export interface HistoricalWorkoutSession {
+  id: string;
+  workoutId: string;
+  workoutName: string;
+  workoutType: string;
+  startTime: string; // ISO string
+  endTime: string; // ISO string
+  totalTimeSeconds: number;
+  recordedSets: Record<string, RecordedSet[]>; // Key is exerciseId
+  exercises: ExerciseInWorkout[]; // List of exercises in the original plan
+  difficulty?: DifficultyRating;
+  generalNotes?: string;
+  calculatedTotalVolume: number;
+  userId?: string; // For associating with a user
+}
+
+export const MOCK_HISTORY_SESSIONS: HistoricalWorkoutSession[] = [
+  {
+    id: "hist1",
+    workoutId: "wk1",
+    workoutName: "Poranny Trening Siłowy",
+    workoutType: "Siłowy",
+    startTime: "2024-07-25T08:00:00.000Z",
+    endTime: "2024-07-25T09:00:00.000Z",
+    totalTimeSeconds: 3600,
+    recordedSets: {
+      ex1: [{ setNumber: 1, weight: "60", reps: "10", rpe: 7, notes: "Good form" }, { setNumber: 2, weight: "65", reps: "8", rpe: 8 }],
+      ex2: [{ setNumber: 1, weight: "100", reps: "5", rpe: 9, notes: "Heavy but okay" }],
+      ex4: [{ setNumber: 1, weight: "BW", reps: "8", rpe: 7 }, { setNumber: 2, weight: "BW", reps: "6", rpe: 8, notes: "Trochę zmęczony" }],
+    },
+    exercises: [
+      { id: "ex1", name: "Wyciskanie sztangi na ławce płaskiej", defaultSets: 3, defaultReps: "8-10", defaultRest: 90 },
+      { id: "ex2", name: "Przysiady ze sztangą", defaultSets: 4, defaultReps: "6-8", defaultRest: 120 },
+      { id: "ex4", name: "Podciąganie na drążku", defaultSets: 3, defaultReps: "Max", defaultRest: 90 },
+    ],
+    difficulty: DifficultyRating.Sredni,
+    generalNotes: "Feeling strong today! Focused on technique. Może następnym razem dodam ciężaru w przysiadach.",
+    calculatedTotalVolume: (60*10) + (65*8) + (100*5), // (600 + 520 + 500) = 1620. BW volume not counted here.
+    userId: "current_user_id"
+  },
+  {
+    id: "hist2",
+    workoutId: "wk2",
+    workoutName: "Szybkie Cardio HIIT",
+    workoutType: "Cardio",
+    startTime: "2024-07-27T17:30:00.000Z",
+    endTime: "2024-07-27T18:00:00.000Z",
+    totalTimeSeconds: 1800,
+    recordedSets: {
+      ex6: [{ setNumber: 1, weight: "N/A", reps: "30 min", rpe: 8 }],
+    },
+    exercises: [{ id: "ex6", name: "Bieg na bieżni (30 min)", defaultSets: 1, defaultReps: "30 min", defaultRest: 0 }],
+    difficulty: DifficultyRating.Trudny,
+    generalNotes: "Tough session, pushed hard on intervals.",
+    calculatedTotalVolume: 0,
+    userId: "current_user_id"
+  },
+  {
+    id: "hist3",
+    workoutId: "wk1", // Repeating the same workout plan ID
+    workoutName: "Poranny Trening Siłowy",
+    workoutType: "Siłowy",
+    startTime: "2024-07-29T08:15:00.000Z", 
+    endTime: "2024-07-29T09:20:00.000Z",
+    totalTimeSeconds: 3900,
+    recordedSets: {
+      ex1: [{ setNumber: 1, weight: "65", reps: "10", rpe: 7 }, { setNumber: 2, weight: "70", reps: "8", rpe: 8}, { setNumber: 3, weight: "70", reps: "7", rpe: 8.5, notes: "Ostatnie ciężko"}],
+      ex2: [{ setNumber: 1, weight: "100", reps: "6", rpe: 8 }, { setNumber: 2, weight: "105", reps: "5", rpe: 9, notes: "Nowy PR!"}],
+    },
+    exercises: [ // Note: This session only did ex1 and ex2 from wk1
+      { id: "ex1", name: "Wyciskanie sztangi na ławce płaskiej", defaultSets: 3, defaultReps: "8-10", defaultRest: 90 },
+      { id: "ex2", name: "Przysiady ze sztangą", defaultSets: 3, defaultReps: "5-8", defaultRest: 120 },
+    ],
+    difficulty: DifficultyRating.Sredni,
+    calculatedTotalVolume: (65*10) + (70*8) + (70*7) + (100*6) + (105*5), // 650 + 560 + 490 + 600 + 525 = 2825
+    userId: "current_user_id"
+  },
+  { id: "hist4", workoutId: "wk2", workoutName: "Cardio Popołudniowe", workoutType: "Cardio", startTime: "2024-07-10T16:00:00.000Z", endTime: "2024-07-10T16:45:00.000Z", totalTimeSeconds: 2700, recordedSets: {ex7: [{setNumber: 1, weight: "N/A", reps: "15 min"}]}, exercises: [{id: "ex7", name: "Skakanka (15 min)"}], calculatedTotalVolume: 0, difficulty: DifficultyRating.Latwy, userId: "current_user_id" },
+  { id: "hist5", workoutId: "wkCustom1", workoutName: "Trening Siłowy - Nogi", workoutType: "Siłowy", startTime: "2024-07-10T09:00:00.000Z", endTime: "2024-07-10T10:15:00.000Z", totalTimeSeconds: 4500, recordedSets: {ex2: [{setNumber: 1, weight: 80, reps: 10}], ex13: [{setNumber: 1, weight: "20kg each", reps: 12}]}, exercises: [{id: "ex2", name: "Przysiady ze sztangą"}, {id: "ex13", name: "Wykroki"}], calculatedTotalVolume: 12000, difficulty: DifficultyRating.Trudny, userId: "current_user_id" },
+  { id: "hist6", workoutId: "wk3", workoutName: "Joga Poranna", workoutType: "Rozciąganie", startTime: "2024-07-18T07:00:00.000Z", endTime: "2024-07-18T07:30:00.000Z", totalTimeSeconds: 1800, recordedSets: {ex8: [{setNumber: 1, weight: "N/A", reps: "30 min"}]}, exercises: [{id:"ex8", name:"Rozciąganie dynamiczne"}], calculatedTotalVolume: 0, difficulty: DifficultyRating.BardzoLatwy, userId: "current_user_id" },
+  { id: "hist7", workoutId: "wkCustom2", workoutName: "Trening Mieszany - Całe Ciało", workoutType: "Mieszany", startTime: "2024-08-05T18:00:00.000Z", endTime: "2024-08-05T19:00:00.000Z", totalTimeSeconds: 3600, recordedSets: {ex1: [{setNumber:1, weight: 50, reps: 12}], ex6: [{setNumber:1, weight: "N/A", reps: "20 min"}]}, exercises: [{id: "ex1", name: "Wyciskanie sztangi na ławce płaskiej"}, {id: "ex6", name: "Bieg na bieżni"}], calculatedTotalVolume: 8000, difficulty: DifficultyRating.Sredni, userId: "current_user_id" },
+  { id: "hist8", workoutId: "wkCustom3", workoutName: "Siłówka Wieczorna", workoutType: "Siłowy", startTime: "2024-08-15T20:00:00.000Z", endTime: "2024-08-15T21:15:00.000Z", totalTimeSeconds: 4500, recordedSets: {ex3: [{setNumber:1, weight:120, reps:5}], ex12: [{setNumber:1, weight:70, reps:8}]}, exercises: [{id:"ex3", name:"Martwy ciąg"}, {id:"ex12", name:"Wiosłowanie sztangą"}], calculatedTotalVolume: 15000, difficulty: DifficultyRating.Trudny, userId: "current_user_id" },
+];
