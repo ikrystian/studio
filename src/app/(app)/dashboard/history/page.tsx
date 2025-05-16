@@ -51,7 +51,6 @@ import { useToast } from "@/hooks/use-toast";
 // Exporting to CSV is also a client-side operation based on the currently filtered data.
 // There are no actual backend calls for fetching or manipulating history data on this page.
 import { MOCK_HISTORY_SESSIONS, type HistoricalWorkoutSession, type RecordedSet, type ExerciseInWorkout } from "@/lib/mockData";
-import { WorkoutHistoryPageSkeleton } from "@/components/history/WorkoutHistoryPageSkeleton";
 
 
 const WORKOUT_TYPES = ["Wszystkie", "Siłowy", "Cardio", "Mieszany", "Rozciąganie", "Inny"];
@@ -258,7 +257,12 @@ export default function WorkoutHistoryPage() {
 
 
   if (isLoading) {
-    return <WorkoutHistoryPageSkeleton />;
+    return (
+        <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
+            <Loader2 className="h-12 w-12 animate-spin text-primary"/>
+            <p className="mt-4 text-muted-foreground">Ładowanie historii treningów...</p>
+        </div>
+      );
   }
 
   return (

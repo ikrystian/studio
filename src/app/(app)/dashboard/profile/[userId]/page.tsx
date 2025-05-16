@@ -47,10 +47,17 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-// Import mock data and UserProfile type from the centralized location
+// MOCK BACKEND LOGIC:
+// - Profile Data: Loaded from MOCK_USER_PROFILES_DB (if viewing other user) or
+//   from localStorage (CURRENT_USER_PROFILE_DATA_KEY for own profile). Falls back to MOCK_CURRENT_USER_PROFILE.
+// - Privacy Settings: Loaded from localStorage (PROFILE_PRIVACY_SETTINGS_KEY_PREFIX + userId) or
+//   from the profile data itself if embedded. Defaults if not found.
+// - Follow Status: Loaded from localStorage (USER_FOLLOW_STATUS_KEY_PREFIX + userId).
+// - Operations:
+//   - Follow/Unfollow: Updates local state and saves to localStorage.
+//   - Save Privacy Settings (via Dialog): Updates profileData state and saves to localStorage.
 import { MOCK_USER_PROFILES_DB, MOCK_CURRENT_USER_PROFILE, type UserProfile } from "@/lib/mockData";
 import type { UserPrivacySettings } from "@/components/profile/profile-privacy-settings-dialog";
-import { ProfilePageSkeleton } from "@/components/profile/profile-page-skeleton";
 
 // Lazy load the privacy settings dialog
 const ProfilePrivacySettingsDialog = dynamic(() =>
@@ -86,7 +93,7 @@ export default function UserProfilePage() {
 
     // Simulate a short delay for data fetching to make skeleton visible
     const fetchData = async () => {
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 750)); // Increased delay
 
         if (typeof window !== 'undefined') {
             // Determine which user's data to load based on userId and localStorage
@@ -199,7 +206,12 @@ export default function UserProfilePage() {
 
 
   if (isLoading) {
-    return <ProfilePageSkeleton />;
+    return (
+        <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
+            <Loader2 className="h-12 w-12 animate-spin text-primary"/>
+            <p className="mt-4 text-muted-foreground">Ładowanie profilu...</p>
+        </div>
+      );
   }
 
   if (!profileData) {

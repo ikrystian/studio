@@ -31,7 +31,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { SettingsProgressionModelPageSkeleton } from "@/components/settings/SettingsProgressionModelPageSkeleton";
 import type { ProgressionSettings } from "@/context/ProgressionSettingsContext"; 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -150,7 +149,12 @@ export default function ProgressionModelSettingsPage() {
   const watchSelectedModel = form.watch("selectedModel");
 
   if (pageIsLoading) {
-    return <SettingsProgressionModelPageSkeleton />;
+    return (
+        <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
+            <Loader2 className="h-12 w-12 animate-spin text-primary"/>
+            <p className="mt-4 text-muted-foreground">Ładowanie ustawień progresji...</p>
+        </div>
+      );
   }
 
   return (

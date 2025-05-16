@@ -5,8 +5,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowLeft, ChevronRight, Bell, Activity, Settings as SettingsIcon, ListChecks } from 'lucide-react';
-import { SettingsPageSkeleton } from '@/components/settings/SettingsPageSkeleton'; // Import skeleton
+import { ArrowLeft, ChevronRight, Bell, Activity, Settings as SettingsIcon, ListChecks, Loader2 } from 'lucide-react';
 
 const settingsOptions = [
   {
@@ -46,27 +45,16 @@ export default function SettingsPage() {
   }, []);
 
   if (isLoading) {
-    return <SettingsPageSkeleton />;
+    return (
+        <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
+            <Loader2 className="h-12 w-12 animate-spin text-primary"/>
+            <p className="mt-4 text-muted-foreground">Ładowanie ustawień...</p>
+        </div>
+      );
   }
 
   return (
     <>
-      {/* Header part of AppLayout - page specific */}
-      {/* <header className="sticky top-16 z-30 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/50">
-        <div className="container mx-auto flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" asChild>
-              <Link href="/dashboard">
-                <ArrowLeft className="h-5 w-5" />
-                <span className="sr-only">Powrót do Panelu</span>
-              </Link>
-            </Button>
-             <SettingsIcon className="h-7 w-7 text-primary" /> 
-            <h1 className="text-xl font-bold">Ustawienia Aplikacji</h1>
-          </div>
-        </div>
-      </header> */}
-
       <main className="flex-1 py-6 px-4 sm:px-6 lg:px-8">
         <div className="container mx-auto max-w-2xl space-y-6">
           {settingsOptions.map((option) => {

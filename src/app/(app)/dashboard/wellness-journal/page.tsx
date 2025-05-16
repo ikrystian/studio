@@ -76,7 +76,6 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { WellnessJournalPageSkeleton } from "@/components/wellness-journal/WellnessJournalPageSkeleton"; // Added import
 
 export interface WellnessEntry {
   id: string;
@@ -157,7 +156,7 @@ const INITIAL_MOCK_ENTRIES: WellnessEntry[] = [
 
 export default function WellnessJournalPage() {
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = React.useState(true); // For skeleton
+  const [isLoading, setIsLoading] = React.useState(true); 
   const [entries, setEntries] = React.useState<WellnessEntry[]>([]);
   const [isSaving, setIsSaving] = React.useState(false);
   const [entryToDelete, setEntryToDelete] = React.useState<WellnessEntry | null>(null);
@@ -243,7 +242,12 @@ export default function WellnessJournalPage() {
   }
 
   if (isLoading) {
-    return <WellnessJournalPageSkeleton />;
+    return (
+        <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
+            <Loader2 className="h-12 w-12 animate-spin text-primary"/>
+            <p className="mt-4 text-muted-foreground">Ładowanie dziennika samopoczucia...</p>
+        </div>
+      );
   }
 
   return (
@@ -529,4 +533,3 @@ export default function WellnessJournalPage() {
     </div>
   );
 }
-

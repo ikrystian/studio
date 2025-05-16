@@ -36,8 +36,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CommunityFeedPageSkeleton } from "@/components/community/CommunityFeedPageSkeleton"; // Added import
-
 // MOCK BACKEND LOGIC: The entire feed, including users, posts, comments, and notifications,
 // is managed using in-memory arrays (MOCK_USERS, ALL_MOCK_POSTS, INITIAL_MOCK_NOTIFICATIONS).
 // All operations like creating posts, liking, commenting, and fetching "notifications"
@@ -177,7 +175,7 @@ const CURRENT_USER_ID = "currentUser"; // Simulate logged-in user
 
 export default function CommunityFeedPage() {
   const { toast } = useToast();
-  const [pageIsLoading, setPageIsLoading] = React.useState(true); // Added loading state
+  const [pageIsLoading, setPageIsLoading] = React.useState(true);
   const [posts, setPosts] = React.useState<MockPost[]>([]);
   const [newPostContent, setNewPostContent] = React.useState("");
   const [commentInputs, setCommentInputs] = React.useState<Record<string, string>>({});
@@ -372,7 +370,12 @@ export default function CommunityFeedPage() {
 
 
   if (pageIsLoading) {
-    return <CommunityFeedPageSkeleton />;
+    return (
+        <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
+            <Loader2 className="h-12 w-12 animate-spin text-primary"/>
+            <p className="mt-4 text-muted-foreground">Ładowanie aktualności...</p>
+        </div>
+      );
   }
 
   return (
@@ -488,7 +491,7 @@ export default function CommunityFeedPage() {
           </Card>
 
           {/* Posts Feed */}
-          {posts.length === 0 && !isLoadingMore && !pageIsLoading ? ( // Added !pageIsLoading check
+          {posts.length === 0 && !isLoadingMore && !pageIsLoading ? ( 
              <p className="text-center text-muted-foreground py-10">
                 {activeFilter !== 'all' ? "Brak postów pasujących do filtra." : "Brak postów do wyświetlenia. Bądź pierwszy!"}
              </p>
@@ -630,5 +633,3 @@ export default function CommunityFeedPage() {
     </div>
   );
 }
-
-    

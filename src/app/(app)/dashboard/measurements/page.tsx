@@ -90,7 +90,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { MeasurementsPageSkeleton } from "@/components/measurements/MeasurementsPageSkeleton";
 
 // MOCK BACKEND LOGIC: Component uses an in-memory array (INITIAL_MOCK_MEASUREMENTS) for data.
 // Adding, editing, or deleting measurements modifies this array.
@@ -422,7 +421,12 @@ export default function MeasurementsPage() {
   };
 
   if (pageIsLoading) {
-    return <MeasurementsPageSkeleton />;
+    return (
+        <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
+            <Loader2 className="h-12 w-12 animate-spin text-primary"/>
+            <p className="mt-4 text-muted-foreground">Ładowanie danych pomiarów...</p>
+        </div>
+      );
   }
 
   return (
@@ -779,4 +783,3 @@ export default function MeasurementsPage() {
     </div>
   );
 }
-

@@ -38,7 +38,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import type { UserPrivacySettings } from "@/components/profile/profile-privacy-settings-dialog";
-import { AccountSettingsPageSkeleton } from "@/components/account/AccountSettingsPageSkeleton";
+// MOCK BACKEND LOGIC:
+// - State Management: User data, 2FA status, privacy settings are managed via React state.
+// - Data Persistence: `localStorage` is used to simulate fetching and saving these settings.
+//   - `CURRENT_USER_PROFILE_DATA_KEY`: Stores core profile data.
+//   - `"workoutWise2FAStatus"`: Stores boolean for 2FA.
+//   - `PROFILE_PRIVACY_SETTINGS_KEY`: Stores user's privacy preferences.
+// - Operations (Forms):
+//   - Personal Data: Updates `currentUserAccountData` state and saves to `CURRENT_USER_PROFILE_DATA_KEY`.
+//   - Email/Password Change: Simulates API calls; updates `currentUserAccountData` if mock password matches.
+//   - 2FA Activation/Deactivation: Toggles `isTwoFactorEnabled` state and updates `"workoutWise2FAStatus"` in localStorage.
+//   - Delete Account: Simulates API call; clears localStorage and redirects if mock password matches.
+// - Mock Data: `MOCK_LOGIN_HISTORY`, `MOCK_BACKUP_CODES` are in-memory arrays.
+// - `DEFAULT_USER_ACCOUNT_DATA`: Fallback data if nothing in localStorage.
 import { PersonalDataSection } from "@/components/account/sections/PersonalDataSection";
 import { SecurityManagementSection } from "@/components/account/sections/SecurityManagementSection";
 import { ProfilePrivacyManagementSection } from "@/components/account/sections/ProfilePrivacyManagementSection";
@@ -156,7 +168,7 @@ type Deactivate2FAFormValues = z.infer<typeof deactivate2FASchema>;
 
 export default function AccountSettingsPage() {
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = React.useState(true);
+  const [isLoading, setIsLoading] = React.useState(true); // Used to simulate initial load
   const [isEditingPersonalData, setIsEditingPersonalData] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
@@ -210,29 +222,36 @@ export default function AccountSettingsPage() {
     let loaded2FAStatus = false;
     let loadedPrivacySettings = DEFAULT_PRIVACY_SETTINGS;
 
+    // MOCK BACKEND LOGIC: Simulate fetching user data from localStorage.
+    // In a real app, this would be an API call to a backend, and user data would be in a context or store.
     if (typeof window !== 'undefined') {
       try {
         const storedProfileStr = localStorage.getItem(CURRENT_USER_PROFILE_DATA_KEY);
         if (storedProfileStr) {
           const parsedProfile = JSON.parse(storedProfileStr);
+          // Merge with defaults to ensure all fields are present
           loadedProfileData = { ...DEFAULT_USER_ACCOUNT_DATA, ...parsedProfile };
         }
         
+        // MOCK BACKEND LOGIC: Simulate fetching 2FA status from localStorage.
         const stored2FAStatusStr = localStorage.getItem("workoutWise2FAStatus");
         loaded2FAStatus = stored2FAStatusStr === "true";
         
+        // MOCK BACKEND LOGIC: Simulate fetching privacy settings from localStorage.
         const storedPrivacyStr = localStorage.getItem(PROFILE_PRIVACY_SETTINGS_KEY);
         if (storedPrivacyStr) {
           loadedPrivacySettings = JSON.parse(storedPrivacyStr);
-        } else if (loadedProfileData.privacySettings) { // Fallback to privacy settings from profile data
+        } else if (loadedProfileData.privacySettings) { // Fallback to privacy settings from profile data if not explicitly set
           loadedPrivacySettings = loadedProfileData.privacySettings;
         }
       } catch (error) {
         console.error("Error loading account data from localStorage:", error);
+        // Fallback to defaults in case of error
       }
     }
 
     setCurrentUserAccountData(loadedProfileData);
+    // Reset form with loaded or default data
     personalDataForm.reset({
       fullName: loadedProfileData.fullName,
       dateOfBirth: loadedProfileData.dateOfBirth ? parseISO(loadedProfileData.dateOfBirth) : new Date(),
@@ -244,17 +263,20 @@ export default function AccountSettingsPage() {
     setIsTwoFactorEnabled(loaded2FAStatus);
     setPrivacySettings(loadedPrivacySettings);
 
+    // Simulate a delay for initial data loading to allow skeleton to be seen
     const timer = setTimeout(() => {
         setIsLoading(false);
-    }, 750); 
+    }, 750); // Adjust as needed, or remove if actual API calls introduce sufficient delay
 
     return () => clearTimeout(timer);
-  }, [personalDataForm]);
+  }, [personalDataForm]); // personalDataForm is stable, so this effect runs once on mount
 
 
+  // MOCK BACKEND LOGIC: Simulates updating personal data on a backend.
+  // Here, it updates the local state and persists it to localStorage.
   async function onSubmitPersonalData(values: PersonalDataFormValues) {
     setIsSubmitting(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API delay
     
     const updatedAccountData: UserProfile = {
         ...currentUserAccountData,
@@ -276,11 +298,15 @@ export default function AccountSettingsPage() {
     setIsSubmitting(false);
   }
 
+  // MOCK BACKEND LOGIC: Simulates changing email.
+  // Checks a mock password and updates localStorage. In a real app, an API call would handle this.
   async function onSubmitChangeEmail(values: ChangeEmailFormValues) {
     setIsSubmitting(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API delay
+    // Simulate password check
     if (values.currentPasswordForEmail === "password") { 
       setCurrentUserAccountData(prev => ({...prev, email: values.newEmail}));
+      // Update email in localStorage
       if (typeof window !== 'undefined') {
         const profileDataStr = localStorage.getItem(CURRENT_USER_PROFILE_DATA_KEY);
         if (profileDataStr) {
@@ -299,9 +325,12 @@ export default function AccountSettingsPage() {
     setIsSubmitting(false);
   }
 
+  // MOCK BACKEND LOGIC: Simulates changing password.
+  // Checks a mock password. In a real app, an API call would handle this securely.
   async function onSubmitChangePassword(values: ChangePasswordFormValues) {
     setIsSubmitting(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API delay
+    // Simulate password check
     if (values.currentPassword === "password") { 
       toast({ title: "Hasło zmienione (Symulacja)", description: "Twoje hasło zostało pomyślnie zaktualizowane."});
       passwordForm.reset();
@@ -311,14 +340,18 @@ export default function AccountSettingsPage() {
     setIsSubmitting(false);
   }
   
+  // MOCK BACKEND LOGIC: Simulates deleting an account.
+  // Checks a mock password, clears localStorage, and redirects. In a real app, an API call handles this.
   async function onSubmitDeleteAccount(values: DeleteAccountFormValues) {
     setIsSubmitting(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate API delay
+    // Simulate password check
     if (values.passwordConfirmation === "password") { 
         toast({ title: "Konto usunięte (Symulacja)", description: "Twoje konto zostało usunięte. Zostaniesz wylogowany.", variant: "destructive" });
+        // Simulate logout and clear all app-related data
         if (typeof window !== 'undefined') {
-            localStorage.clear(); 
-            window.location.href = "/login?status=account_deleted";
+            localStorage.clear(); // In a real app, be more specific about what's cleared
+            window.location.href = "/login?status=account_deleted"; // Redirect to login
         }
     } else {
         deleteAccountForm.setError("passwordConfirmation", { type: "manual", message: "Nieprawidłowe hasło."});
@@ -326,22 +359,27 @@ export default function AccountSettingsPage() {
     setIsSubmitting(false);
   }
 
+  // MOCK BACKEND LOGIC: Simulates activating 2FA.
+  // Sets mock backup codes and updates localStorage.
   const handleActivate2FA = () => {
     setIsTwoFactorEnabled(true);
-    setBackupCodes(MOCK_BACKUP_CODES); 
+    setBackupCodes(MOCK_BACKUP_CODES); // In real app, generate codes on server
     localStorage.setItem("workoutWise2FAStatus", "true");
     toast({ title: "2FA Aktywowane!", description: "Dwuetapowa weryfikacja została pomyślnie włączona."});
     setShowTwoFactorDialog(false);
-    setShowBackupCodesDialog(true);
+    setShowBackupCodesDialog(true); // Show backup codes after activation
   };
 
+  // MOCK BACKEND LOGIC: Simulates deactivating 2FA.
+  // Checks a mock password and updates localStorage.
   const onDeactivate2FASubmit = async (data: Deactivate2FAFormValues) => {
     setIsSubmitting(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API delay
+    // Simulate password check
     if (data.password === "password") {
         setIsTwoFactorEnabled(false);
         localStorage.removeItem("workoutWise2FAStatus");
-        setBackupCodes([]);
+        setBackupCodes([]); // Clear backup codes
         toast({ title: "2FA Dezaktywowane", description: "Dwuetapowa weryfikacja została wyłączona.", variant: "default"});
         deactivate2faForm.reset();
     } else {
@@ -354,17 +392,20 @@ export default function AccountSettingsPage() {
     setPrivacySettings(prev => ({ ...prev, [key]: value }));
   };
 
+  // MOCK BACKEND LOGIC: Simulates saving privacy settings.
+  // Updates the local state and persists it to localStorage.
   const handleSavePrivacySettings = async () => {
     setIsSavingPrivacy(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API delay
     try {
         localStorage.setItem(PROFILE_PRIVACY_SETTINGS_KEY, JSON.stringify(privacySettings));
+        // Also update the privacy settings within the main user profile data for consistency
         if (typeof window !== 'undefined') {
             const profileDataStr = localStorage.getItem(CURRENT_USER_PROFILE_DATA_KEY);
             if (profileDataStr) {
                 try {
                     const profileData = JSON.parse(profileDataStr);
-                    profileData.privacySettings = privacySettings;
+                    profileData.privacySettings = privacySettings; // Embed privacy settings
                     localStorage.setItem(CURRENT_USER_PROFILE_DATA_KEY, JSON.stringify(profileData));
                 } catch (e) { console.error("Error updating privacy settings in profile data:", e); }
             }
@@ -390,7 +431,12 @@ export default function AccountSettingsPage() {
   }
 
   if (isLoading) {
-    return <AccountSettingsPageSkeleton />;
+    return (
+        <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
+            <Loader2 className="h-12 w-12 animate-spin text-primary"/>
+            <p className="mt-4 text-muted-foreground">Ładowanie ustawień konta...</p>
+        </div>
+      );
   }
 
   return (

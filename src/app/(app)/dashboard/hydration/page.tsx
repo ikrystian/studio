@@ -47,7 +47,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 // MOCK BACKEND LOGIC: Dialog is dynamically imported for lazy loading.
 import { AddEditPortionDialog, type Portion } from "@/components/hydration/add-edit-portion-dialog";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"; // Added AlertDescription
-import { HydrationTrackingPageSkeleton } from "@/components/hydration/HydrationTrackingPageSkeleton"; // Import skeleton
 
 // MOCK BACKEND LOGIC: All hydration data is stored in localStorage under this key.
 // This simulates fetching and persisting user-specific hydration settings and logs.
@@ -90,7 +89,7 @@ const DEFAULT_REMINDER_SETTINGS: ReminderSettings = {
 
 export default function HydrationTrackingPage() {
   const { toast } = useToast();
-  const [pageIsLoading, setPageIsLoading] = React.useState(true); // For skeleton
+  const [isLoading, setIsLoading] = React.useState(true); 
   const [hydrationData, setHydrationData] = React.useState<HydrationData>({
     dailyGoal: DEFAULT_DAILY_GOAL_ML,
     log: [],
@@ -112,8 +111,8 @@ export default function HydrationTrackingPage() {
   const [lastGoalCheckDate, setLastGoalCheckDate] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    setPageIsLoading(true);
-    const timer = setTimeout(() => { // Simulate loading delay
+    setIsLoading(true);
+    const timer = setTimeout(() => { 
       let loadedData: HydrationData = {
           dailyGoal: DEFAULT_DAILY_GOAL_ML,
           log: [],
@@ -142,7 +141,7 @@ export default function HydrationTrackingPage() {
       }
       setHydrationData(loadedData);
       setNewGoalInput(loadedData.dailyGoal.toString());
-      setPageIsLoading(false);
+      setIsLoading(false);
 
       if (typeof window !== "undefined" && "Notification" in window) {
           setNotificationPermission(Notification.permission);
@@ -155,7 +154,7 @@ export default function HydrationTrackingPage() {
 
   // MOCK BACKEND LOGIC: Save hydration data to localStorage on change.
   React.useEffect(() => {
-    if (!pageIsLoading) { 
+    if (!isLoading) { 
       try {
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(hydrationData));
       } catch (error) {
@@ -167,7 +166,7 @@ export default function HydrationTrackingPage() {
         });
       }
     }
-  }, [hydrationData, pageIsLoading, toast]);
+  }, [hydrationData, isLoading, toast]);
 
   const todaysIntake = React.useMemo(() => {
     return hydrationData.log
@@ -379,8 +378,13 @@ export default function HydrationTrackingPage() {
   }).flat();
 
 
-  if (pageIsLoading) {
-    return <HydrationTrackingPageSkeleton />;
+  if (isLoading) {
+    return (
+        <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
+            <Loader2 className="h-12 w-12 animate-spin text-primary"/>
+            <p className="mt-4 text-muted-foreground">Ładowanie danych nawodnienia...</p>
+        </div>
+      );
   }
 
   return (
@@ -705,4 +709,3 @@ export default function HydrationTrackingPage() {
     </div>
   );
 }
-

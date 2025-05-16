@@ -70,7 +70,6 @@ import { Alert } from "@/components/ui/alert";
 // MOCK BACKEND LOGIC: Exercise database is an in-memory constant.
 import { MOCK_EXERCISES_DATABASE } from "@/lib/mockData"; // Corrected import path
 // import { PbProgressionChartDialog } from "@/components/personal-bests/pb-progression-chart-dialog";
-import { PersonalBestsPageSkeleton } from "@/components/personal-bests/PersonalBestsPageSkeleton"; // Added import
 
 // MOCK BACKEND LOGIC: Dialogs are dynamically imported for lazy loading.
 const ManagePbDialog = dynamic(() =>
@@ -150,7 +149,7 @@ const RECORD_TYPE_LABELS: Record<PersonalBest["recordType"], string> = {
 
 export default function PersonalBestsPage() {
   const { toast } = useToast();
-  const [pageIsLoading, setPageIsLoading] = React.useState(true); // Added loading state
+  const [pageIsLoading, setPageIsLoading] = React.useState(true); 
   const [personalBests, setPersonalBests] =
     React.useState<PersonalBest[]>([]); // Initialize empty for skeleton
   const [isManageDialogOpen, setIsManageDialogOpen] = React.useState(false);
@@ -310,7 +309,12 @@ export default function PersonalBestsPage() {
   }, [personalBests]);
 
   if (pageIsLoading) {
-    return <PersonalBestsPageSkeleton />;
+    return (
+        <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
+            <Loader2 className="h-12 w-12 animate-spin text-primary"/>
+            <p className="mt-4 text-muted-foreground">Ładowanie rekordów życiowych...</p>
+        </div>
+      );
   }
 
   return (
@@ -561,4 +565,3 @@ export default function PersonalBestsPage() {
     </>
   );
 }
-

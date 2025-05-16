@@ -28,7 +28,6 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { CommunityDiscoverPageSkeleton } from "@/components/community/CommunityDiscoverPageSkeleton";
 // MOCK BACKEND LOGIC: User profiles (MOCK_USER_PROFILES_DB) and discoverable content (MOCK_DISCOVERABLE_CONTENT)
 // are in-memory arrays. Filtering and recommendations are simulated client-side.
 // Following a user updates a local state, not a backend.
@@ -160,7 +159,12 @@ export default function CommunityDiscoverPage() {
   };
 
   if (isLoading) {
-    return <CommunityDiscoverPageSkeleton />;
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
+          <Loader2 className="h-12 w-12 animate-spin text-primary"/>
+          <p className="mt-4 text-muted-foreground">Ładowanie strony odkrywania...</p>
+      </div>
+    );
   }
 
   return (
@@ -583,4 +587,3 @@ export default function CommunityDiscoverPage() {
     </div>
   );
 }
-

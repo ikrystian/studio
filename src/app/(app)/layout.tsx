@@ -4,7 +4,7 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { AppHeader } from '@/components/layout/AppHeader';
-import RootLoading from '@/app/loading'; // Import the root loading component
+import { Loader2 } from 'lucide-react'; // For a minimal loader
 
 export default function AppGroupLayout({
   children,
@@ -28,14 +28,19 @@ export default function AppGroupLayout({
   }, [router]);
 
   if (isCheckingAuth) {
-    // Display a full-page loading skeleton while checking authentication status.
-    return <RootLoading />;
+    // Display a minimal loader while checking authentication status.
+    return (
+        <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <p className="mt-4 text-muted-foreground">Sprawdzanie sesji...</p>
+        </div>
+    );
   }
 
   return (
     <>
       <AppHeader />
-      <main className="flex-1">{children}</main> {/* Added flex-1 for main content area */}
+      <main className="flex-1">{children}</main>
     </>
   );
 }

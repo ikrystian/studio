@@ -101,11 +101,22 @@ const INITIAL_MOCK_PHOTOS: ProgressPhoto[] = [
 
 export default function ProgressPhotosPage() {
   const { toast } = useToast();
-  const [photos, setPhotos] = React.useState<ProgressPhoto[]>(INITIAL_MOCK_PHOTOS);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [photos, setPhotos] = React.useState<ProgressPhoto[]>([]);
   const [isAddPhotoDialogOpen, setIsAddPhotoDialogOpen] = React.useState(false);
   const [selectedForComparison, setSelectedForComparison] = React.useState<ProgressPhoto[]>([]);
   const [photoToView, setPhotoToView] = React.useState<ProgressPhoto | null>(null);
   const [photoToDelete, setPhotoToDelete] = React.useState<ProgressPhoto | null>(null);
+
+  React.useEffect(() => {
+    setIsLoading(true);
+    // Simulate data fetching delay
+    const timer = setTimeout(() => {
+      setPhotos(INITIAL_MOCK_PHOTOS);
+      setIsLoading(false);
+    }, 750);
+    return () => clearTimeout(timer);
+  }, []);
 
   // MOCK BACKEND LOGIC: Simulates adding a new photo.
   // Appends to the in-memory 'photos' array. Generates a placeholder image URL.
@@ -149,6 +160,15 @@ export default function ProgressPhotosPage() {
   const sortedPhotos = React.useMemo(() => {
     return [...photos].sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
   }, [photos]);
+
+  if (isLoading) {
+    return (
+        <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
+            <Loader2 className="h-12 w-12 animate-spin text-primary"/>
+            <p className="mt-4 text-muted-foreground">Ładowanie zdjęć postępu...</p>
+        </div>
+      );
+  }
 
 
   return (
@@ -305,4 +325,3 @@ export default function ProgressPhotosPage() {
     </div>
   );
 }
-

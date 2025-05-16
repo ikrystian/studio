@@ -75,7 +75,6 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { CreateTrainingPlanPageSkeleton } from "@/components/plans/CreateTrainingPlanPageSkeleton";
 // MOCK BACKEND LOGIC:
 // - `MOCK_AVAILABLE_WORKOUTS_FOR_PLAN_EDITOR` and `MOCK_DAY_TEMPLATES_FOR_PLAN_EDITOR` are in-memory arrays from `src/lib/mockData.ts`,
 //   simulating a database of available workouts and day templates.
@@ -396,7 +395,12 @@ export default function CreateTrainingPlanPage() {
   };
 
   if (pageIsLoading) {
-    return <CreateTrainingPlanPageSkeleton />;
+    return (
+        <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
+            <Loader2 className="h-12 w-12 animate-spin text-primary"/>
+            <p className="mt-4 text-muted-foreground">Ładowanie kreatora planów...</p>
+        </div>
+      );
   }
 
 

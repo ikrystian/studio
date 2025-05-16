@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowLeft, Activity, Info, CheckCircle, XCircle, Link2, Unlink2 } from "lucide-react"; 
+import { ArrowLeft, Activity, Info, CheckCircle, XCircle, Link2, Unlink2, Loader2 } from "lucide-react"; 
 
 import { Button } from "@/components/ui/button";
 import {
@@ -19,8 +19,6 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
-import { SettingsHealthIntegrationsPageSkeleton } from "@/components/settings/SettingsHealthIntegrationsPageSkeleton";
-
 // MOCK BACKEND LOGIC:
 // - Settings Persistence: Health integration settings (connection status, sync options) are loaded from and saved to localStorage.
 // - Connection Toggling: Connecting/disconnecting from services like Apple Health or Google Fit is simulated.
@@ -123,7 +121,12 @@ export default function HealthIntegrationsPage() {
   };
   
   if (pageIsLoading) {
-    return <SettingsHealthIntegrationsPageSkeleton />;
+    return (
+        <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
+            <Loader2 className="h-12 w-12 animate-spin text-primary"/>
+            <p className="mt-4 text-muted-foreground">Ładowanie ustawień integracji...</p>
+        </div>
+      );
   }
 
   return (

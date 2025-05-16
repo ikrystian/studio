@@ -5,8 +5,11 @@ import * as React from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ArrowLeft, Users, MessageSquare, Search, Trophy } from "lucide-react";
-import { CommunityHomePageSkeleton } from "@/components/community/CommunityHomePageSkeleton"; // Added import
+import { ArrowLeft, Users, MessageSquare, Search, Trophy, Loader2 } from "lucide-react";
+
+// MOCK BACKEND LOGIC: This page is primarily for navigation. The content (feature list)
+// is hardcoded. No dynamic data fetching or backend simulation is performed here beyond
+// a simple loading state.
 
 const communityFeatures = [
   {
@@ -41,7 +44,12 @@ export default function CommunityHomePage() {
   }, []);
 
   if (isLoading) {
-    return <CommunityHomePageSkeleton />;
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
+          <Loader2 className="h-12 w-12 animate-spin text-primary"/>
+          <p className="mt-4 text-muted-foreground">Ładowanie strony społeczności...</p>
+      </div>
+    );
   }
 
   return (

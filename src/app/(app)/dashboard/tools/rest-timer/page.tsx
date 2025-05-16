@@ -29,7 +29,6 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import { RestTimerPageSkeleton } from "@/components/tools/RestTimerPageSkeleton";
 
 const MIN_DURATION_SECONDS = 1;
 const MAX_DURATION_SECONDS = 3600; // 1 hour
@@ -49,6 +48,7 @@ export default function StandaloneRestTimerPage() {
   const prevTotalSetDurationRef = React.useRef<number>(totalSetDuration);
 
   React.useEffect(() => {
+    setPageIsLoading(true);
     const timer = setTimeout(() => {
       setPageIsLoading(false);
     }, 750); 
@@ -169,7 +169,12 @@ export default function StandaloneRestTimerPage() {
   const progressValue = totalSetDuration > 0 ? (currentTimeInSeconds / totalSetDuration) * 100 : 0;
 
   if (pageIsLoading) {
-    return <RestTimerPageSkeleton />;
+    return (
+        <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
+            <Loader2 className="h-12 w-12 animate-spin text-primary"/>
+            <p className="mt-4 text-muted-foreground">Ładowanie timera...</p>
+        </div>
+      );
   }
 
   return (

@@ -34,8 +34,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input"; 
-import { SettingsRemindersPageSkeleton } from "@/components/settings/SettingsRemindersPageSkeleton";
-
 // MOCK BACKEND LOGIC:
 // - Settings Persistence: Reminder settings are loaded from and saved to localStorage.
 // - Notification Permission: Browser's Notification API is used for permission requests.
@@ -259,7 +257,12 @@ export default function ReminderSettingsPage() {
   const watchReminderType = form.watch("reminderType");
 
   if (isFetchingSettings) {
-    return <SettingsRemindersPageSkeleton />;
+    return (
+        <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
+            <Loader2 className="h-12 w-12 animate-spin text-primary"/>
+            <p className="mt-4 text-muted-foreground">Ładowanie ustawień przypomnień...</p>
+        </div>
+      );
   }
 
   return (

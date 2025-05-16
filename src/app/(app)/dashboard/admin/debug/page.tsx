@@ -8,11 +8,19 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Settings, Bug, ArrowLeft, Trash2, RefreshCcw, Database, Users as UsersIcon, Info, AlertTriangle, UserCircle } from "lucide-react"; // Added UsersIcon and UserCircle
 import { useToast } from "@/hooks/use-toast";
+// MOCK BACKEND LOGIC:
+// - Data Source: `MOCK_USER_PROFILES_DB` is imported from `src/lib/mockData.ts`.
+// - Actions:
+//   - Clear LocalStorage: Directly manipulates browser's localStorage.
+//   - Reset Mock Users: Simulates a backend reset by clearing `currentUserProfileData` from localStorage
+//     and re-setting the displayed `userProfiles` from the original `MOCK_USER_PROFILES_DB`.
+//     In a real app, this would trigger an API call to reset a backend database.
+//   - Test Toast/Error: Client-side actions for UI testing.
 import { MOCK_USER_PROFILES_DB, type UserProfile } from "@/lib/mockData"; // Import UserProfile type
-import { AdminDebugPageSkeleton } from "@/components/admin/AdminDebugPageSkeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Loader2 } from "lucide-react";
 
 export default function AdminDebugPage() {
     const { toast } = useToast();
@@ -39,6 +47,7 @@ export default function AdminDebugPage() {
         // Simulate fetching users
         setUserProfiles(MOCK_USER_PROFILES_DB);
 
+        // Simulate loading delay
         const timer = setTimeout(() => {
             setIsLoading(false);
         }, 750);
@@ -66,7 +75,12 @@ export default function AdminDebugPage() {
     };
     
     if (isLoading) {
-        return <AdminDebugPageSkeleton />;
+        return (
+            <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
+                <Loader2 className="h-12 w-12 animate-spin text-primary"/>
+                <p className="mt-4 text-muted-foreground">Ładowanie panelu debugowania...</p>
+            </div>
+          );
     }
 
     return (

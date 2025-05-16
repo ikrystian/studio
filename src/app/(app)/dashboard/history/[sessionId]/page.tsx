@@ -13,8 +13,13 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ArrowLeft, Info, History as HistoryIcon, Loader2, Dumbbell, Clock, TrendingUp, ListOrdered, RotateCcw, Edit3, Target } from 'lucide-react';
-import { WorkoutSessionDetailSkeleton } from "@/components/history/WorkoutSessionDetailSkeleton";
-// Import mock data and types from the centralized location
+// MOCK BACKEND LOGIC:
+// - Data Source: The `sessionId` from the URL is used to find a specific session
+//   from the `MOCK_HISTORY_SESSIONS` array (imported from `src/lib/mockData.ts`).
+// - Operations:
+//   - "Repeat Workout": Navigates to the active workout page, passing the original workoutId
+//     and current sessionId. The active workout page then simulates loading this past session.
+//   - No data modification happens on this page itself.
 import { MOCK_HISTORY_SESSIONS, type HistoricalWorkoutSession, type RecordedSet } from "@/lib/mockData";
 import { useToast } from "@/hooks/use-toast";
 
@@ -86,7 +91,12 @@ export default function WorkoutSessionDetailPage() {
   };
 
   if (isLoading) {
-    return <WorkoutSessionDetailSkeleton />;
+    return (
+        <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
+            <Loader2 className="h-12 w-12 animate-spin text-primary"/>
+            <p className="mt-4 text-muted-foreground">Ładowanie szczegółów sesji...</p>
+        </div>
+      );
   }
 
   if (error) {

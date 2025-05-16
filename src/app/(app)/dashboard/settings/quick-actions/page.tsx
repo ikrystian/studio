@@ -9,8 +9,6 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { ArrowLeft, ListChecks, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { SettingsQuickActionsPageSkeleton } from "@/components/settings/SettingsQuickActionsPageSkeleton";
-
 // MOCK BACKEND LOGIC:
 // - Visibility Preferences: Loaded from and saved to localStorage.
 // - The actual effect of these settings (hiding/showing quick actions on the dashboard)
@@ -117,7 +115,12 @@ export default function QuickActionsSettingsPage() {
 
 
   if (pageIsLoading) {
-    return <SettingsQuickActionsPageSkeleton />;
+    return (
+        <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
+            <Loader2 className="h-12 w-12 animate-spin text-primary"/>
+            <p className="mt-4 text-muted-foreground">Ładowanie ustawień szybkich akcji...</p>
+        </div>
+      );
   }
 
   return (
