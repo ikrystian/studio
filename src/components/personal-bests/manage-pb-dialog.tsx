@@ -7,7 +7,7 @@ import { useForm, Controller } from "react-hook-form";
 import * as z from "zod";
 import { format, parseISO } from "date-fns";
 import { pl } from "date-fns/locale";
-import { CalendarIcon, Save, StickyNote, Weight, Repeat, Clock, Route, XCircle, Dumbbell, HelpCircle } from "lucide-react";
+import { CalendarIcon, Save, StickyNote, Weight, Repeat, Clock, Route, XCircle, Dumbbell, HelpCircle, Loader2 } from "lucide-react"; // Added Loader2
 
 import { Button } from "@/components/ui/button";
 import {
@@ -40,8 +40,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import type { PersonalBest } from "@/app/personal-bests/page";
-import type { Exercise as SelectableExercise } from "@/components/workout/exercise-selection-dialog"; // Reusing type
+import type { PersonalBest } from "@/app/(app)/dashboard/personal-bests/page"; // Ensure correct import path
+import type { Exercise as SelectableExercise } from "@/components/workout/exercise-selection-dialog"; 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 
@@ -54,7 +54,6 @@ const RECORD_TYPES = [
 
 type RecordTypeValue = typeof RECORD_TYPES[number]['value'];
 
-// Base schema
 const baseSchema = z.object({
   exerciseId: z.string().min(1, "Wybór ćwiczenia jest wymagany."),
   date: z.date({ required_error: "Data rekordu jest wymagana." }),
@@ -62,14 +61,12 @@ const baseSchema = z.object({
     required_error: "Typ rekordu jest wymagany.",
   }),
   notes: z.string().optional(),
-  // Value fields - will be validated based on recordType
   valueWeight: z.union([z.coerce.number().positive("Ciężar musi być dodatni.").optional(), z.literal("BW"), z.literal("")]),
   valueReps: z.coerce.number().int().positive("Powtórzenia muszą być dodatnią liczbą całkowitą.").optional().or(z.literal("")),
   valueTimeSeconds: z.coerce.number().int().positive("Czas musi być dodatnią liczbą całkowitą sekund.").optional().or(z.literal("")),
   valueDistanceKm: z.coerce.number().positive("Dystans musi być dodatni.").optional().or(z.literal("")),
 });
 
-// Refine schema based on recordType
 const refinedSchema = baseSchema.superRefine((data, ctx) => {
   switch (data.recordType) {
     case "weight_reps":
@@ -81,7 +78,6 @@ const refinedSchema = baseSchema.superRefine((data, ctx) => {
       }
       break;
     case "max_reps":
-      // Weight is optional for max_reps (can be Bodyweight)
       if (data.valueReps === "" || data.valueReps === undefined) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Liczba powtórzeń jest wymagana.", path: ["valueReps"] });
       }
@@ -157,14 +153,13 @@ export function ManagePbDialog({
   function onSubmit(values: PersonalBestFormData) {
     const finalValues: PersonalBestFormData = {
         ...values,
-        date: values.date, // Date object is fine here, will be converted to ISO string in parent
+        date: values.date, 
         valueWeight: values.valueWeight === "" ? undefined : values.valueWeight,
         valueReps: values.valueReps === "" ? undefined : Number(values.valueReps),
         valueTimeSeconds: values.valueTimeSeconds === "" ? undefined : Number(values.valueTimeSeconds),
         valueDistanceKm: values.valueDistanceKm === "" ? undefined : Number(values.valueDistanceKm),
     };
     onSave(finalValues);
-    // form.reset(); // Reset is handled by useEffect or onOpenChange
   }
   
   const selectedRecordType = form.watch("recordType");
@@ -189,16 +184,20 @@ export function ManagePbDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="flex items-center"><Dumbbell className="mr-2 h-4 w-4"/>Ćwiczenie</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value || ""} disabled={availableExercises.length === 0}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Wybierz ćwiczenie..." />
+                        <SelectValue placeholder={availableExercises.length === 0 ? "Ładowanie/Brak ćwiczeń..." : "Wybierz ćwiczenie..."} />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {availableExercises.map(ex => (
-                        <SelectItem key={ex.id} value={ex.id}>{ex.name}</SelectItem>
-                      ))}
+                      {availableExercises.length > 0 ? (
+                        availableExercises.map(ex => (
+                          <SelectItem key={ex.id} value={ex.id}>{ex.name}</SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="loading" disabled>Ładowanie listy ćwiczeń...</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -249,13 +248,12 @@ export function ManagePbDialog({
                   <FormLabel className="flex items-center"><HelpCircle className="mr-2 h-4 w-4"/>Typ Rekordu</FormLabel>
                   <Select onValueChange={(value) => {
                       field.onChange(value);
-                      // Reset other value fields when type changes
                       form.setValue("valueWeight", "");
                       form.setValue("valueReps", "");
                       form.setValue("valueTimeSeconds", "");
                       form.setValue("valueDistanceKm", "");
                     }} 
-                    defaultValue={field.value}
+                    value={field.value || ""}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -273,7 +271,6 @@ export function ManagePbDialog({
               )}
             />
 
-            {/* Conditional Value Fields */}
             {selectedRecordType === "weight_reps" && (
               <>
                 <FormField
@@ -412,3 +409,4 @@ export function ManagePbDialog({
     </Dialog>
   );
 }
+

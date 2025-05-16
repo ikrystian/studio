@@ -22,6 +22,7 @@ import {
   Star,
   Medal,
   Dumbbell,
+  AlertTriangle, // Added for error alert
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -43,10 +44,6 @@ import {
 } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-// import {
-//   ManagePbDialog,
-//   type PersonalBestFormData,
-// } from "@/components/personal-bests/manage-pb-dialog";
 import type { PersonalBestFormData } from "@/components/personal-bests/manage-pb-dialog";
 import {
   AlertDialog,
@@ -66,12 +63,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Alert } from "@/components/ui/alert";
-// MOCK BACKEND LOGIC: Exercise database is an in-memory constant.
-import { MOCK_EXERCISES_DATABASE } from "@/lib/mockData"; // Corrected import path
-// import { PbProgressionChartDialog } from "@/components/personal-bests/pb-progression-chart-dialog";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"; // Added AlertTitle, AlertDescription
+import { INITIAL_MOCK_PBS, RECORD_TYPE_LABELS_PBS } from "@/lib/mockData";
+import type { Exercise as SelectableExerciseType } from "@/components/workout/exercise-selection-dialog";
 
-// MOCK BACKEND LOGIC: Dialogs are dynamically imported for lazy loading.
+
 const ManagePbDialog = dynamic(() =>
   import("@/components/personal-bests/manage-pb-dialog").then((mod) => mod.ManagePbDialog), {
   loading: () => <div className="fixed inset-0 bg-background/50 flex items-center justify-center z-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>,
@@ -100,79 +96,55 @@ export interface PersonalBest {
   notes?: string;
 }
 
-// MOCK BACKEND LOGIC: Personal Bests are stored in an in-memory array (INITIAL_MOCK_PBS).
-// Adding, editing, or deleting PBs modifies this array. Data is not persisted.
-const INITIAL_MOCK_PBS: PersonalBest[] = [
-  {
-    id: uuidv4(),
-    exerciseId: "ex1",
-    exerciseName: "Wyciskanie sztangi na ławce płaskiej",
-    recordType: "weight_reps",
-    value: { weight: 100, reps: 5 },
-    date: new Date(2024, 6, 15).toISOString(),
-    notes: "Nowy rekord po 3 miesiącach planu.",
-  },
-  {
-    id: uuidv4(),
-    exerciseId: "ex2",
-    exerciseName: "Przysiady ze sztangą",
-    recordType: "weight_reps",
-    value: { weight: 140, reps: 3 },
-    date: new Date(2024, 7, 1).toISOString(),
-  },
-  {
-    id: uuidv4(),
-    exerciseId: "ex6",
-    exerciseName: "Bieg na bieżni (30 min)",
-    recordType: "time_seconds",
-    value: { timeSeconds: 30 * 60 },
-    date: new Date(2024, 5, 20).toISOString(),
-    notes: "Najszybsze 30 min na bieżni.",
-  },
-  {
-    id: uuidv4(),
-    exerciseId: "ex4",
-    exerciseName: "Podciąganie na drążku",
-    recordType: "max_reps",
-    value: { weight: "BW", reps: 15 },
-    date: new Date(2024, 7, 10).toISOString(),
-    notes: "Pierwszy raz 15 podciągnięć!",
-  },
-];
-
-const RECORD_TYPE_LABELS: Record<PersonalBest["recordType"], string> = {
-  weight_reps: "Ciężar x Powtórzenia",
-  max_reps: "Maks. Powtórzeń",
-  time_seconds: "Czas",
-  distance_km: "Dystans",
-};
-
 export default function PersonalBestsPage() {
   const { toast } = useToast();
   const [pageIsLoading, setPageIsLoading] = React.useState(true); 
-  const [personalBests, setPersonalBests] =
-    React.useState<PersonalBest[]>([]); // Initialize empty for skeleton
+  const [personalBests, setPersonalBests] = React.useState<PersonalBest[]>(INITIAL_MOCK_PBS);
   const [isManageDialogOpen, setIsManageDialogOpen] = React.useState(false);
   const [editingPb, setEditingPb] = React.useState<PersonalBest | null>(null);
   const [pbToDelete, setPbToDelete] = React.useState<PersonalBest | null>(null);
   const [isDeleting, setIsDeleting] = React.useState(false);
 
   const [searchTerm, setSearchTerm] = React.useState("");
-  const [selectedExerciseFilter, setSelectedExerciseFilter] =
-    React.useState<string>("all");
+  const [selectedExerciseFilter, setSelectedExerciseFilter] = React.useState<string>("all");
 
   const [isPbChartDialogOpen, setIsPbChartDialogOpen] = React.useState(false);
   const [pbForChart, setPbForChart] = React.useState<PersonalBest | null>(null);
 
+  const [availableExercises, setAvailableExercises] = React.useState<SelectableExerciseType[]>([]);
+  const [exerciseFetchError, setExerciseFetchError] = React.useState<string | null>(null);
+
   React.useEffect(() => {
-    setPageIsLoading(true);
-    // MOCK BACKEND LOGIC: Simulate fetching data.
-    const timer = setTimeout(() => {
-      setPersonalBests(INITIAL_MOCK_PBS);
-      setPageIsLoading(false);
-    }, 750); 
-    return () => clearTimeout(timer);
-  }, []);
+    async function loadInitialData() {
+      setPageIsLoading(true);
+      setExerciseFetchError(null);
+      try {
+        // Fetch exercises
+        const response = await fetch('/api/exercises');
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || `Nie udało się załadować listy ćwiczeń. Status: ${response.status}`);
+        }
+        const data = await response.json();
+        if (data.success) {
+          setAvailableExercises(data.data);
+        } else {
+          throw new Error(data.message || "Nie udało się załadować ćwiczeń (odpowiedź API bez sukcesu).");
+        }
+        // Set PBs (still from mock for now, but exercises are fetched)
+        setPersonalBests(INITIAL_MOCK_PBS);
+
+      } catch (error: any) {
+        console.error("Error fetching exercises for PB page:", error);
+        setExerciseFetchError(error.message || "Wystąpił nieznany błąd podczas ładowania ćwiczeń.");
+        setAvailableExercises([]); // Ensure list is empty on error
+        toast({ title: "Błąd Ładowania Danych", description: error.message || "Spróbuj odświeżyć stronę.", variant: "destructive" });
+      } finally {
+        setPageIsLoading(false);
+      }
+    }
+    loadInitialData();
+  }, [toast]);
 
 
   const filteredPbs = React.useMemo(() => {
@@ -189,10 +161,8 @@ export default function PersonalBestsPage() {
       .sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
   }, [personalBests, searchTerm, selectedExerciseFilter]);
 
-  // MOCK BACKEND LOGIC: Simulates saving or updating a Personal Best.
-  // Modifies the in-memory 'personalBests' array. No actual backend call.
   const handleSavePb = (data: PersonalBestFormData) => {
-    const exercise = MOCK_EXERCISES_DATABASE.find(
+    const exercise = availableExercises.find( // Use fetched list
       (ex) => ex.id === data.exerciseId
     );
     if (!exercise) {
@@ -245,6 +215,10 @@ export default function PersonalBestsPage() {
   };
 
   const handleEditPb = (pb: PersonalBest) => {
+    if (exerciseFetchError) {
+        toast({ title: "Błąd Ładowania Ćwiczeń", description: "Nie można edytować rekordu, ponieważ lista ćwiczeń nie została załadowana.", variant: "destructive"});
+        return;
+    }
     setEditingPb(pb);
     setIsManageDialogOpen(true);
   };
@@ -253,12 +227,10 @@ export default function PersonalBestsPage() {
     setPbToDelete(pb);
   };
 
-  // MOCK BACKEND LOGIC: Simulates deleting a Personal Best.
-  // Filters the in-memory 'personalBests' array. No actual backend call.
   const handleDeletePb = async () => {
     if (!pbToDelete) return;
     setIsDeleting(true);
-    await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate API delay
+    await new Promise((resolve) => setTimeout(resolve, 500)); 
     setPersonalBests((prev) => prev.filter((p) => p.id !== pbToDelete.id));
     toast({
       title: "Rekord usunięty",
@@ -324,9 +296,14 @@ export default function PersonalBestsPage() {
           <div className="flex justify-end">
             <Button
               onClick={() => {
+                if (exerciseFetchError) {
+                    toast({ title: "Błąd Ładowania Ćwiczeń", description: "Nie można dodać rekordu, ponieważ lista ćwiczeń nie została załadowana.", variant: "destructive"});
+                    return;
+                }
                 setEditingPb(null);
                 setIsManageDialogOpen(true);
               }}
+              disabled={pageIsLoading || !!exerciseFetchError}
             >
               <PlusCircle className="mr-2 h-5 w-5" />
               Dodaj Rekord
@@ -337,7 +314,7 @@ export default function PersonalBestsPage() {
             onOpenChange={setIsManageDialogOpen}
             onSave={handleSavePb}
             initialData={editingPb}
-            availableExercises={MOCK_EXERCISES_DATABASE}
+            availableExercises={availableExercises} // Pass fetched exercises
           />
 
           <PbProgressionChartDialog
@@ -376,6 +353,16 @@ export default function PersonalBestsPage() {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+          )}
+          
+          {exerciseFetchError && (
+            <Alert variant="destructive" className="mb-4">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Błąd Ładowania Listy Ćwiczeń</AlertTitle>
+                <AlertDescription>
+                    {exerciseFetchError} Niektóre funkcje mogą być ograniczone. Spróbuj odświeżyć stronę.
+                </AlertDescription>
+            </Alert>
           )}
 
           <Card>
@@ -464,7 +451,7 @@ export default function PersonalBestsPage() {
                           </TableCell>
                           <TableCell>{formatPbValue(pb)}</TableCell>
                           <TableCell className="text-muted-foreground">
-                            {RECORD_TYPE_LABELS[pb.recordType]}
+                            {RECORD_TYPE_LABELS_PBS[pb.recordType]}
                           </TableCell>
                           <TableCell className="text-center">
                             {format(parseISO(pb.date), "dd MMM yyyy", {
@@ -489,6 +476,7 @@ export default function PersonalBestsPage() {
                               onClick={() => handleEditPb(pb)}
                               className="mr-1"
                               title="Edytuj rekord"
+                              disabled={!!exerciseFetchError}
                             >
                               <Edit className="h-4 w-4" />
                               <span className="sr-only">Edytuj</span>
@@ -533,11 +521,11 @@ export default function PersonalBestsPage() {
             <CardContent>
               <Alert>
                 <Trophy className="h-4 w-4" />
-                <p className="font-semibold">Funkcja w budowie</p>
-                <p className="text-xs text-muted-foreground">
+                <AlertTitle>Funkcja w budowie</AlertTitle>
+                <AlertDescription>
                   System odznak i nagród za osiągnięcia (w tym za rekordy
                   życiowe) zostanie dodany w przyszłości.
-                </p>
+                </AlertDescription>
               </Alert>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-4">
                 {[
@@ -565,3 +553,4 @@ export default function PersonalBestsPage() {
     </>
   );
 }
+

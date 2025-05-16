@@ -23,6 +23,7 @@ import {
   Copy,
   ClipboardList,
   Edit3,
+  AlertTriangle, // Added for error alert
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -56,13 +57,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import type { Exercise as SelectableExerciseType } from "@/components/workout/exercise-selection-dialog";
 import type { QuickAddExerciseFormData } from "@/components/workout/quick-add-exercise-dialog";
-// Removed for no-skeleton approach
-import { MOCK_EXERCISES_DATABASE } from "@/lib/mockData";
-
-// MOCK BACKEND LOGIC: 
-// - "Quick Add Exercise" simulates adding to a master list (in-memory for this session).
-// - Saving a workout ("Zapisz Trening") now POSTs data to a backend API (/api/workout-definitions/create)
-//   which then saves to the SQLite database.
+// Removed MOCK_EXERCISES_DATABASE import
 
 const ExerciseSelectionDialog = dynamic(() =>
   import("@/components/workout/exercise-selection-dialog").then((mod) => mod.ExerciseSelectionDialog), {
@@ -78,7 +73,7 @@ const QuickAddExerciseDialog = dynamic(() =>
 
 
 const exerciseInWorkoutSchema = z.object({
-  id: z.string(), // ID from the master exercises list
+  id: z.string(), 
   name: z.string().min(1, "Nazwa ćwiczenia jest wymagana."),
   sets: z.union([z.coerce.number({invalid_type_error: "Serie muszą być liczbą."}).positive("Liczba serii musi być dodatnia.").optional().nullable(), z.literal("")]),
   reps: z.string().optional().nullable(),
@@ -102,33 +97,39 @@ export default function CreateWorkoutPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [pageIsLoading, setPageIsLoading] = React.useState(true);
-  const [isLoading, setIsLoading] = React.useState(false); // Used for form submission
+  const [isLoading, setIsLoading] = React.useState(false); 
   const [serverError, setServerError] = React.useState<string | null>(null);
+  const [exerciseFetchError, setExerciseFetchError] = React.useState<string | null>(null);
 
   const [isExerciseSelectionDialogOpen, setIsExerciseSelectionDialogOpen] = React.useState(false);
   const [isQuickAddExerciseDialogOpen, setIsQuickAddExerciseDialogOpen] = React.useState(false);
 
-  // MOCK BACKEND LOGIC: `masterExerciseList` starts with MOCK_EXERCISES_DATABASE and can be expanded
-  // by the "Quick Add Exercise" dialog. This simulates a global exercise database for selection.
   const [masterExerciseList, setMasterExerciseList] = React.useState<SelectableExerciseType[]>([]);
 
   React.useEffect(() => {
     async function fetchExercises() {
-        try {
-            const response = await fetch('/api/exercises');
-            if (!response.ok) throw new Error('Nie udało się załadować listy ćwiczeń');
-            const data = await response.json();
-            if (data.success) {
-                setMasterExerciseList(data.data);
-            } else {
-                toast({ title: "Błąd", description: data.message || "Nie udało się załadować ćwiczeń.", variant: "destructive" });
-            }
-        } catch (error) {
-            toast({ title: "Błąd", description: "Nie udało się załadować ćwiczeń.", variant: "destructive" });
-            console.error(error);
-        } finally {
-            setPageIsLoading(false);
+      setPageIsLoading(true);
+      setExerciseFetchError(null);
+      try {
+        const response = await fetch('/api/exercises');
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({})); // Try to parse error, fallback to empty object
+          throw new Error(errorData.message || `Nie udało się załadować listy ćwiczeń. Status: ${response.status}`);
         }
+        const data = await response.json();
+        if (data.success) {
+          setMasterExerciseList(data.data);
+        } else {
+          throw new Error(data.message || "Nie udało się załadować ćwiczeń (odpowiedź API bez sukcesu).");
+        }
+      } catch (error: any) {
+        console.error("Error fetching exercises for create page:", error);
+        setExerciseFetchError(error.message || "Wystąpił nieznany błąd podczas ładowania ćwiczeń.");
+        setMasterExerciseList([]); // Ensure list is empty on error
+        toast({ title: "Błąd Ładowania Ćwiczeń", description: error.message || "Spróbuj odświeżyć stronę.", variant: "destructive" });
+      } finally {
+        setPageIsLoading(false);
+      }
     }
     fetchExercises();
   }, [toast]);
@@ -149,6 +150,10 @@ export default function CreateWorkoutPage() {
   });
 
   const handleOpenExerciseSelectionDialog = () => {
+    if (exerciseFetchError) {
+        toast({ title: "Błąd Ładowania Ćwiczeń", description: "Nie można otworzyć okna wyboru, ponieważ lista ćwiczeń nie została załadowana.", variant: "destructive"});
+        return;
+    }
     setIsExerciseSelectionDialogOpen(true);
   };
 
@@ -185,21 +190,13 @@ export default function CreateWorkoutPage() {
     setIsQuickAddExerciseDialogOpen(true);
   };
 
-  // MOCK BACKEND LOGIC (Quick Add): This adds to the client-side `masterExerciseList`.
-  // In a full app, this might also hit an API to add to the persistent exercise database.
   const handleQuickExerciseCreated = (newExerciseData: QuickAddExerciseFormData) => {
     const newDbExercise: SelectableExerciseType = {
-      id: `custom-${uuidv4().substring(0,8)}`, // Create a temporary client-side ID
+      id: `custom-${uuidv4().substring(0,8)}`, 
       name: newExerciseData.name,
       category: newExerciseData.category || "Inne",
-      // instructions and videoUrl would be undefined here or set to defaults
     };
-
-    // For now, we only add to the local list for selection.
-    // A real implementation would POST this to an /api/exercises/create endpoint
-    // and then potentially re-fetch or optimistically update masterExerciseList.
     setMasterExerciseList(prev => [...prev, newDbExercise]);
-
     append({
       id: newDbExercise.id,
       name: newDbExercise.name,
@@ -209,7 +206,6 @@ export default function CreateWorkoutPage() {
       targetRpe: "",
       exerciseNotes: "",
     });
-
     toast({
       title: "Ćwiczenie Dodane (Lokalnie)!",
       description: `"${newDbExercise.name}" zostało dodane do listy wyboru i obecnego treningu. Zmiany w głównej bazie ćwiczeń nie są tutaj symulowane.`,
@@ -223,15 +219,12 @@ export default function CreateWorkoutPage() {
 
   const handleCopyFromPrevious = (index: number) => {
     if (index === 0) return;
-
     const previousExerciseData = form.getValues(`exercises.${index - 1}`);
-
     form.setValue(`exercises.${index}.sets`, previousExerciseData.sets || "");
     form.setValue(`exercises.${index}.reps`, previousExerciseData.reps || "");
     form.setValue(`exercises.${index}.restTimeSeconds`, previousExerciseData.restTimeSeconds || "");
     form.setValue(`exercises.${index}.targetRpe`, previousExerciseData.targetRpe || "");
     form.setValue(`exercises.${index}.exerciseNotes`, previousExerciseData.exerciseNotes || "");
-
     toast({
       title: "Parametry Skopiowane",
       description: `Parametry zostały skopiowane z ćwiczenia: ${previousExerciseData.name}.`,
@@ -253,13 +246,12 @@ export default function CreateWorkoutPage() {
   async function onSubmit(values: WorkoutFormValues) {
     setIsLoading(true);
     setServerError(null);
-    
     const payload = {
       workoutName: values.workoutName,
       workoutType: values.workoutType,
       exercises: values.exercises.map(ex => ({
-        id: ex.id, // This ID comes from the master list (or custom generated if quick-added)
-        name: ex.name, // This is for display, actual link is via id
+        id: ex.id, 
+        name: ex.name, 
         sets: ex.sets,
         reps: ex.reps,
         restTimeSeconds: ex.restTimeSeconds,
@@ -267,25 +259,21 @@ export default function CreateWorkoutPage() {
         exerciseNotes: ex.exerciseNotes,
       })),
     };
-
     console.log("Submitting workout data to API:", payload);
-
     try {
       const response = await fetch('/api/workout-definitions/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-
       const result = await response.json();
-
       if (response.ok && result.success) {
         toast({
           title: "Trening zapisany!",
           description: `Trening "${values.workoutName}" został pomyślnie zapisany w bazie danych.`,
           variant: "default",
         });
-        router.push("/dashboard/workout/start"); // Or to plan list, or plan detail if editing
+        router.push("/dashboard/workout/start"); 
       } else {
         setServerError(result.message || "Wystąpił błąd podczas zapisywania treningu.");
         toast({
@@ -409,12 +397,21 @@ export default function CreateWorkoutPage() {
                     <CardTitle>Ćwiczenia</CardTitle>
                     <CardDescription>Dodaj ćwiczenia i skonfiguruj ich parametry.</CardDescription>
                   </div>
-                  <Button type="button" variant="outline" onClick={handleOpenExerciseSelectionDialog} disabled={isLoading}>
+                  <Button type="button" variant="outline" onClick={handleOpenExerciseSelectionDialog} disabled={isLoading || !!exerciseFetchError}>
                     <PlusCircle className="mr-2 h-5 w-5" />
                     Dodaj z Bazy
                   </Button>
                 </CardHeader>
                 <CardContent>
+                  {exerciseFetchError && (
+                    <Alert variant="destructive" className="mb-4">
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertTitle>Błąd Ładowania Listy Ćwiczeń</AlertTitle>
+                        <AlertDescription>
+                            {exerciseFetchError} Spróbuj odświeżyć stronę.
+                        </AlertDescription>
+                    </Alert>
+                  )}
                   {fields.length === 0 ? (
                     <div className="py-6 text-center text-muted-foreground">
                       <Dumbbell className="mx-auto mb-2 h-12 w-12" />
@@ -424,7 +421,7 @@ export default function CreateWorkoutPage() {
                   ) : (
                     <ul className="space-y-6">
                       {fields.map((item, index) => (
-                        <li key={item.id}> {/* Use item.id from useFieldArray which should be unique */}
+                        <li key={item.id}> 
                           <Card className="bg-card p-4 shadow-md">
                             <div className="flex items-start justify-between gap-2 mb-4">
                               <div className="flex items-center gap-2 flex-grow min-w-0">
@@ -594,3 +591,4 @@ export default function CreateWorkoutPage() {
     </div>
   );
 }
+
