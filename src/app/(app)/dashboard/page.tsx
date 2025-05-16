@@ -5,7 +5,6 @@ import * as React from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
 import {
@@ -37,7 +36,7 @@ import {
   User as UserIcon, 
   Users,
   XCircle,
-  Loader2,
+  ListChecks,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -112,6 +111,7 @@ const QuickActionsWidget: React.FC = () => {
     }
 
     const itemsToDisplay = ALL_NAV_ITEMS.filter(item => {
+      // Use item.id for checking visibility
       return visibilityMap[item.id] === undefined ? true : visibilityMap[item.id];
     });
     setVisibleItems(itemsToDisplay);
@@ -127,6 +127,7 @@ const QuickActionsWidget: React.FC = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center text-lg">
+            <ListChecks className="mr-2 h-5 w-5 text-primary"/>
             Szybkie Akcje
           </CardTitle>
         </CardHeader>
@@ -163,24 +164,24 @@ const QuickActionsWidget: React.FC = () => {
   );
 };
 
-
 const QuickActionsWidgetSkeleton: React.FC = () => (
-  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
-    {[...Array(6)].map((_, i) => (
-      <Card key={i}>
-        <CardHeader className="pb-2">
-          <Skeleton className="h-6 w-3/4" />
-        </CardHeader>
-        <CardContent className="pb-4 space-y-2">
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-5/6" />
-        </CardContent>
-        <CardFooter>
-          <Skeleton className="h-8 w-1/3" />
-        </CardFooter>
-      </Card>
-    ))}
-  </div>
+  <Card>
+    <CardHeader className="pb-2">
+       <div className="flex items-center text-lg">
+         <Skeleton className="mr-2 h-5 w-5" />
+         <Skeleton className="h-6 w-3/4" />
+       </div>
+    </CardHeader>
+    <CardContent className="pb-4 space-y-2">
+      <Skeleton className="h-4 w-full" />
+      <Skeleton className="h-4 w-5/6" />
+       <Skeleton className="h-4 w-full" />
+      <Skeleton className="h-4 w-5/6" />
+    </CardContent>
+    <CardFooter>
+      <Skeleton className="h-8 w-1/3" />
+    </CardFooter>
+  </Card>
 );
 
 
@@ -368,6 +369,7 @@ export default function DashboardPage() {
   const [pageIsLoading, setPageIsLoading] = React.useState(true); 
   
   const [dashboardWidgets, setDashboardWidgets] = React.useState<DashboardWidgetConfig[]>([]);
+  const [widgetsBeforeEdit, setWidgetsBeforeEdit] = React.useState<DashboardWidgetConfig[]>([]);
 
 
   React.useEffect(() => {
@@ -412,7 +414,7 @@ export default function DashboardPage() {
         currentOrder: w.defaultOrder,
       }));
     }
-    setDashboardWidgets(loadedLayout);
+    setDashboardWidgets(loadedLayout.sort((a,b) => (a.currentOrder ?? 0) - (b.currentOrder ?? 0)));
     setTimeout(() => setPageIsLoading(false), 750); 
   }, []);
 
@@ -426,7 +428,7 @@ export default function DashboardPage() {
 
   const handleMoveWidget = (widgetId: string, direction: 'up' | 'down') => {
     setDashboardWidgets(prevWidgets => {
-      const newWidgets = [...prevWidgets];
+      const newWidgets = prevWidgets.map(w => ({...w})); // Create a new array with new objects
       const widgetIndex = newWidgets.findIndex(w => w.id === widgetId);
       if (widgetIndex === -1) return prevWidgets;
 
@@ -470,37 +472,7 @@ export default function DashboardPage() {
   };
 
   const handleCancelEdit = () => {
-     let layoutToRestore: DashboardWidgetConfig[] = [];
-    try {
-        const savedLayoutJson = localStorage.getItem(DASHBOARD_LAYOUT_STORAGE_KEY);
-        if (savedLayoutJson) {
-             const parsedLayout = JSON.parse(savedLayoutJson) as Pick<DashboardWidgetConfig, 'id' | 'isVisible' | 'currentOrder' | 'area'>[];
-             layoutToRestore = INITIAL_DASHBOARD_LAYOUT.map(defaultWidget => {
-                const savedWidgetSettings = parsedLayout.find(w => w.id === defaultWidget.id);
-                return {
-                    ...defaultWidget,
-                    isVisible: savedWidgetSettings?.isVisible !== undefined ? savedWidgetSettings.isVisible : defaultWidget.defaultVisible,
-                    currentOrder: savedWidgetSettings?.currentOrder !== undefined ? savedWidgetSettings.currentOrder : defaultWidget.defaultOrder,
-                    area: savedWidgetSettings?.area !== undefined ? savedWidgetSettings.area : defaultWidget.area,
-                };
-            });
-            INITIAL_DASHBOARD_LAYOUT.forEach(initialWidget => {
-              if (!layoutToRestore.find(w => w.id === initialWidget.id)) {
-                layoutToRestore.push({
-                  ...initialWidget,
-                  isVisible: initialWidget.defaultVisible,
-                  currentOrder: initialWidget.defaultOrder,
-                });
-              }
-            });
-        } else {
-            layoutToRestore = INITIAL_DASHBOARD_LAYOUT.map(w => ({ ...w, isVisible: w.defaultVisible, currentOrder: w.defaultOrder }));
-        }
-    } catch (error) {
-        console.error("Error restoring layout:", error);
-        layoutToRestore = INITIAL_DASHBOARD_LAYOUT.map(w => ({ ...w, isVisible: w.defaultVisible, currentOrder: w.defaultOrder }));
-    }
-    setDashboardWidgets(layoutToRestore);
+    setDashboardWidgets(widgetsBeforeEdit.map(w => ({...w}))); // Restore from state before edit started
     setIsEditMode(false);
     toast({ title: "Zmiany w układzie anulowane." });
   };
@@ -512,7 +484,21 @@ export default function DashboardPage() {
       currentOrder: w.defaultOrder,
     }));
     setDashboardWidgets(defaultLayout);
-    toast({ title: "Przywrócono domyślny układ.", description: "Kliknij 'Zapisz Układ', aby go utrwalić." });
+    // Immediately save defaults and exit edit mode
+    try {
+      const layoutToSave = defaultLayout.map(({ id, isVisible, currentOrder, area }) => ({ id, isVisible, currentOrder, area }));
+      localStorage.setItem(DASHBOARD_LAYOUT_STORAGE_KEY, JSON.stringify(layoutToSave));
+      toast({ title: "Przywrócono i zapisano domyślny układ!", description: "Dashboard został zresetowany do ustawień fabrycznych." });
+    } catch (error) {
+      console.error("Error saving default layout to localStorage:", error);
+      toast({ title: "Błąd zapisu domyślnego układu", description: "Nie udało się zapisać domyślnego układu.", variant: "destructive" });
+    }
+    setIsEditMode(false);
+  };
+
+  const handleEnterEditMode = () => {
+    setWidgetsBeforeEdit(dashboardWidgets.map(w => ({...w}))); // Store a deep copy
+    setIsEditMode(true);
   };
 
   const renderWidgetContent = (widget: DashboardWidgetConfig) => {
@@ -531,6 +517,7 @@ export default function DashboardPage() {
   
   return (
     <>
+      {/* Sub-header specific to dashboard page */}
       <div className="sticky top-16 z-30 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/50"> 
         <div className="container mx-auto flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-4">
@@ -552,7 +539,7 @@ export default function DashboardPage() {
                 </Button>
               </>
             ) : (
-              <Button variant="outline" size="sm" onClick={() => setIsEditMode(true)}>
+              <Button variant="outline" size="sm" onClick={handleEnterEditMode}>
                 <Edit className="h-4 w-4 mr-1 sm:mr-2" /> Dostosuj Dashboard
               </Button>
             )}
@@ -620,5 +607,3 @@ export default function DashboardPage() {
     </>
   );
 }
-
-    
