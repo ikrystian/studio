@@ -17,14 +17,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
-// Mock user data for the header - Ensure this user has 'admin' role for the link to show
 const MOCK_HEADER_USER = {
-  name: 'Jan Kowalski', // Zgodnie z profilem
-  avatarUrl: 'https://placehold.co/100x100.png?text=JK', // Zgodnie z profilem
-  initials: 'JK', // Zgodnie z profilem
+  name: 'Jan Kowalski',
+  avatarUrl: 'https://placehold.co/100x100.png?text=JK',
+  initials: 'JK',
   profileLink: '/dashboard/profile/current_user_id',
   accountSettingsLink: '/dashboard/account',
-  role: 'admin', // This user is an admin
+  role: 'admin',
 };
 
 export function AppHeader() {
@@ -32,8 +31,10 @@ export function AppHeader() {
 
   const handleLogout = () => {
     console.log("User logging out...");
-    // Simulate API call if needed
-    // In a real app, you'd clear session/token here
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('isUserLoggedIn');
+      localStorage.removeItem('loggedInUserEmail');
+    }
     router.push('/login?status=logged_out');
   };
 
@@ -77,7 +78,7 @@ export function AppHeader() {
               {MOCK_HEADER_USER.role === 'admin' && (
                 <DropdownMenuItem asChild className="app-header-admin-debug-link-item">
                   <Link href="/dashboard/admin/debug">
-                    <Settings2 className="mr-2 h-4 w-4" /> {/* Using Settings2 icon as placeholder */}
+                    <Settings2 className="mr-2 h-4 w-4" />
                     <span>Admin Debug</span>
                   </Link>
                 </DropdownMenuItem>
