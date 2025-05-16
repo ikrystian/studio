@@ -155,7 +155,7 @@ export default function TrainingPlanDetailPage() {
             </h1>
           </div>
            <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => toast({ title: "Funkcja wkrótce!", description: "Edycja planów będzie dostępna niedługo."})}>
+            <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/plans/edit/${planId}`)}>
               <Edit3 className="mr-2 h-4 w-4" /> Edytuj Plan
             </Button>
           </div>
@@ -216,8 +216,8 @@ export default function TrainingPlanDetailPage() {
                     ) : (
                       <AccordionItem value={`day-${index}`} key={index} className="border-none">
                         <Card className="bg-muted/20 shadow-sm plan-day-card overflow-hidden">
-                          <AccordionTrigger className="p-4 hover:no-underline focus:no-underline data-[state=open]:border-b data-[state=open]:border-border">
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 w-full text-left">
+                          <div className="flex flex-row items-center justify-between p-4 data-[state=open]:border-b data-[state=open]:border-border">
+                            <AccordionTrigger className="flex-1 hover:no-underline focus:no-underline p-0 text-left group">
                               <div className="flex-1">
                                 <CardTitle className="text-lg font-semibold mb-1 flex items-center gap-2">
                                   {day.dayName}
@@ -228,16 +228,18 @@ export default function TrainingPlanDetailPage() {
                                   <span className="font-medium">{day.assignedWorkoutName}</span>
                                 </div>
                               </div>
-                              <Button 
-                                size="sm" 
-                                variant="default" 
-                                onClick={(e) => { e.stopPropagation(); handleStartWorkout(day.dayName, day.assignedWorkoutId, day.assignedWorkoutName);}} 
-                                className="w-full mt-2 sm:mt-0 sm:w-auto self-start sm:self-center"
-                              >
-                                <PlayCircle className="mr-2 h-4 w-4"/> Rozpocznij Trening Dnia
-                              </Button>
-                            </div>
-                          </AccordionTrigger>
+                            </AccordionTrigger>
+                            <Button 
+                              size="sm" 
+                              variant="default" 
+                              onClick={(e) => { 
+                                handleStartWorkout(day.dayName, day.assignedWorkoutId, day.assignedWorkoutName);
+                              }} 
+                              className="ml-4 flex-shrink-0"
+                            >
+                              <PlayCircle className="mr-2 h-4 w-4"/> Rozpocznij
+                            </Button>
+                          </div>
                           <AccordionContent className="p-4 text-sm">
                             {day.notes && (
                               <p className="text-xs text-muted-foreground mb-3 italic">Notatka do dnia: {day.notes}</p>
