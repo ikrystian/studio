@@ -124,10 +124,7 @@ const SingleQuickActionCard: React.FC<{ item: NavItem }> = ({ item }) => {
         <div className="pb-4 flex-grow min-h-[60px]">
           <p className="text-sm text-muted-foreground line-clamp-2">{item.description}</p>
         </div>
-        <div className="pt-2 flex items-center text-sm text-primary">
-          Przejdź
-          <ChevronRight className="ml-auto h-4 w-4" />
-        </div>
+        {/* "Przejdź" div removed */}
       </div>
     </Link>
   );
@@ -143,10 +140,7 @@ const SingleQuickActionCardSkeleton: React.FC = () => (
       <Skeleton className="h-4 w-full mb-1" />
       <Skeleton className="h-4 w-5/6" />
     </div>
-    <div className="pt-2 flex items-center text-sm">
-      <Skeleton className="h-5 w-1/4" />
-      <ChevronRight className="ml-auto h-4 w-4 text-muted-foreground/30" />
-    </div>
+    {/* "Przejdź" div skeleton removed */}
   </div>
 );
 
