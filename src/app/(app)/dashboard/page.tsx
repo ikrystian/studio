@@ -39,24 +39,27 @@ import {
   XCircle,
   MessageSquare,
   Lightbulb,
+  Info, // Added Info icon
+  Loader2 // Added Loader2 for loading state
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Skeleton } from "@/components/ui/skeleton";
+// MOCK BACKEND LOGIC:
+// - Widget data (Last Workout, Progress Stats, Reminders, Fitness Tip) is sourced from MOCK_... constants imported from `src/lib/mockData.ts`.
+// - User name is fetched from localStorage ('currentUserProfileData').
+// - Dashboard layout (widget visibility and order) is loaded from and saved to localStorage (DASHBOARD_LAYOUT_STORAGE_KEY).
+//   This simulates user-specific dashboard customization typically stored on a backend.
 import {
-  MOCK_LAST_WORKOUT_DASHBOARD,
   MOCK_PROGRESS_STATS_DASHBOARD,
   MOCK_UPCOMING_REMINDERS_DASHBOARD,
   MOCK_FITNESS_TIPS_DASHBOARD,
-  type DashboardLastWorkout,
+  type DashboardLastWorkout, // Updated to use new structure for API response
   type DashboardProgressStats,
   type DashboardUpcomingReminder
 } from '@/lib/mockData';
-
-// MOCK BACKEND LOGIC: All data for widgets (MOCK_LAST_WORKOUT_DASHBOARD, MOCK_PROGRESS_STATS_DASHBOARD, etc.)
-// is imported from `src/lib/mockData.ts`. User profile data (userName) is fetched from localStorage.
-// The dashboard layout configuration (visibility and order of widgets) is also loaded from and saved to localStorage,
-// simulating a user-specific preference that would typically be stored on a backend.
+import { format, parseISO } from 'date-fns'; // For formatting date
+import { pl } from 'date-fns/locale';     // For Polish locale
 
 interface NavItem {
   id: string;
@@ -119,32 +122,148 @@ const SingleQuickActionCardSkeleton: React.FC = () => (
   </div>
 );
 
+// New interface for the data fetched from the API
+interface LastWorkoutApiData {
+  id: string;
+  name: string;
+  date: string; // ISO string
+  durationSeconds: number;
+  exerciseCount: number;
+}
 
-const LastWorkoutWidget: React.FC = () => (
-  <Link
-    href={MOCK_LAST_WORKOUT_DASHBOARD.link}
-    className={cn(
-      "block rounded-lg border bg-card text-card-foreground shadow-sm transition-shadow duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 dashboard-widget-last-workout"
-    )}
-  >
-    <div className="p-6 flex flex-col h-full">
-      <div className="pb-2">
-        <h3 className="flex items-center text-lg font-semibold">
-          <Activity className="mr-2 h-5 w-5 text-primary" /> Ostatni trening
-        </h3>
-        <p className="text-sm text-muted-foreground">{new Date(MOCK_LAST_WORKOUT_DASHBOARD.date).toLocaleDateString('pl-PL', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-      </div>
-      <div className="space-y-3 flex-grow">
-        <h4 className="font-semibold">{MOCK_LAST_WORKOUT_DASHBOARD.name}</h4>
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <span><CalendarDays className="mr-1 inline-block h-4 w-4" />{MOCK_LAST_WORKOUT_DASHBOARD.duration}</span>
-          <span><Flame className="mr-1 inline-block h-4 w-4" />{MOCK_LAST_WORKOUT_DASHBOARD.calories}</span>
-          <span><Dumbbell className="mr-1 inline-block h-4 w-4" />{MOCK_LAST_WORKOUT_DASHBOARD.exercises} ćwiczeń</span>
+const LastWorkoutWidget: React.FC = () => {
+  const [lastWorkout, setLastWorkout] = React.useState<DashboardLastWorkout | null>(null);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    // MOCK BACKEND LOGIC: Fetches the last workout session for the current user from the API.
+    // In a real app, user ID would be derived from an authenticated session.
+    const fetchLastWorkout = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const response = await fetch('/api/history/last-workout');
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `Błąd serwera: ${response.status}`);
+        }
+        const result = await response.json();
+        if (result.success && result.data) {
+          const apiData = result.data as LastWorkoutApiData;
+          const durationMinutes = Math.floor(apiData.durationSeconds / 60);
+          const durationFormatted = `${durationMinutes} min`;
+
+          setLastWorkout({
+            id: apiData.id,
+            name: apiData.name,
+            date: apiData.date, // Keep as ISO string for potential further processing or display
+            durationSeconds: apiData.durationSeconds, // Store raw seconds
+            exerciseCount: apiData.exerciseCount,
+            // calories: 'N/A', // Calories are not in DB
+            link: `/dashboard/history/${apiData.id}`,
+          });
+        } else {
+          setLastWorkout(null); // No workout found
+        }
+      } catch (err) {
+        console.error("Failed to fetch last workout:", err);
+        setError(err instanceof Error ? err.message : "Nie udało się załadować ostatniego treningu.");
+        setLastWorkout(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchLastWorkout();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <Card className="dashboard-widget-last-workout">
+        <CardHeader>
+          <Skeleton className="h-6 w-1/2 mb-1" />
+          <Skeleton className="h-4 w-1/3" />
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Skeleton className="h-5 w-3/4" />
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-4 w-1/4" />
+            <Skeleton className="h-4 w-1/4" />
+            <Skeleton className="h-4 w-1/4" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="dashboard-widget-last-workout">
+        <CardHeader>
+          <h3 className="flex items-center text-lg font-semibold">
+            <Activity className="mr-2 h-5 w-5 text-primary" /> Ostatni trening
+          </h3>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-destructive">{error}</p>
+        </CardContent>
+      </Card>
+    );
+  }
+  
+  if (!lastWorkout) {
+    return (
+      <Card className="dashboard-widget-last-workout">
+        <CardHeader>
+          <h3 className="flex items-center text-lg font-semibold">
+            <Activity className="mr-2 h-5 w-5 text-primary" /> Ostatni trening
+          </h3>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center justify-center text-center h-full py-4">
+            <Dumbbell className="h-10 w-10 text-muted-foreground mb-2" />
+            <p className="text-sm text-muted-foreground">Brak zarejestrowanych treningów.</p>
+            <p className="text-xs text-muted-foreground">Tutaj pojawi się Twój ostatni trening, gdy tylko ukończysz pierwszą sesję!</p>
+            <Button variant="link" size="sm" asChild className="mt-2">
+              <Link href="/dashboard/workout/start">Rozpocznij pierwszy trening</Link>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const durationMinutes = Math.floor(lastWorkout.durationSeconds / 60);
+  const durationFormatted = `${durationMinutes} min`;
+
+  return (
+    <Link
+      href={lastWorkout.link}
+      className={cn(
+        "block rounded-lg border bg-card text-card-foreground shadow-sm transition-shadow duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 dashboard-widget-last-workout"
+      )}
+    >
+      <div className="p-6 flex flex-col h-full">
+        <div className="pb-2">
+          <h3 className="flex items-center text-lg font-semibold">
+            <Activity className="mr-2 h-5 w-5 text-primary" /> Ostatni trening
+          </h3>
+          <p className="text-sm text-muted-foreground">{format(parseISO(lastWorkout.date), 'PPP', { locale: pl })}</p>
+        </div>
+        <div className="space-y-3 flex-grow">
+          <h4 className="font-semibold">{lastWorkout.name}</h4>
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <span><CalendarDays className="mr-1 inline-block h-4 w-4" />{durationFormatted}</span>
+            <span><Flame className="mr-1 inline-block h-4 w-4" />{lastWorkout.calories || 'N/A'}</span>
+            <span><Dumbbell className="mr-1 inline-block h-4 w-4" />{lastWorkout.exerciseCount} ćwiczeń</span>
+          </div>
         </div>
       </div>
-    </div>
-  </Link>
-);
+    </Link>
+  );
+};
+
 
 const LastWorkoutWidgetSkeleton: React.FC = () => (
   <Card>
@@ -412,7 +531,7 @@ export default function DashboardPage() {
       }));
     }
     setDashboardWidgets(loadedLayout.sort((a,b) => (a.currentOrder ?? 0) - (b.currentOrder ?? 0)));
-    setTimeout(() => setPageIsLoading(false), 0); // Removed delay for skeleton testing. Set to 0 for faster actual load.
+    setTimeout(() => setPageIsLoading(false), 0); // Set to 0 for faster actual load.
   }, []);
 
   const handleEnterEditMode = () => {
@@ -510,11 +629,11 @@ export default function DashboardPage() {
   }
 
   const mainAreaWidgets = dashboardWidgets
-    .filter(w => w.area === 'main' && w.isVisible)
+    .filter(w => w.area === 'main' && (isEditMode || w.isVisible)) // Show all in edit mode
     .sort((a, b) => (a.currentOrder ?? 0) - (b.currentOrder ?? 0));
 
   const sidebarAreaWidgets = dashboardWidgets
-    .filter(w => w.area === 'sidebar' && w.isVisible)
+    .filter(w => w.area === 'sidebar' && (isEditMode || w.isVisible)) // Show all in edit mode
     .sort((a, b) => (a.currentOrder ?? 0) - (b.currentOrder ?? 0));
 
   return (
@@ -552,7 +671,7 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
             <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 dashboard-main-content">
               {mainAreaWidgets.map(widget => (
-                 <div key={widget.id} className={cn("dashboard-widget-wrapper", isEditMode && "border-2 border-dashed border-primary/50 p-2 rounded-lg bg-primary/5 mb-4 relative")}>
+                 <div key={widget.id} className={cn("dashboard-widget-wrapper", isEditMode && "border-2 border-dashed border-primary/50 p-2 rounded-lg bg-primary/5 mb-4 relative", !widget.isVisible && isEditMode && "opacity-50")}>
                   {isEditMode && (
                     <div className="absolute top-1 right-1 bg-card border-l border-b border-primary/50 rounded-bl-md p-0.5 z-10 flex gap-0 items-center widget-edit-controls">
                       <Button variant="ghost" size="icon" className="h-6 w-6 widget-toggle-visibility-button" onClick={() => handleToggleWidgetVisibility(widget.id)} title={widget.isVisible ? "Ukryj widget" : "Pokaż widget"}>
@@ -577,16 +696,16 @@ export default function DashboardPage() {
                   </div>
                 </div>
               ))}
-              {mainAreaWidgets.length === 0 && !pageIsLoading && (
+              {mainAreaWidgets.filter(w => w.isVisible).length === 0 && !isEditMode && !pageIsLoading && (
                 <Card className="dashboard-empty-main-area md:col-span-2">
-                    <CardHeader><CardTitle>Brak widgetów</CardTitle></CardHeader>
+                    <CardHeader><CardTitle>Brak aktywnych widgetów</CardTitle></CardHeader>
                     <CardContent><p className="text-muted-foreground">Wszystkie widgety w tej sekcji są ukryte. Włącz tryb edycji, aby je pokazać.</p></CardContent>
                 </Card>
               )}
             </div>
             <aside className="space-y-6 lg:col-span-1 dashboard-sidebar-content">
               {sidebarAreaWidgets.map(widget => (
-                <div key={widget.id} className={cn("dashboard-widget-wrapper", isEditMode && "border-2 border-dashed border-primary/50 p-2 rounded-lg bg-primary/5 mb-4 relative")}>
+                <div key={widget.id} className={cn("dashboard-widget-wrapper", isEditMode && "border-2 border-dashed border-primary/50 p-2 rounded-lg bg-primary/5 mb-4 relative", !widget.isVisible && isEditMode && "opacity-50")}>
                   {isEditMode && (
                      <div className="absolute top-1 right-1 bg-card border-l border-b border-primary/50 rounded-bl-md p-0.5 z-10 flex gap-0 items-center widget-edit-controls">
                       <Button variant="ghost" size="icon" className="h-6 w-6 widget-toggle-visibility-button" onClick={() => handleToggleWidgetVisibility(widget.id)} title={widget.isVisible ? "Ukryj widget" : "Pokaż widget"}>
@@ -608,9 +727,9 @@ export default function DashboardPage() {
                   </div>
                 </div>
               ))}
-              {sidebarAreaWidgets.length === 0 && !pageIsLoading && (
+              {sidebarAreaWidgets.filter(w => w.isVisible).length === 0 && !isEditMode && !pageIsLoading && (
                 <Card className="dashboard-empty-sidebar-area">
-                    <CardHeader><CardTitle>Brak widgetów</CardTitle></CardHeader>
+                    <CardHeader><CardTitle>Brak aktywnych widgetów</CardTitle></CardHeader>
                     <CardContent><p className="text-muted-foreground">Wszystkie widgety w tej sekcji są ukryte. Włącz tryb edycji, aby je pokazać.</p></CardContent>
                 </Card>
               )}
