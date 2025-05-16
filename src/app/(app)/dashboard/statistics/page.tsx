@@ -69,6 +69,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import { StatisticsPageSkeleton } from "@/components/statistics/StatisticsPageSkeleton"; // Added import
 
 
 // Mock data (ideally imported from a shared location or fetched)
@@ -216,14 +217,15 @@ export default function StatisticsPage() {
   const exerciseIdFromQuery = searchParams.get("exerciseId");
   const exerciseNameFromQuery = searchParams.get("exerciseName");
 
+  const [pageIsLoading, setPageIsLoading] = React.useState(true); // Added state for skeleton
   const [selectedGlobalStartDate, setSelectedGlobalStartDate] = React.useState<Date | undefined>();
   const [selectedGlobalEndDate, setSelectedGlobalEndDate] = React.useState<Date | undefined>();
   const [selectedExerciseIds, setSelectedExerciseIds] = React.useState<string[]>([]);
   const [selectedMuscleGroups, setSelectedMuscleGroups] = React.useState<string[]>([]);
   
-  const [processedHistorySessions, setProcessedHistorySessions] = React.useState<SimpleHistoricalWorkoutSession[]>(MOCK_HISTORY_SESSIONS_STATS);
-  const [processedMeasurements, setProcessedMeasurements] = React.useState<SimpleMeasurement[]>(MOCK_MEASUREMENTS_STATS);
-  const [processedWellnessEntries, setProcessedWellnessEntries] = React.useState<WellnessEntryForStats[]>(MOCK_WELLNESS_ENTRIES_FOR_STATS);
+  const [processedHistorySessions, setProcessedHistorySessions] = React.useState<SimpleHistoricalWorkoutSession[]>([]);
+  const [processedMeasurements, setProcessedMeasurements] = React.useState<SimpleMeasurement[]>([]);
+  const [processedWellnessEntries, setProcessedWellnessEntries] = React.useState<WellnessEntryForStats[]>([]);
 
   const [periodAStartDate, setPeriodAStartDate] = React.useState<Date | undefined>();
   const [periodAEndDate, setPeriodAEndDate] = React.useState<Date | undefined>();
@@ -239,7 +241,6 @@ export default function StatisticsPage() {
 
 
   const volumeChartExercises = React.useMemo(() => {
-    // Derive available exercises for volume chart from processed (filtered) history
     const uniqueExercisesInProcessedSessions = new Set<string>();
     const exercises = processedHistorySessions.flatMap(s => s.exercises.map(e => ({ id: e.id, name: e.name })));
     const unique = [];
@@ -273,7 +274,7 @@ export default function StatisticsPage() {
 
 
   React.useEffect(() => {
-    if (exerciseIdFromQuery && typeof window !== 'undefined') { // ensure window exists for scrollIntoView
+    if (exerciseIdFromQuery && typeof window !== 'undefined' && !pageIsLoading) { 
       const timer = setTimeout(() => {
         const element = document.getElementById('exercise-volume-chart-card');
         if (element) {
@@ -298,7 +299,7 @@ export default function StatisticsPage() {
       }, 150);
       return () => clearTimeout(timer);
     }
-  }, [exerciseIdFromQuery, exerciseNameFromQuery, toast, selectedExerciseIdForVolume]);
+  }, [exerciseIdFromQuery, exerciseNameFromQuery, toast, selectedExerciseIdForVolume, pageIsLoading]);
 
   const handleApplyGlobalFilters = React.useCallback(() => {
     let filteredSessions = MOCK_HISTORY_SESSIONS_STATS;
@@ -308,7 +309,6 @@ export default function StatisticsPage() {
     const sDate = selectedGlobalStartDate ? startOfDay(selectedGlobalStartDate) : null;
     const eDate = selectedGlobalEndDate ? endOfDay(selectedGlobalEndDate) : null;
 
-    // Date filtering
     if (sDate || eDate) {
       filteredSessions = filteredSessions.filter(session => {
         const sessionDate = parseISO(session.startTime);
@@ -336,14 +336,12 @@ export default function StatisticsPage() {
       });
     }
 
-    // Exercise ID filtering
     if (selectedExerciseIds.length > 0) {
       filteredSessions = filteredSessions.filter(session => 
         session.exercises.some(ex => selectedExerciseIds.includes(ex.id))
       );
     }
 
-    // Muscle Group filtering
     if (selectedMuscleGroups.length > 0) {
       filteredSessions = filteredSessions.filter(session => 
         session.exercises.some(ex => {
@@ -357,7 +355,6 @@ export default function StatisticsPage() {
     setProcessedMeasurements(filteredMeasurementsData);
     setProcessedWellnessEntries(filteredWellness);
 
-    // Reset volume chart selection if current exercise is no longer in filtered data
     const currentVolumeExercises = new Set(filteredSessions.flatMap(s => s.exercises.map(e => e.id)));
     if (selectedExerciseIdForVolume && !currentVolumeExercises.has(selectedExerciseIdForVolume)) {
         const firstAvailable = Array.from(currentVolumeExercises)[0];
@@ -372,11 +369,14 @@ export default function StatisticsPage() {
 
   }, [selectedGlobalStartDate, selectedGlobalEndDate, selectedExerciseIds, selectedMuscleGroups, toast, selectedExerciseIdForVolume]);
   
-  // Apply filters when component mounts or when filter states change
-  // This is removed to rely on the "Zastosuj Filtry" button
-  // React.useEffect(() => {
-  //   handleApplyGlobalFilters();
-  // }, [handleApplyGlobalFilters]);
+  React.useEffect(() => {
+    setPageIsLoading(true);
+    const timer = setTimeout(() => {
+      handleApplyGlobalFilters(); // Apply initial filters or load all data
+      setPageIsLoading(false);
+    }, 750); // Simulate initial data load
+    return () => clearTimeout(timer);
+  }, [handleApplyGlobalFilters]); // Rerun if filter logic changes
 
 
   const workoutFrequencyData = React.useMemo(() => {
@@ -495,8 +495,6 @@ export default function StatisticsPage() {
     let workoutCount = 0;
     let totalVolume = 0;
 
-    // Use MOCK_HISTORY_SESSIONS_STATS here for comparison, not processedHistorySessions
-    // as the comparison periods might be outside the global filter
     const periodSessions = MOCK_HISTORY_SESSIONS_STATS.filter(session => { 
         const sessionDate = parseISO(session.startTime);
         if (!isValid(sessionDate)) return false;
@@ -713,24 +711,12 @@ export default function StatisticsPage() {
     sleepQuality: { label: "Sen (1-5)", color: "hsl(var(--chart-2))" },
   } as const;
 
+  if (pageIsLoading) {
+    return <StatisticsPageSkeleton />;
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      {/* Header part of AppLayout */}
-      {/* <header className="sticky top-16 z-30 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/50">
-        <div className="container mx-auto flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" asChild>
-              <Link href="/dashboard">
-                <ArrowLeft className="h-5 w-5" />
-                <span className="sr-only">Powrót do Panelu</span>
-              </Link>
-            </Button>
-            <BarChart3 className="h-7 w-7 text-primary" />
-            <h1 className="text-xl font-bold">Statystyki i Analiza</h1>
-          </div>
-        </div>
-      </header> */}
-
       <main className="flex-1 py-6 px-4 sm:px-6 lg:px-8">
         <div className="container mx-auto space-y-6">
 
@@ -767,16 +753,17 @@ export default function StatisticsPage() {
                         <div className="p-2 border-b">
                              <Label className="flex items-center">
                                 <Checkbox
-                                    checked={selectedExerciseIds.length === ALL_UNIQUE_EXERCISES.length}
+                                    checked={selectedExerciseIds.length === ALL_UNIQUE_EXERCISES.length && ALL_UNIQUE_EXERCISES.length > 0}
                                     indeterminate={selectedExerciseIds.length > 0 && selectedExerciseIds.length < ALL_UNIQUE_EXERCISES.length}
                                     onCheckedChange={() => handleSelectAll(ALL_UNIQUE_EXERCISES, selectedExerciseIds, setSelectedExerciseIds)}
                                     className="mr-2"
+                                    disabled={ALL_UNIQUE_EXERCISES.length === 0}
                                 />
                                 Zaznacz/Odznacz wszystkie
                             </Label>
                         </div>
                         <ScrollArea className="h-[200px] p-2">
-                            {ALL_UNIQUE_EXERCISES.map(exercise => (
+                            {ALL_UNIQUE_EXERCISES.length > 0 ? ALL_UNIQUE_EXERCISES.map(exercise => (
                                 <Label key={exercise.id} className="flex items-center space-x-2 p-2 hover:bg-muted rounded-md cursor-pointer">
                                     <Checkbox
                                         id={`ex-filter-${exercise.id}`}
@@ -785,14 +772,14 @@ export default function StatisticsPage() {
                                     />
                                     <span>{exercise.name}</span>
                                 </Label>
-                            ))}
+                            )) : <p className="text-xs text-muted-foreground p-2">Brak ćwiczeń do filtrowania.</p>}
                         </ScrollArea>
                     </PopoverContent>
                 </Popover>
                  <Popover>
                     <PopoverTrigger asChild>
                         <Button variant="outline" className="w-full justify-start">
-                            <DumbbellIcon className="mr-2 h-4 w-4"/> {/* Replace with a better icon for muscle groups if available */}
+                            <DumbbellIcon className="mr-2 h-4 w-4"/> 
                             Wybierz grupy mięśniowe ({selectedMuscleGroups.length} zazn.)
                             <ChevronDown className="ml-auto h-4 w-4 opacity-50"/>
                         </Button>
@@ -801,16 +788,17 @@ export default function StatisticsPage() {
                          <div className="p-2 border-b">
                              <Label className="flex items-center">
                                 <Checkbox
-                                    checked={selectedMuscleGroups.length === ALL_UNIQUE_MUSCLE_GROUPS.length}
+                                    checked={selectedMuscleGroups.length === ALL_UNIQUE_MUSCLE_GROUPS.length && ALL_UNIQUE_MUSCLE_GROUPS.length > 0}
                                     indeterminate={selectedMuscleGroups.length > 0 && selectedMuscleGroups.length < ALL_UNIQUE_MUSCLE_GROUPS.length}
                                     onCheckedChange={() => handleSelectAll(ALL_UNIQUE_MUSCLE_GROUPS, selectedMuscleGroups, setSelectedMuscleGroups)}
                                     className="mr-2"
+                                    disabled={ALL_UNIQUE_MUSCLE_GROUPS.length === 0}
                                 />
                                 Zaznacz/Odznacz wszystkie
                             </Label>
                         </div>
                         <ScrollArea className="h-[200px] p-2">
-                            {ALL_UNIQUE_MUSCLE_GROUPS.map(group => (
+                            {ALL_UNIQUE_MUSCLE_GROUPS.length > 0 ? ALL_UNIQUE_MUSCLE_GROUPS.map(group => (
                                 <Label key={group} className="flex items-center space-x-2 p-2 hover:bg-muted rounded-md cursor-pointer">
                                     <Checkbox
                                         id={`mg-filter-${group}`}
@@ -819,7 +807,7 @@ export default function StatisticsPage() {
                                     />
                                     <span>{group}</span>
                                 </Label>
-                            ))}
+                            )) : <p className="text-xs text-muted-foreground p-2">Brak grup mięśniowych do filtrowania.</p>}
                         </ScrollArea>
                     </PopoverContent>
                 </Popover>
