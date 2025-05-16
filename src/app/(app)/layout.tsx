@@ -37,10 +37,11 @@ export default function AppGroupLayout({
     );
   }
 
+  // Wrap content in a div with suppressHydrationWarning
   return (
-    <>
+    <div suppressHydrationWarning={true}>
       <AppHeader />
       <main className="flex-1">{children}</main>
-    </>
+    </div>
   );
 }
