@@ -86,6 +86,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { MeasurementsPageSkeleton } from "@/components/measurements/MeasurementsPageSkeleton";
 
 export interface BodyPartData {
   name: string;
@@ -159,9 +160,8 @@ const interpretBMI = (bmi: number | null): string => {
 
 export default function MeasurementsPage() {
   const { toast } = useToast();
-  const [measurements, setMeasurements] = React.useState<Measurement[]>(
-    INITIAL_MOCK_MEASUREMENTS
-  );
+  const [pageIsLoading, setPageIsLoading] = React.useState(true);
+  const [measurements, setMeasurements] = React.useState<Measurement[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = React.useState(false);
   const [editingMeasurement, setEditingMeasurement] =
     React.useState<Measurement | null>(null);
@@ -176,6 +176,16 @@ export default function MeasurementsPage() {
   const [enableReminders, setEnableReminders] = React.useState(false);
   const [reminderFrequency, setReminderFrequency] = React.useState("weekly");
   const [reminderTime, setReminderTime] = React.useState("09:00");
+
+  React.useEffect(() => {
+    setPageIsLoading(true);
+    // Simulate data fetching
+    const timer = setTimeout(() => {
+      setMeasurements(INITIAL_MOCK_MEASUREMENTS);
+      setPageIsLoading(false);
+    }, 750); // Adjust delay as needed
+    return () => clearTimeout(timer);
+  }, []);
 
   const availableMetricsForChart = React.useMemo(() => {
     const metrics = ["Waga (kg)", "BMI"]; // Add BMI to chartable metrics
@@ -367,6 +377,10 @@ export default function MeasurementsPage() {
       description: "Dane pomiarów zostały wyeksportowane do CSV.",
     });
   };
+
+  if (pageIsLoading) {
+    return <MeasurementsPageSkeleton />;
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
