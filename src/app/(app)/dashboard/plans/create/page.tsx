@@ -74,6 +74,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { CreateTrainingPlanPageSkeleton } from "@/components/plans/CreateTrainingPlanPageSkeleton"; // Added import
 
 
 const INITIAL_MOCK_AVAILABLE_WORKOUTS: SelectableWorkout[] = [
@@ -160,7 +161,8 @@ type PlanFormValues = z.infer<typeof planFormSchema>;
 export default function CreateTrainingPlanPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = React.useState(false);
+  const [pageIsLoading, setPageIsLoading] = React.useState(true); // For skeleton
+  const [isLoading, setIsLoading] = React.useState(false); // For form submission
   const [serverError, setServerError] = React.useState<string | null>(null);
 
   const [isWorkoutSelectionDialogOpen, setIsWorkoutSelectionDialogOpen] = React.useState(false);
@@ -190,6 +192,14 @@ export default function CreateTrainingPlanPage() {
       })),
     },
   });
+
+  React.useEffect(() => {
+    // Simulate initial data loading or setup
+    const timer = setTimeout(() => {
+      setPageIsLoading(false);
+    }, 750); // Adjust delay as needed for skeleton visibility
+    return () => clearTimeout(timer);
+  }, []);
   
   const watchedStartDate = form.watch("startDate");
   const [calendarViewMonth, setCalendarViewMonth] = React.useState(watchedStartDate || new Date());
@@ -394,6 +404,10 @@ export default function CreateTrainingPlanPage() {
     const dayIndexInCycle = diff % 7; // Our plan is a 7-day cycle
     return form.watch(`days.${dayIndexInCycle}`);
   };
+
+  if (pageIsLoading) {
+    return <CreateTrainingPlanPageSkeleton />;
+  }
 
 
   return (
