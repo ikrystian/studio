@@ -36,6 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { CommunityFeedPageSkeleton } from "@/components/community/CommunityFeedPageSkeleton"; // Added import
 
 
 // Mock Data Structures
@@ -172,6 +173,7 @@ const CURRENT_USER_ID = "currentUser"; // Simulate logged-in user
 
 export default function CommunityFeedPage() {
   const { toast } = useToast();
+  const [pageIsLoading, setPageIsLoading] = React.useState(true); // Added loading state
   const [posts, setPosts] = React.useState<MockPost[]>([]);
   const [newPostContent, setNewPostContent] = React.useState("");
   const [commentInputs, setCommentInputs] = React.useState<Record<string, string>>({});
@@ -212,20 +214,26 @@ export default function CommunityFeedPage() {
       setPosts(prevPosts => [...prevPosts, ...newPosts]);
       setCurrentPage(nextPage);
     }
-    // Use posts.length from the state that is about to be set for more accurate check
+    
     if (posts.length + newPosts.length >= filteredAllPosts.length) {
       setHasMorePosts(false);
     }
     setIsLoadingMore(false);
-  }, [isLoadingMore, hasMorePosts, currentPage, getFilteredMockPosts, posts]); // Added posts to dependency array
+  }, [isLoadingMore, hasMorePosts, currentPage, getFilteredMockPosts, posts]); 
 
   React.useEffect(() => {
-    // Initial load or filter change
+    setPageIsLoading(true);
     const filteredAll = getFilteredMockPosts();
-    setPosts(filteredAll.slice(0, POSTS_PER_PAGE));
-    setCurrentPage(1); // Reset to first page
-    setHasMorePosts(filteredAll.length > POSTS_PER_PAGE);
-  }, [getFilteredMockPosts]); // Rerun when filter changes
+    
+    const timer = setTimeout(() => {
+      setPosts(filteredAll.slice(0, POSTS_PER_PAGE));
+      setCurrentPage(1); 
+      setHasMorePosts(filteredAll.length > POSTS_PER_PAGE);
+      setPageIsLoading(false);
+    }, 750); // Simulate initial load delay
+
+    return () => clearTimeout(timer);
+  }, [getFilteredMockPosts]); 
 
 
   const sentinelRef = React.useCallback((node: HTMLDivElement | null) => {
@@ -283,11 +291,11 @@ export default function CommunityFeedPage() {
     setPosts(prevPosts =>
       prevPosts.map(post =>
         post.id === postId
-          ? { ...post, comments: [newComment, ...post.comments] } // Add new comment to the top
+          ? { ...post, comments: [newComment, ...post.comments] } 
           : post
       )
     );
-    setCommentInputs(prev => ({ ...prev, [postId]: "" })); // Clear input
+    setCommentInputs(prev => ({ ...prev, [postId]: "" })); 
     toast({ title: "Komentarz dodany!", variant: "default" });
   };
 
@@ -303,19 +311,17 @@ export default function CommunityFeedPage() {
       id: uuidv4(),
       userId: CURRENT_USER_ID,
       content: newPostContent,
-      postType: 'text_only', // Default for new text posts
+      postType: 'text_only', 
       likes: 0,
       likedByCurrentUser: false,
       comments: [],
       timestamp: new Date().toISOString(),
     };
     
-    // Add to the master list of posts as well, so it appears if filters change
     ALL_MOCK_POSTS.unshift(newPost); 
 
-    // Refresh displayed posts based on current filter
     const filteredAll = getFilteredMockPosts();
-    setPosts(filteredAll.slice(0, (currentPage * POSTS_PER_PAGE))); // Show current page plus new post
+    setPosts(filteredAll.slice(0, (currentPage * POSTS_PER_PAGE))); 
     setHasMorePosts(filteredAll.length > (currentPage * POSTS_PER_PAGE));
 
     setNewPostContent("");
@@ -323,7 +329,7 @@ export default function CommunityFeedPage() {
   };
 
   const handleShare = (postId: string, option: 'now' | 'comment' | 'copy') => {
-    const postToShare = ALL_MOCK_POSTS.find(p => p.id === postId); // Search in all posts
+    const postToShare = ALL_MOCK_POSTS.find(p => p.id === postId); 
     if (!postToShare) return;
 
     switch (option) {
@@ -331,11 +337,10 @@ export default function CommunityFeedPage() {
         toast({ title: "Post udostępniony (Symulacja)", description: `Post "${postToShare.content.substring(0, 30)}..." został udostępniony na Twoim profilu.` });
         break;
       case 'comment':
-        // In a real app, this would open a dialog to add a comment
         toast({ title: "Udostępnij z komentarzem (Symulacja)", description: `Przygotowywanie do udostępnienia posta "${postToShare.content.substring(0, 30)}..." z Twoim komentarzem.` });
         break;
       case 'copy':
-        navigator.clipboard.writeText(`${window.location.origin}/dashboard/community/feed#post-${postId}`) // Updated link
+        navigator.clipboard.writeText(`${window.location.origin}/dashboard/community/feed#post-${postId}`) 
           .then(() => toast({ title: "Link skopiowany!", description: "Link do posta został skopiowany do schowka." }))
           .catch(err => toast({ title: "Błąd kopiowania", description: "Nie udało się skopiować linku.", variant: "destructive" }));
         break;
@@ -348,11 +353,13 @@ export default function CommunityFeedPage() {
         n.id === notificationId ? { ...n, read: true } : n
       )
     );
-    // unreadNotificationCount will update via useMemo
     toast({ title: "Powiadomienie otwarte (Symulacja)", description: `Przejście do szczegółów powiadomienia ID: ${notificationId.substring(0,8)}...` });
-    // In real app: router.push('/path/to/notification/source')
   };
 
+
+  if (pageIsLoading) {
+    return <CommunityFeedPageSkeleton />;
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -371,7 +378,6 @@ export default function CommunityFeedPage() {
           <div className="flex items-center gap-3">
             <Select value={activeFilter} onValueChange={(value) => {
               setActiveFilter(value as any);
-              // No need to manually reset posts here, useEffect will handle it
             }}>
               <SelectTrigger className="w-[180px] h-9 text-xs">
                 <SelectValue placeholder="Filtruj feed" />
@@ -398,7 +404,7 @@ export default function CommunityFeedPage() {
                 <DropdownMenuItem disabled className="font-semibold text-base">Powiadomienia</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 {notifications.length === 0 && <DropdownMenuItem disabled>Brak nowych powiadomień.</DropdownMenuItem>}
-                {notifications.sort((a,b) => parseISO(b.timestamp).getTime() - parseISO(a.timestamp).getTime()).map(n => ( // Show sorted by newest first
+                {notifications.sort((a,b) => parseISO(b.timestamp).getTime() - parseISO(a.timestamp).getTime()).map(n => ( 
                   <DropdownMenuItem 
                     key={n.id} 
                     onClick={() => handleNotificationClick(n.id)} 
@@ -605,3 +611,5 @@ export default function CommunityFeedPage() {
     </div>
   );
 }
+
+    
