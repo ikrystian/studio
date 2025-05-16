@@ -17,11 +17,11 @@ import {
   INITIAL_USER_GOALS_STATS,
   INITIAL_MOCK_PBS,
   ALL_MOCK_POSTS_FEED,
-  MOCK_USERS_FEED, // Make sure this is imported for community features
+  MOCK_USERS_FEED, 
   INITIAL_MOCK_NOTIFICATIONS_FEED,
-  MOCK_USER_DATA_EDIT_PROFILE, // Used for default app settings example
-  MOCK_DAY_TEMPLATES_FOR_PLAN_EDITOR, // For day_templates table
-  MOCK_WORKOUTS_ACTIVE, // For workout_definitions potentially
+  MOCK_USER_DATA_EDIT_PROFILE, 
+  MOCK_DAY_TEMPLATES_FOR_PLAN_EDITOR, 
+  MOCK_WORKOUTS_ACTIVE, 
 } from '@/lib/mockData';
 import type { UserProfile, HistoricalWorkoutSession, DetailedTrainingPlan, Measurement, ProgressPhoto, WellnessEntry, Portion, UserGoal, PersonalBest, FeedMockPost, FeedMockNotification, RichDayTemplate, Workout as ActiveWorkoutType } from '@/lib/mockData';
 
@@ -416,9 +416,10 @@ function initializeDB() {
 
 function seedDatabase(db: Database.Database) {
   const stmtCheckSeed = db.prepare(`SELECT value FROM db_meta WHERE key = ?`);
-  const seedStatus = stmtCheckSeed.get('seeds_applied_v2'); // Increment version if schema changes significantly
+  const seedStatus = stmtCheckSeed.get('seeds_applied_v2'); 
 
   if (seedStatus === 'true') {
+    console.log("Database already seeded (v2). Skipping seeding process.");
     return;
   }
 
@@ -457,7 +458,7 @@ function seedDatabase(db: Database.Database) {
     const testUserEmail = "test@example.com";
     if (!allMockUsers.some(u => u.email === testUserEmail)) {
         allMockUsers.push({
-            id: 'test-user-id-sqlite', // Or generate UUID
+            id: 'test-user-id-sqlite', 
             email: testUserEmail,
             fullName: "Test User SQLite",
             username: "testsqlite",
@@ -528,21 +529,20 @@ function seedDatabase(db: Database.Database) {
         VALUES (@id, @workout_definition_id, @exercise_id, @order_index, @defaultSets, @defaultReps, @defaultRestSeconds)
     `);
 
-    // Combine MOCK_WORKOUTS_ACTIVE with workouts derived from MOCK_DETAILED_TRAINING_PLANS' schedules
+    
     const allWorkoutDefinitions: ActiveWorkoutType[] = [...MOCK_WORKOUTS_ACTIVE];
     MOCK_DETAILED_TRAINING_PLANS.forEach(plan => {
       plan.schedule.forEach(day => {
         if (day.assignedWorkoutId && day.assignedWorkoutName && !day.isRestDay) {
           if (!allWorkoutDefinitions.find(wd => wd.id === day.assignedWorkoutId)) {
-            // Find corresponding exercises from MOCK_HISTORY_SESSIONS or MOCK_EXERCISES_DATABASE if needed
+            
             const exercisesForDef = MOCK_HISTORY_SESSIONS.find(s => s.workoutId === day.assignedWorkoutId)?.exercises ||
                                     MOCK_EXERCISES_DATABASE.filter(ex => day.assignedWorkoutName?.toLowerCase().includes(ex.name.toLowerCase().substring(0,5)))
                                     .map(e => ({ id: e.id, name: e.name, defaultSets: 3, defaultReps: '10', defaultRest: 60 }));
             allWorkoutDefinitions.push({
               id: day.assignedWorkoutId,
               name: day.assignedWorkoutName,
-              exercises: exercisesForDef.slice(0,5), // Limit to 5 exercises for mock def
-              // Infer type if possible, otherwise default
+              exercises: exercisesForDef.slice(0,5), 
               type: MOCK_EXERCISES_DATABASE.find(ex => ex.id === exercisesForDef[0]?.id)?.category === 'Cardio' ? 'Cardio' : 'Siłowy',
             });
           }
@@ -554,7 +554,7 @@ function seedDatabase(db: Database.Database) {
     for (const wd of allWorkoutDefinitions) {
         insertWorkoutDef.run({
             id: wd.id,
-            user_id: MOCK_CURRENT_USER_PROFILE.id, // Or assign to specific mock users
+            user_id: MOCK_CURRENT_USER_PROFILE.id, 
             name: wd.name,
             type: wd.type || "Mieszany",
             description: `Mock definition for ${wd.name}`,
@@ -588,7 +588,7 @@ function seedDatabase(db: Database.Database) {
         assigned_workout_definition_id: dt.assignedWorkoutId || null,
         assigned_workout_name: dt.assignedWorkoutName || null,
         isRestDay: dt.isRestDay ? 1 : 0,
-        description: dt.name // Simple description
+        description: dt.name 
       });
     }
 
@@ -658,7 +658,7 @@ function seedDatabase(db: Database.Database) {
         if (setsForExercise) {
           for (const set of setsForExercise) {
             insertSet.run({
-              id: `set-${session.id}-${exercise.id}-${set.setNumber}-${uuidv4().substring(0,8)}`, // Ensure unique ID for sets
+              id: `set-${session.id}-${exercise.id}-${set.setNumber}-${uuidv4().substring(0,8)}`, 
               workout_session_id: session.id,
               exercise_id: exercise.id,
               exercise_name_in_session: exercise.name,
