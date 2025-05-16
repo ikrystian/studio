@@ -9,6 +9,11 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { ArrowLeft, ListChecks, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+// import { SettingsQuickActionsPageSkeleton } from "@/components/settings/SettingsQuickActionsPageSkeleton"; // Removed for no-skeleton approach
+import {
+  PlayCircle, BookOpen, History as HistoryIcon, Award, Users, Scale, Camera, HeartPulse, GlassWater, BarChart3, Settings2, Settings as SettingsIcon, Timer as TimerIcon
+} from 'lucide-react'; // Import used icons
+
 // MOCK BACKEND LOGIC:
 // - Visibility Preferences: Loaded from and saved to localStorage.
 // - The actual effect of these settings (hiding/showing quick actions on the dashboard)
@@ -16,11 +21,11 @@ import { useToast } from "@/hooks/use-toast";
 //   preferences from localStorage.
 
 interface NavItem {
-  id: string; 
-  href: string; 
-  label: string; 
-  icon: React.ElementType; 
-  description: string; 
+  id: string;
+  href: string;
+  label: string;
+  icon: React.ElementType;
+  description: string;
 }
 
 const ALL_QUICK_ACTION_DEFINITIONS: NavItem[] = [
@@ -38,11 +43,9 @@ const ALL_QUICK_ACTION_DEFINITIONS: NavItem[] = [
   { id: 'app-settings', href: '/dashboard/settings', label: 'Ustawienia Aplikacji', icon: SettingsIcon, description: 'Dostosuj preferencje aplikacji.' },
   { id: 'rest-timer', href: '/dashboard/tools/rest-timer', label: 'Timer Odpoczynku', icon: TimerIcon, description: 'Niezależny stoper odpoczynku.' },
 ];
-import {
-  PlayCircle, BookOpen, History as HistoryIcon, Award, Users, Scale, Camera, HeartPulse, GlassWater, BarChart3, Settings2, Settings as SettingsIcon, Timer as TimerIcon
-} from 'lucide-react';
 
-const QUICK_ACTIONS_VISIBILITY_KEY = "dashboardQuickActionItemVisibility";
+
+const QUICK_ACTIONS_VISIBILITY_KEY = "dashboardQuickActionItemVisibility"; // Same as in dashboard page
 
 export default function QuickActionsSettingsPage() {
   const { toast } = useToast();
@@ -51,11 +54,11 @@ export default function QuickActionsSettingsPage() {
 
   React.useEffect(() => {
     setPageIsLoading(true);
-    const timer = setTimeout(() => { 
+    const timer = setTimeout(() => {
       // MOCK BACKEND LOGIC: Load visibility preferences from localStorage.
       const initialPrefs: Record<string, boolean> = {};
       ALL_QUICK_ACTION_DEFINITIONS.forEach(item => {
-        initialPrefs[item.id] = true; 
+        initialPrefs[item.id] = true; // Default to visible
       });
 
       const storedPrefs = localStorage.getItem(QUICK_ACTIONS_VISIBILITY_KEY);
@@ -73,7 +76,7 @@ export default function QuickActionsSettingsPage() {
       }
       setVisibilityPreferences(initialPrefs);
       setPageIsLoading(false);
-    }, 500); 
+    }, 0); // Set to 0 for faster actual load
     return () => clearTimeout(timer);
   }, []);
 
@@ -96,7 +99,7 @@ export default function QuickActionsSettingsPage() {
       });
     }
   };
-  
+
   const iconMap: Record<string, React.ElementType> = {
     'workout-start': PlayCircle,
     'plans': BookOpen,
@@ -115,10 +118,11 @@ export default function QuickActionsSettingsPage() {
 
 
   if (pageIsLoading) {
+    // return <SettingsQuickActionsPageSkeleton />; // Removed for no-skeleton approach
     return (
         <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
             <Loader2 className="h-12 w-12 animate-spin text-primary"/>
-            <p className="mt-4 text-muted-foreground">Ładowanie ustawień szybkich akcji...</p>
+            <p className="mt-4 text-muted-foreground">Wczytywanie...</p>
         </div>
       );
   }
@@ -136,7 +140,7 @@ export default function QuickActionsSettingsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               {ALL_QUICK_ACTION_DEFINITIONS.map((item) => {
-                const IconComponent = iconMap[item.id] || ListChecks; 
+                const IconComponent = iconMap[item.id] || ListChecks;
                 return (
                   <div
                     key={item.id}
@@ -150,7 +154,7 @@ export default function QuickActionsSettingsPage() {
                     </div>
                     <Switch
                       id={`switch-${item.id}`}
-                      checked={visibilityPreferences[item.id] !== undefined ? visibilityPreferences[item.id] : true} 
+                      checked={visibilityPreferences[item.id] !== undefined ? visibilityPreferences[item.id] : true}
                       onCheckedChange={(checked) => handleVisibilityChange(item.id, checked)}
                     />
                   </div>

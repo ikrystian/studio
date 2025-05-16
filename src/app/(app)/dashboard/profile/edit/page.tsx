@@ -40,10 +40,11 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { UserPrivacySettings } from "@/components/profile/profile-privacy-settings-dialog";
+import { MOCK_USER_DATA_EDIT_PROFILE as MOCK_USER_DATA_EDIT, DEFAULT_PRIVACY_SETTINGS } from "@/lib/mockData";
 
 // MOCK BACKEND LOGIC:
 // - Initial Data: Profile data is loaded from localStorage (CURRENT_USER_PROFILE_DATA_KEY).
-//   If not found, falls back to MOCK_USER_DATA_EDIT (hardcoded).
+//   If not found, falls back to MOCK_USER_DATA_EDIT (imported from mockData.ts).
 // - Privacy Settings: Loaded from localStorage (PROFILE_PRIVACY_SETTINGS_KEY).
 // - Saving Profile: Updates are saved back to localStorage (CURRENT_USER_PROFILE_DATA_KEY).
 // - Saving Privacy Settings: Updates are saved to localStorage (PROFILE_PRIVACY_SETTINGS_KEY and also
@@ -61,24 +62,6 @@ const ProfilePrivacySettingsDialog = dynamic(() =>
   loading: () => <div className="fixed inset-0 bg-background/50 flex items-center justify-center z-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>,
   ssr: false
 });
-
-
-const MOCK_USER_DATA_EDIT = {
-  id: "current_user_id", 
-  fullName: "Jan Kowalski",
-  username: "jankowalski_fit",
-  email: "jan.kowalski@example.com", 
-  bio: "Entuzjasta fitnessu i zdrowego stylu życia.",
-  fitnessLevel: "Średniozaawansowany" as "Początkujący" | "Średniozaawansowany" | "Zaawansowany",
-  avatarUrl: "https://placehold.co/200x200.png?text=JK",
-  joinDate: new Date().toISOString(), 
-};
-
-const DEFAULT_PRIVACY_SETTINGS: UserPrivacySettings = {
-  isActivityPublic: true,
-  isFriendsListPublic: true,
-  isSharedPlansPublic: true,
-};
 
 
 const editProfileSchema = z.object({
@@ -100,16 +83,16 @@ export default function EditProfilePage() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = React.useState(false);
   const [isFetchingInitialData, setIsFetchingInitialData] = React.useState(true);
-  
+
   const [currentAvatar, setCurrentAvatar] = React.useState(MOCK_USER_DATA_EDIT.avatarUrl);
   const [isEditAvatarOpen, setIsEditAvatarOpen] = React.useState(false);
-  
+
   const [isPrivacySettingsOpen, setIsPrivacySettingsOpen] = React.useState(false);
   const [privacySettings, setPrivacySettings] = React.useState<UserPrivacySettings>(DEFAULT_PRIVACY_SETTINGS);
 
   const form = useForm<EditProfileFormValues>({
     resolver: zodResolver(editProfileSchema),
-    defaultValues: { 
+    defaultValues: {
       fullName: "",
       username: "",
       bio: "",
@@ -125,7 +108,7 @@ export default function EditProfilePage() {
         const storedProfileStr = localStorage.getItem(CURRENT_USER_PROFILE_DATA_KEY);
         const storedPrivacyStr = localStorage.getItem(PROFILE_PRIVACY_SETTINGS_KEY);
 
-        let profileToLoad = MOCK_USER_DATA_EDIT; 
+        let profileToLoad = MOCK_USER_DATA_EDIT;
         if (storedProfileStr) {
             const storedProfile = JSON.parse(storedProfileStr);
             const loggedInEmail = localStorage.getItem('loggedInUserEmail');
@@ -133,7 +116,7 @@ export default function EditProfilePage() {
                  profileToLoad = { ...MOCK_USER_DATA_EDIT, ...storedProfile };
             }
         }
-        
+
         form.reset({
           fullName: profileToLoad.fullName,
           username: profileToLoad.username,
@@ -160,7 +143,7 @@ export default function EditProfilePage() {
         setPrivacySettings(DEFAULT_PRIVACY_SETTINGS);
       }
     }
-    setIsFetchingInitialData(false);
+    // setIsFetchingInitialData(false); // Removed: now handled by no-skeleton approach
   }, [form]);
 
   // MOCK BACKEND LOGIC: Simulates updating user profile by saving to localStorage.
@@ -168,18 +151,18 @@ export default function EditProfilePage() {
     setIsLoading(true);
     console.log("Updating profile with:", values);
     console.log("Current avatar URL:", currentAvatar);
-    
+
     await new Promise(resolve => setTimeout(resolve, 1000));
-    
+
     if (typeof window !== 'undefined') {
         try {
             const existingProfileStr = localStorage.getItem(CURRENT_USER_PROFILE_DATA_KEY);
-            let profileToSave = MOCK_USER_DATA_EDIT; 
+            let profileToSave = MOCK_USER_DATA_EDIT;
             if (existingProfileStr) {
                  profileToSave = JSON.parse(existingProfileStr);
             }
             profileToSave = {
-                ...profileToSave, 
+                ...profileToSave,
                 fullName: values.fullName,
                 username: values.username,
                 bio: values.bio || "",
@@ -217,7 +200,7 @@ export default function EditProfilePage() {
             if (profileDataStr) {
                 try {
                     const profileData = JSON.parse(profileDataStr);
-                    profileData.privacySettings = newSettings; 
+                    profileData.privacySettings = newSettings;
                     localStorage.setItem(CURRENT_USER_PROFILE_DATA_KEY, JSON.stringify(profileData));
                 } catch (e) { console.error("Error updating privacy settings in profile data:", e); }
             }
@@ -236,14 +219,14 @@ export default function EditProfilePage() {
     setIsPrivacySettingsOpen(false);
   };
 
-  if (isFetchingInitialData) {
-      return (
-        <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
-            <Loader2 className="h-12 w-12 animate-spin text-primary"/>
-            <p className="mt-4 text-muted-foreground">Ładowanie danych profilu...</p>
-        </div>
-      );
-  }
+  // if (isFetchingInitialData) { // Removed for no-skeleton approach
+  //     return (
+  //       <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
+  //           <Loader2 className="h-12 w-12 animate-spin text-primary"/>
+  //           <p className="mt-4 text-muted-foreground">Ładowanie danych profilu...</p>
+  //       </div>
+  //     );
+  // }
 
 
   return (

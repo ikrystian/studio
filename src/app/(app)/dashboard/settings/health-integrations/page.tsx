@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowLeft, Activity, Info, CheckCircle, XCircle, Link2, Unlink2, Loader2 } from "lucide-react"; 
+import { ArrowLeft, Activity, Info, CheckCircle, XCircle, Link2, Unlink2, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +19,8 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
+// import { SettingsHealthIntegrationsPageSkeleton } from "@/components/settings/SettingsHealthIntegrationsPageSkeleton"; // Removed for no-skeleton approach
+
 // MOCK BACKEND LOGIC:
 // - Settings Persistence: Health integration settings (connection status, sync options) are loaded from and saved to localStorage.
 // - Connection Toggling: Connecting/disconnecting from services like Apple Health or Google Fit is simulated.
@@ -28,15 +30,15 @@ import { Separator } from "@/components/ui/separator";
 
 interface IntegrationStatus {
   connected: boolean;
-  lastSync?: Date | null; 
+  lastSync?: Date | null;
 }
 
 interface HealthIntegrationSettings {
   appleHealth: IntegrationStatus;
   googleFit: IntegrationStatus;
-  syncWorkouts: boolean; 
-  syncWeight: boolean;   
-  syncSleep: boolean;    
+  syncWorkouts: boolean;
+  syncWeight: boolean;
+  syncSleep: boolean;
 }
 
 const LOCAL_STORAGE_KEY = "workoutWiseHealthIntegrationSettings";
@@ -54,7 +56,7 @@ export default function HealthIntegrationsPage() {
 
   React.useEffect(() => {
     setPageIsLoading(true);
-    const timer = setTimeout(() => { 
+    const timer = setTimeout(() => {
       // MOCK BACKEND LOGIC: Simulate loading settings from localStorage.
       try {
         const storedSettings = localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -70,7 +72,7 @@ export default function HealthIntegrationsPage() {
         });
       }
       setPageIsLoading(false);
-    }, 500); 
+    }, 0); // Set to 0 for faster actual load
      return () => clearTimeout(timer);
   }, [toast]);
 
@@ -78,7 +80,7 @@ export default function HealthIntegrationsPage() {
   const saveSettings = (newSettings: HealthIntegrationSettings) => {
     try {
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newSettings));
-      setSettings(newSettings); 
+      setSettings(newSettings);
       toast({
         title: "Ustawienia Zapisane",
         description: "Twoje preferencje integracji zostały zaktualizowane.",
@@ -100,7 +102,7 @@ export default function HealthIntegrationsPage() {
       ...settings,
       [service]: {
         connected: !currentStatus,
-        lastSync: !currentStatus ? new Date() : null, 
+        lastSync: !currentStatus ? new Date() : null,
       },
     };
     saveSettings(newSettings);
@@ -119,12 +121,13 @@ export default function HealthIntegrationsPage() {
     };
     saveSettings(newSettings);
   };
-  
+
   if (pageIsLoading) {
+    // return <SettingsHealthIntegrationsPageSkeleton />; // Removed for no-skeleton approach
     return (
         <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
             <Loader2 className="h-12 w-12 animate-spin text-primary"/>
-            <p className="mt-4 text-muted-foreground">Ładowanie ustawień integracji...</p>
+            <p className="mt-4 text-muted-foreground">Wczytywanie...</p>
         </div>
       );
   }
@@ -157,7 +160,7 @@ export default function HealthIntegrationsPage() {
               </Button>
               {settings.appleHealth.connected && (
                 <p className="mt-3 text-sm text-green-600 flex items-center">
-                  <CheckCircle className="mr-2 h-4 w-4" /> Połączono. Ostatnia synchronizacja: {settings.appleHealth.lastSync ? settings.appleHealth.lastSync.toLocaleString('pl-PL') : 'Nigdy'}
+                  <CheckCircle className="mr-2 h-4 w-4" /> Połączono. Ostatnia synchronizacja: {settings.appleHealth.lastSync ? new Date(settings.appleHealth.lastSync).toLocaleString('pl-PL') : 'Nigdy'}
                 </p>
               )}
               {!settings.appleHealth.connected && (
@@ -184,7 +187,7 @@ export default function HealthIntegrationsPage() {
               </Button>
                {settings.googleFit.connected && (
                 <p className="mt-3 text-sm text-green-600 flex items-center">
-                  <CheckCircle className="mr-2 h-4 w-4" /> Połączono. Ostatnia synchronizacja: {settings.googleFit.lastSync ? settings.googleFit.lastSync.toLocaleString('pl-PL') : 'Nigdy'}
+                  <CheckCircle className="mr-2 h-4 w-4" /> Połączono. Ostatnia synchronizacja: {settings.googleFit.lastSync ? new Date(settings.googleFit.lastSync).toLocaleString('pl-PL') : 'Nigdy'}
                 </p>
               )}
               {!settings.googleFit.connected && (

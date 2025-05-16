@@ -38,53 +38,25 @@ import {
   Users,
   XCircle,
   MessageSquare,
-  Lightbulb, 
+  Lightbulb,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  MOCK_LAST_WORKOUT_DASHBOARD,
+  MOCK_PROGRESS_STATS_DASHBOARD,
+  MOCK_UPCOMING_REMINDERS_DASHBOARD,
+  MOCK_FITNESS_TIPS_DASHBOARD,
+  type DashboardLastWorkout,
+  type DashboardProgressStats,
+  type DashboardUpcomingReminder
+} from '@/lib/mockData';
 
-// MOCK BACKEND LOGIC: All data for widgets (MOCK_LAST_WORKOUT, MOCK_PROGRESS_STATS, MOCK_UPCOMING_REMINDERS, MOCK_FITNESS_TIPS)
-// is hardcoded in this file. User profile data (userName) is fetched from localStorage.
+// MOCK BACKEND LOGIC: All data for widgets (MOCK_LAST_WORKOUT_DASHBOARD, MOCK_PROGRESS_STATS_DASHBOARD, etc.)
+// is imported from `src/lib/mockData.ts`. User profile data (userName) is fetched from localStorage.
 // The dashboard layout configuration (visibility and order of widgets) is also loaded from and saved to localStorage,
 // simulating a user-specific preference that would typically be stored on a backend.
-
-const MOCK_LAST_WORKOUT = {
-  name: 'Full Body Strength - Wtorek',
-  date: '2024-07-30',
-  duration: '55 min',
-  calories: '410 kcal',
-  exercises: 6,
-  link: '/dashboard/history/hist1', 
-};
-
-const MOCK_PROGRESS_STATS = {
-  weightTrend: 'stable', // 'up', 'down', 'stable'
-  currentWeight: '70kg',
-  workoutsThisWeek: 3,
-  weeklyGoal: 4, 
-};
-
-const MOCK_UPCOMING_REMINDERS = [
-  { id: 1, title: 'Zaplanowany Trening: Nogi', time: 'Jutro, 18:00', link: '/dashboard/plans/plan1' },
-  { id: 2, title: 'Sprawdź Tygodniowe Postępy', time: 'Niedziela, 20:00', link: '/dashboard/statistics' },
-  { id: 3, title: 'Uzupełnij Dziennik Samopoczucia', time: 'Codziennie, 21:00', link: '/dashboard/wellness-journal'},
-  { id: 4, title: 'Zaplanowany trening: Cardio Boost', time: 'Za 2 dni, 08:00', link: '/dashboard/plans/plan2'},
-  { id: 5, title: 'Pamiętaj o pomiarach!', time: 'Piątek, 09:00', link: '/dashboard/measurements'},
-];
-
-const MOCK_FITNESS_TIPS = [
-  "Pamiętaj o prawidłowej technice – to klucz do unikania kontuzji i maksymalizacji efektów!",
-  "Nawodnienie jest kluczowe! Pij wodę regularnie przez cały dzień, nie tylko podczas treningu.",
-  "Nie zapominaj o rozgrzewce przed każdym treningiem i rozciąganiu po nim.",
-  "Progresywne przeciążenie to podstawa budowania siły i masy mięśniowej.",
-  "Odpoczynek i regeneracja są równie ważne jak sam trening. Daj swojemu ciału czas na odbudowę.",
-  "Słuchaj swojego ciała. Jeśli czujesz ból (inny niż typowe zmęczenie mięśni), daj sobie odpocząć.",
-  "Zbilansowana dieta to 70% sukcesu. Dbaj o to, co jesz!",
-  "Małe kroki prowadzą do wielkich zmian. Bądź konsekwentny!",
-  "Każdy trening się liczy, nawet ten krótki. Ważne, że działasz!",
-  "Nie porównuj swojego rozdziału 1 do czyjegoś rozdziału 20. Skup się na własnej drodze."
-];
 
 interface NavItem {
   id: string;
@@ -126,7 +98,7 @@ const SingleQuickActionCard: React.FC<{ item: NavItem }> = ({ item }) => {
           <IconComponent className="mr-2 h-5 w-5 text-primary" />
           {item.label}
         </div>
-        <div className="pb-4 flex-grow min-h-[40px]"> {/* Adjusted min-height for consistency */}
+        <div className="pb-4 flex-grow min-h-[40px]">
           <p className="text-sm text-muted-foreground line-clamp-2">{item.description}</p>
         </div>
       </div>
@@ -140,7 +112,7 @@ const SingleQuickActionCardSkeleton: React.FC = () => (
       <Skeleton className="mr-2 h-5 w-5 rounded-full" />
       <Skeleton className="h-6 w-3/4" />
     </div>
-    <div className="pb-4 flex-grow min-h-[40px]"> {/* Adjusted min-height */}
+    <div className="pb-4 flex-grow min-h-[40px]">
       <Skeleton className="h-4 w-full mb-1" />
       <Skeleton className="h-4 w-5/6" />
     </div>
@@ -150,27 +122,26 @@ const SingleQuickActionCardSkeleton: React.FC = () => (
 
 const LastWorkoutWidget: React.FC = () => (
   <Link
-    href={MOCK_LAST_WORKOUT.link}
+    href={MOCK_LAST_WORKOUT_DASHBOARD.link}
     className={cn(
       "block rounded-lg border bg-card text-card-foreground shadow-sm transition-shadow duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 dashboard-widget-last-workout"
     )}
   >
     <div className="p-6 flex flex-col h-full">
-      <div className="pb-2"> 
+      <div className="pb-2">
         <h3 className="flex items-center text-lg font-semibold">
           <Activity className="mr-2 h-5 w-5 text-primary" /> Ostatni trening
         </h3>
-        <p className="text-sm text-muted-foreground">{new Date(MOCK_LAST_WORKOUT.date).toLocaleDateString('pl-PL', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+        <p className="text-sm text-muted-foreground">{new Date(MOCK_LAST_WORKOUT_DASHBOARD.date).toLocaleDateString('pl-PL', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
       </div>
-      <div className="space-y-3 flex-grow"> 
-        <h4 className="font-semibold">{MOCK_LAST_WORKOUT.name}</h4>
+      <div className="space-y-3 flex-grow">
+        <h4 className="font-semibold">{MOCK_LAST_WORKOUT_DASHBOARD.name}</h4>
         <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <span><CalendarDays className="mr-1 inline-block h-4 w-4" />{MOCK_LAST_WORKOUT.duration}</span>
-          <span><Flame className="mr-1 inline-block h-4 w-4" />{MOCK_LAST_WORKOUT.calories}</span>
-          <span><Dumbbell className="mr-1 inline-block h-4 w-4" />{MOCK_LAST_WORKOUT.exercises} ćwiczeń</span>
+          <span><CalendarDays className="mr-1 inline-block h-4 w-4" />{MOCK_LAST_WORKOUT_DASHBOARD.duration}</span>
+          <span><Flame className="mr-1 inline-block h-4 w-4" />{MOCK_LAST_WORKOUT_DASHBOARD.calories}</span>
+          <span><Dumbbell className="mr-1 inline-block h-4 w-4" />{MOCK_LAST_WORKOUT_DASHBOARD.exercises} ćwiczeń</span>
         </div>
       </div>
-      {/* Removed Przejdź div */}
     </div>
   </Link>
 );
@@ -189,7 +160,6 @@ const LastWorkoutWidgetSkeleton: React.FC = () => (
         <Skeleton className="h-4 w-1/4" />
       </div>
     </CardContent>
-    {/* Removed Footer Skeleton for "Przejdź" */}
   </Card>
 );
 
@@ -211,18 +181,17 @@ const ProgressStatsWidget: React.FC = () => (
         <div>
           <div className="mb-1 flex justify-between text-sm">
             <span>Waga</span>
-            <span className="font-medium">{MOCK_PROGRESS_STATS.currentWeight} ({MOCK_PROGRESS_STATS.weightTrend})</span>
+            <span className="font-medium">{MOCK_PROGRESS_STATS_DASHBOARD.currentWeight} ({MOCK_PROGRESS_STATS_DASHBOARD.weightTrend})</span>
           </div>
         </div>
         <div>
           <div className="mb-1 flex justify-between text-sm">
             <span>Treningi w tym tygodniu</span>
-            <span className="font-medium">{MOCK_PROGRESS_STATS.workoutsThisWeek} / {MOCK_PROGRESS_STATS.weeklyGoal}</span>
+            <span className="font-medium">{MOCK_PROGRESS_STATS_DASHBOARD.workoutsThisWeek} / {MOCK_PROGRESS_STATS_DASHBOARD.weeklyGoal}</span>
           </div>
-          <Progress value={(MOCK_PROGRESS_STATS.workoutsThisWeek / MOCK_PROGRESS_STATS.weeklyGoal) * 100} className="h-2" />
+          <Progress value={(MOCK_PROGRESS_STATS_DASHBOARD.workoutsThisWeek / MOCK_PROGRESS_STATS_DASHBOARD.weeklyGoal) * 100} className="h-2" />
         </div>
       </div>
-      {/* Removed Przejdź div */}
     </div>
   </Link>
 );
@@ -248,7 +217,6 @@ const ProgressStatsWidgetSkeleton: React.FC = () => (
         <Skeleton className="h-2 w-full" />
       </div>
     </CardContent>
-    {/* Removed Footer Skeleton for "Przejdź" */}
   </Card>
 );
 
@@ -260,15 +228,15 @@ const UpcomingRemindersWidget: React.FC = () => (
       </CardTitle>
     </CardHeader>
     <CardContent>
-      {MOCK_UPCOMING_REMINDERS.length > 0 ? (
+      {MOCK_UPCOMING_REMINDERS_DASHBOARD.length > 0 ? (
         <ul className="space-y-3">
-          {MOCK_UPCOMING_REMINDERS.map((reminder, index) => (
+          {MOCK_UPCOMING_REMINDERS_DASHBOARD.map((reminder, index) => (
             <li key={reminder.id} className="text-sm">
               <Link href={reminder.link} className="hover:text-primary transition-colors">
                 <p className="font-medium">{reminder.title}</p>
                 <p className="text-xs text-muted-foreground">{reminder.time}</p>
               </Link>
-              {index < MOCK_UPCOMING_REMINDERS.length - 1 && <Separator className="mt-3" />}
+              {index < MOCK_UPCOMING_REMINDERS_DASHBOARD.length - 1 && <Separator className="mt-3" />}
             </li>
           ))}
         </ul>
@@ -310,7 +278,7 @@ const FitnessTipWidget: React.FC = () => {
 
   React.useEffect(() => {
     // MOCK BACKEND LOGIC: Tip is randomly selected from a hardcoded list.
-    setTip(MOCK_FITNESS_TIPS[Math.floor(Math.random() * MOCK_FITNESS_TIPS.length)]);
+    setTip(MOCK_FITNESS_TIPS_DASHBOARD[Math.floor(Math.random() * MOCK_FITNESS_TIPS_DASHBOARD.length)]);
   }, []);
 
   return (
@@ -351,8 +319,8 @@ export interface DashboardWidgetConfig {
   area: 'main' | 'sidebar';
   defaultOrder: number;
   defaultVisible: boolean;
-  currentOrder?: number; 
-  isVisible?: boolean;   
+  currentOrder?: number;
+  isVisible?: boolean;
 }
 
 const generateQuickActionWidgets = (): DashboardWidgetConfig[] => {
@@ -361,8 +329,8 @@ const generateQuickActionWidgets = (): DashboardWidgetConfig[] => {
     title: item.label,
     component: <SingleQuickActionCard item={item} />,
     skeletonComponent: <SingleQuickActionCardSkeleton />,
-    area: 'main', 
-    defaultOrder: index + 1, 
+    area: 'main',
+    defaultOrder: index + 1,
     defaultVisible: true,
   }));
 };
@@ -414,7 +382,7 @@ export default function DashboardPage() {
 
       if (savedLayoutJson) {
         const parsedSavedWidgets = JSON.parse(savedLayoutJson) as Pick<DashboardWidgetConfig, 'id' | 'isVisible' | 'currentOrder' | 'area'>[];
-        
+
         loadedLayout = baseLayout.map(defaultWidget => {
           const savedWidgetSettings = parsedSavedWidgets.find(w => w.id === defaultWidget.id);
           return {
@@ -424,7 +392,7 @@ export default function DashboardPage() {
             area: savedWidgetSettings?.area !== undefined ? savedWidgetSettings.area : defaultWidget.area,
           };
         });
-        
+
         const loadedIds = new Set(loadedLayout.map(w => w.id));
         baseLayout.forEach(initialWidget => {
           if (!loadedIds.has(initialWidget.id)) {
@@ -444,14 +412,14 @@ export default function DashboardPage() {
       }));
     }
     setDashboardWidgets(loadedLayout.sort((a,b) => (a.currentOrder ?? 0) - (b.currentOrder ?? 0)));
-    setTimeout(() => setPageIsLoading(false), 750); 
+    setTimeout(() => setPageIsLoading(false), 0); // Removed delay for skeleton testing. Set to 0 for faster actual load.
   }, []);
 
   const handleEnterEditMode = () => {
-    setWidgetsBeforeEdit(JSON.parse(JSON.stringify(dashboardWidgets))); 
+    setWidgetsBeforeEdit(JSON.parse(JSON.stringify(dashboardWidgets)));
     setIsEditMode(true);
   };
-  
+
   const handleToggleWidgetVisibility = (widgetId: string) => {
     setDashboardWidgets(prevWidgets =>
       prevWidgets.map(widget =>
@@ -462,9 +430,9 @@ export default function DashboardPage() {
 
   const handleMoveWidget = (widgetId: string, direction: 'up' | 'down') => {
     setDashboardWidgets(prevWidgets => {
-      const newWidgets = prevWidgets.map(w => ({...w})); 
+      const newWidgets = prevWidgets.map(w => ({...w}));
       const widgetIndex = newWidgets.findIndex(w => w.id === widgetId);
-      if (widgetIndex === -1) return prevWidgets; 
+      if (widgetIndex === -1) return prevWidgets;
 
       const widget = newWidgets[widgetIndex];
       const areaWidgets = newWidgets
@@ -484,7 +452,7 @@ export default function DashboardPage() {
       } else if (direction === 'down' && widgetIndexInArea < areaWidgets.length - 1) {
         const nextWidgetInArea = areaWidgets[widgetIndexInArea + 1];
         const originalNextWidgetIndex = newWidgets.findIndex(w => w.id === nextWidgetInArea.id);
-        
+
         const tempOrder = newWidgets[originalNextWidgetIndex].currentOrder;
         newWidgets[originalNextWidgetIndex].currentOrder = newWidgets[widgetIndex].currentOrder;
         newWidgets[widgetIndex].currentOrder = tempOrder;

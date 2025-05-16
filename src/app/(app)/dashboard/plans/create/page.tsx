@@ -27,8 +27,8 @@ import {
   Menu,
   LayoutDashboard,
   ClipboardPaste,
-  ChevronLeft, 
-  ChevronRight, 
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -75,25 +75,14 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+// import { CreateTrainingPlanPageSkeleton } from "@/components/plans/CreateTrainingPlanPageSkeleton"; // Removed for no-skeleton approach
+import { MOCK_AVAILABLE_WORKOUTS_FOR_PLAN_EDITOR, MOCK_DAY_TEMPLATES_FOR_PLAN_EDITOR } from "@/lib/mockData";
+
 // MOCK BACKEND LOGIC:
-// - `MOCK_AVAILABLE_WORKOUTS_FOR_PLAN_EDITOR` and `MOCK_DAY_TEMPLATES_FOR_PLAN_EDITOR` are in-memory arrays from `src/lib/mockData.ts`,
-//   simulating a database of available workouts and day templates.
+// - `MOCK_AVAILABLE_WORKOUTS_FOR_PLAN_EDITOR` and `MOCK_DAY_TEMPLATES_FOR_PLAN_EDITOR` are imported from `src/lib/mockData.ts`.
 // - "Quick Create Workout" adds to an in-memory `availableWorkouts` state, simulating adding to a global workout DB for this session.
 // - Saving a plan ("Zapisz Plan") is a simulation; in a real app, this would POST data to a backend API.
 //   The created plan data is not persisted beyond this session unless explicitly added to `MOCK_DETAILED_TRAINING_PLANS` in `mockData.ts`.
-import { MOCK_AVAILABLE_WORKOUTS_FOR_PLAN_EDITOR, MOCK_DAY_TEMPLATES_FOR_PLAN_EDITOR } from "@/lib/mockData";
-
-const SelectWorkoutDialog = dynamic(() =>
-  import("@/components/plans/select-workout-dialog").then((mod) => mod.SelectWorkoutDialog), {
-  loading: () => <div className="fixed inset-0 bg-background/50 flex items-center justify-center z-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>,
-  ssr: false
-});
-
-const QuickCreateWorkoutDialog = dynamic(() =>
-  import("@/components/plans/quick-create-workout-dialog").then((mod) => mod.QuickCreateWorkoutDialog), {
-  loading: () => <div className="fixed inset-0 bg-background/50 flex items-center justify-center z-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>,
-  ssr: false
-});
 
 
 export interface RichDayTemplate {
@@ -122,8 +111,8 @@ const planDaySchema = z.object({
   dayName: z.string(),
   assignedWorkoutId: z.string().nullable().default(null),
   assignedWorkoutName: z.string().nullable().default(null),
-  templateId: z.string().nullable().default(null), 
-  templateName: z.string().nullable().default(null), 
+  templateId: z.string().nullable().default(null),
+  templateName: z.string().nullable().default(null),
   isRestDay: z.boolean().default(false),
 });
 export type PlanDayFormValues = z.infer<typeof planDaySchema>;
@@ -136,29 +125,41 @@ const planFormSchema = z.object({
   endDate: z.date().optional(),
   goal: z.string().optional(),
   days: z.array(planDaySchema).length(7, "Plan musi obejmować 7 dni."),
-}).refine(data => { 
+}).refine(data => {
   if (data.startDate && data.endDate && data.endDate < data.startDate) {
     return false;
   }
   return true;
 }, {
   message: "Data zakończenia nie może być wcześniejsza niż data rozpoczęcia.",
-  path: ["endDate"], 
-}).refine(data => { 
+  path: ["endDate"],
+}).refine(data => {
     return data.days.some(day => day.assignedWorkoutId || day.templateId || day.isRestDay);
 }, {
     message: "Plan musi zawierać przynajmniej jeden przypisany trening, szablon lub dzień odpoczynku.",
-    path: ["days"], 
+    path: ["days"],
 });
 
 
 type PlanFormValues = z.infer<typeof planFormSchema>;
 
+const SelectWorkoutDialog = dynamic(() =>
+  import("@/components/plans/select-workout-dialog").then((mod) => mod.SelectWorkoutDialog), {
+  loading: () => <div className="fixed inset-0 bg-background/50 flex items-center justify-center z-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>,
+  ssr: false
+});
+
+const QuickCreateWorkoutDialog = dynamic(() =>
+  import("@/components/plans/quick-create-workout-dialog").then((mod) => mod.QuickCreateWorkoutDialog), {
+  loading: () => <div className="fixed inset-0 bg-background/50 flex items-center justify-center z-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>,
+  ssr: false
+});
+
 export default function CreateTrainingPlanPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [pageIsLoading, setPageIsLoading] = React.useState(true);
-  const [isLoading, setIsLoading] = React.useState(false); 
+  const [isLoading, setIsLoading] = React.useState(false);
   const [serverError, setServerError] = React.useState<string | null>(null);
 
   const [isWorkoutSelectionDialogOpen, setIsWorkoutSelectionDialogOpen] = React.useState(false);
@@ -171,7 +172,7 @@ export default function CreateTrainingPlanPage() {
 
   const [copiedDayConfig, setCopiedDayConfig] = React.useState<Omit<PlanDayFormValues, 'dayName'> | null>(null);
   const [isPastingModeActive, setIsPastingModeActive] = React.useState(false);
-  
+
   const form = useForm<PlanFormValues>({
     resolver: zodResolver(planFormSchema),
     defaultValues: {
@@ -194,10 +195,10 @@ export default function CreateTrainingPlanPage() {
   React.useEffect(() => {
     const timer = setTimeout(() => {
       setPageIsLoading(false);
-    }, 750); 
+    }, 0); // Set to 0 for faster actual load
     return () => clearTimeout(timer);
   }, []);
-  
+
   const watchedStartDate = form.watch("startDate");
   const [calendarViewMonth, setCalendarViewMonth] = React.useState(watchedStartDate || new Date());
 
@@ -232,11 +233,11 @@ export default function CreateTrainingPlanPage() {
         ...currentDay,
         assignedWorkoutId: workout.id,
         assignedWorkoutName: workout.name,
-        templateId: null, 
+        templateId: null,
         templateName: null,
-        isRestDay: false, 
+        isRestDay: false,
       });
-      form.trigger("days"); 
+      form.trigger("days");
     }
     setIsWorkoutSelectionDialogOpen(false);
     setCurrentDayIndexToAssign(null);
@@ -246,9 +247,9 @@ export default function CreateTrainingPlanPage() {
   // simulating adding to a global workout database for the current session.
   const handleQuickWorkoutCreated = (newWorkoutData: QuickCreateWorkoutFormData) => {
      const newWorkout: SelectableWorkout = {
-      id: uuidv4(), 
+      id: uuidv4(),
       name: newWorkoutData.name,
-      type: newWorkoutData.workoutType || "Mieszany", 
+      type: newWorkoutData.workoutType || "Mieszany",
     };
     setAvailableWorkouts(prev => [...prev, newWorkout]);
 
@@ -258,7 +259,7 @@ export default function CreateTrainingPlanPage() {
         ...currentDay,
         assignedWorkoutId: newWorkout.id,
         assignedWorkoutName: newWorkout.name,
-        templateId: null, 
+        templateId: null,
         templateName: null,
         isRestDay: false,
       });
@@ -266,7 +267,7 @@ export default function CreateTrainingPlanPage() {
         title: "Trening Utworzony i Przypisany!",
         description: `Trening "${newWorkout.name}" został utworzony i przypisany do dnia: ${fields[currentDayIndexToAssign].dayName}.`,
       });
-      form.trigger("days"); 
+      form.trigger("days");
     } else {
        toast({
         title: "Trening Utworzony!",
@@ -283,15 +284,15 @@ export default function CreateTrainingPlanPage() {
       ...currentDay,
       templateId: template.id,
       templateName: template.name,
-      assignedWorkoutId: template.assignedWorkoutId || null, 
+      assignedWorkoutId: template.assignedWorkoutId || null,
       assignedWorkoutName: template.assignedWorkoutName || null,
-      isRestDay: template.isRestDay || false, 
+      isRestDay: template.isRestDay || false,
     });
     toast({
         title: "Szablon Przypisany",
         description: `Szablon "${template.name}" został przypisany do dnia: ${fields[dayIndex].dayName}.`
     });
-    form.trigger("days"); 
+    form.trigger("days");
   };
 
 
@@ -305,7 +306,7 @@ export default function CreateTrainingPlanPage() {
       templateName: null,
       isRestDay: true,
     });
-    form.trigger("days"); 
+    form.trigger("days");
   };
 
   const handleRemoveAssignment = (dayIndex: number) => {
@@ -318,12 +319,12 @@ export default function CreateTrainingPlanPage() {
       templateName: null,
       isRestDay: false,
     });
-    form.trigger("days"); 
+    form.trigger("days");
   };
 
   const handleCopyDay = (sourceDayIndex: number) => {
     const dayToCopy = { ...form.getValues(`days.${sourceDayIndex}`) };
-    const { dayName, ...configToCopy } = dayToCopy; 
+    const { dayName, ...configToCopy } = dayToCopy;
     setCopiedDayConfig(configToCopy as Omit<PlanDayFormValues, 'dayName'>);
     setIsPastingModeActive(true);
     toast({
@@ -334,16 +335,16 @@ export default function CreateTrainingPlanPage() {
 
   const handlePasteDay = (targetDayIndex: number) => {
     if (copiedDayConfig) {
-      const targetDayName = form.getValues(`days.${targetDayIndex}.dayName`); 
+      const targetDayName = form.getValues(`days.${targetDayIndex}.dayName`);
       const newDayData = { ...copiedDayConfig, dayName: targetDayName } as PlanDayFormValues;
       update(targetDayIndex, newDayData);
-      setCopiedDayConfig(null); 
-      setIsPastingModeActive(false); 
+      setCopiedDayConfig(null);
+      setIsPastingModeActive(false);
       toast({
         title: "Konfiguracja Wklejona",
         description: `Skopiowana konfiguracja została wklejona do dnia "${targetDayName}".`,
       });
-      form.trigger("days"); 
+      form.trigger("days");
     }
   };
 
@@ -372,35 +373,36 @@ export default function CreateTrainingPlanPage() {
       description: `Plan "${values.planName}" został pomyślnie utworzony (symulacja).`,
       variant: "default",
     });
-    router.push("/dashboard/plans"); 
+    router.push("/dashboard/plans");
     setIsLoading(false);
   }
-  
+
   const firstDayCurrentMonth = startOfMonth(calendarViewMonth);
   const lastDayCurrentMonth = endOfMonth(calendarViewMonth);
   const daysInMonth = eachDayOfInterval({ start: firstDayCurrentMonth, end: lastDayCurrentMonth });
 
-  let startingDayOfWeek = getDay(firstDayCurrentMonth); 
-  if (startingDayOfWeek === 0) startingDayOfWeek = 7; 
+  let startingDayOfWeek = getDay(firstDayCurrentMonth);
+  if (startingDayOfWeek === 0) startingDayOfWeek = 7;
   const daysBeforeMonth = Array.from({ length: startingDayOfWeek - 1 });
 
   const getDayAssignment = (date: Date) => {
     const planStartDate = form.watch("startDate");
-    if (!planStartDate || isBefore(date, startOfDay(planStartDate))) {
-      return null; 
+    if (!planStartDate || isBefore(date, startOfMonth(planStartDate))) { // Corrected to check against start of month
+      return null;
     }
-    const diff = differenceInCalendarDays(date, startOfDay(planStartDate));
-    const dayIndexInCycle = diff % 7; 
+    const diff = differenceInCalendarDays(date, startOfMonth(planStartDate)); // Corrected to use start of month
+    const dayIndexInCycle = diff % 7;
     return form.watch(`days.${dayIndexInCycle}`);
   };
 
   if (pageIsLoading) {
-    return (
+    // return <CreateTrainingPlanPageSkeleton />; // Removed for no-skeleton approach
+     return (
         <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
-            <Loader2 className="h-12 w-12 animate-spin text-primary"/>
-            <p className="mt-4 text-muted-foreground">Ładowanie kreatora planów...</p>
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <p className="mt-4 text-muted-foreground">Wczytywanie...</p>
         </div>
-      );
+    );
   }
 
 
@@ -490,7 +492,7 @@ export default function CreateTrainingPlanPage() {
                                 selected={field.value}
                                 onSelect={(date) => {
                                     field.onChange(date);
-                                    if(date) setCalendarViewMonth(startOfMonth(date)); 
+                                    if(date) setCalendarViewMonth(startOfMonth(date));
                                 }}
                                 disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) || isLoading}
                                 initialFocus
@@ -599,7 +601,7 @@ export default function CreateTrainingPlanPage() {
                         {day.templateName ? (
                             <span className="text-purple-600 dark:text-purple-400 flex items-center">
                                 <LayoutDashboard className="mr-2 h-5 w-5"/> {day.templateName}
-                                {day.assignedWorkoutName && day.assignedWorkoutId !== MOCK_DAY_TEMPLATES_FOR_PLAN_EDITOR.find(t => t.id === day.templateId)?.assignedWorkoutId && 
+                                {day.assignedWorkoutName && day.assignedWorkoutId !== MOCK_DAY_TEMPLATES_FOR_PLAN_EDITOR.find(t => t.id === day.templateId)?.assignedWorkoutId &&
                                  <span className="text-xs text-muted-foreground ml-1">(zastąpiony: {day.assignedWorkoutName})</span>}
                             </span>
                         ) : day.isRestDay ? (
@@ -654,7 +656,7 @@ export default function CreateTrainingPlanPage() {
                                   <Coffee className="mr-2 h-4 w-4"/> Oznacz jako Dzień Odpoczynku
                                   </DropdownMenuItem>
                               )}
-                               {(day.assignedWorkoutId || day.isRestDay || day.templateId) && ( 
+                               {(day.assignedWorkoutId || day.isRestDay || day.templateId) && (
                                   <DropdownMenuItem onClick={() => handleRemoveAssignment(index)} className="text-destructive focus:text-destructive">
                                       <Trash2 className="mr-2 h-4 w-4"/> Usuń przypisanie
                                   </DropdownMenuItem>
@@ -703,7 +705,7 @@ export default function CreateTrainingPlanPage() {
                                 ))}
                                 {daysInMonth.map(day => {
                                     const assignment = getDayAssignment(day);
-                                    const isDayBeforeStartDate = isBefore(day, startOfDay(form.watch("startDate")!));
+                                    const isDayBeforeStartDate = isBefore(day, startOfMonth(form.watch("startDate")!)); // Check against start of month
                                     let content = null;
                                     let bgColor = "bg-card hover:bg-muted/50";
                                     let textColor = "text-foreground";
@@ -713,7 +715,7 @@ export default function CreateTrainingPlanPage() {
                                             content = <><Coffee size={14} className="mr-1 inline-block"/> Odpoczynek</>;
                                             bgColor = "bg-green-500/10 hover:bg-green-500/20";
                                             textColor = "text-green-700 dark:text-green-400";
-                                        } else if (assignment.templateName) { 
+                                        } else if (assignment.templateName) {
                                             content = <><LayoutDashboard size={14} className="mr-1 inline-block"/> {assignment.templateName}</>;
                                             bgColor = "bg-purple-500/10 hover:bg-purple-500/20";
                                             textColor = "text-purple-700 dark:text-purple-400";
@@ -723,10 +725,10 @@ export default function CreateTrainingPlanPage() {
                                             textColor = "text-primary";
                                         }
                                     }
-                                    
+
                                     return (
-                                        <div 
-                                            key={day.toString()} 
+                                        <div
+                                            key={day.toString()}
                                             className={cn(
                                                 "p-2 border-b border-r min-h-[80px] text-xs relative transition-colors",
                                                 isSameMonth(day, calendarViewMonth) ? bgColor : "bg-muted/30",

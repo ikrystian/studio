@@ -57,7 +57,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import type { Workout, ExerciseInWorkout, RecordedSet } from "./../active/[workoutId]/page"; 
+import type { Workout, ExerciseInWorkout, RecordedSet } from "./../active/[workoutId]/page";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -76,25 +76,25 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+import { MOCK_EXISTING_PBS_SUMMARY, MOCK_MOTIVATIONAL_MESSAGES_SUMMARY } from "@/lib/mockData";
 
 // MOCK BACKEND LOGIC:
 // - Data Source: Workout summary data is received from the Active Workout page via localStorage.
-// - PB Suggestions: Simulated based on MOCK_EXISTING_PBS (in-memory array) and the current workout's performance.
+// - PB Suggestions: Simulated based on MOCK_EXISTING_PBS_SUMMARY (imported from mockData.ts) and the current workout's performance.
 // - Save/Share: Saving the workout and sharing to community are simulated.
 //   - The workout summary (including notes, difficulty, accepted PBs) would typically be POSTed to a backend.
 //   - Sharing to community would involve another API call to create a feed post.
 //   - Last workout date is saved to localStorage for the inactivity reminder feature.
-// - Discard: Clears the summary data from localStorage.
 
 interface WorkoutSummaryData {
   workoutId: string;
   workoutName: string;
-  startTime: string; 
-  endTime: string;   
+  startTime: string;
+  endTime: string;
   totalTimeSeconds: number;
-  recordedSets: Record<string, RecordedSet[]>; 
+  recordedSets: Record<string, RecordedSet[]>;
   exercises: ExerciseInWorkout[];
-  exerciseNotes?: Record<string, string>; 
+  exerciseNotes?: Record<string, string>;
 }
 
 enum DifficultyRating {
@@ -106,32 +106,16 @@ enum DifficultyRating {
   Ekstremalny = "Ekstremalny",
 }
 
-interface MockPB {
-  value: number | string; 
-  reps?: number; 
+interface MockPB { // Local type for clarity
+  value: number | string;
+  reps?: number;
 }
-const MOCK_EXISTING_PBS: Record<string, MockPB> = { 
-  "ex1": { value: 95, reps: 5 }, 
-  "ex2": { value: 130, reps: 5 }, 
-  "ex4": { value: "BW", reps: 12 }, 
-};
-
 interface PBSuggestion {
   exerciseId: string;
   exerciseName: string;
-  achievedValue: string; 
-  status: 'suggested' | 'accepted' | 'rejected'; 
+  achievedValue: string;
+  status: 'suggested' | 'accepted' | 'rejected';
 }
-
-const MOCK_MOTIVATIONAL_MESSAGES = [
-  "Świetna robota! Każdy trening to krok bliżej celu.",
-  "Dobra robota! Pamiętaj, że konsekwencja jest kluczem.",
-  "Niesamowity wysiłek! Odpocznij i zregeneruj siły.",
-  "Trening zaliczony! Jesteś maszyną!",
-  "Tak trzymać! Twoja determinacja jest inspirująca.",
-  "Cel osiągnięty na dziś! Brawo Ty!",
-  "Pamiętaj, progres to nie zawsze ciężar - technika i samopoczucie też są ważne."
-];
 
 export default function WorkoutSummaryPage() {
   const router = useRouter();
@@ -167,22 +151,22 @@ export default function WorkoutSummaryPage() {
             const bestSetForExercise = sets.reduce((best, current) => {
               const currentWeightNum = parseFloat(String(current.weight));
               const currentRepsNum = parseInt(String(current.reps), 10);
-              if (isNaN(currentWeightNum) || isNaN(currentRepsNum)) return best; 
+              if (isNaN(currentWeightNum) || isNaN(currentRepsNum)) return best;
               const bestWeightNum = parseFloat(String(best.weight));
               const bestRepsNum = parseInt(String(best.reps), 10);
               if (isNaN(bestWeightNum) || currentWeightNum > bestWeightNum) return current;
               if (currentWeightNum === bestWeightNum && (isNaN(bestRepsNum) || currentRepsNum > bestRepsNum)) return current;
               return best;
-            }, { weight: 0, reps: 0, setNumber: 0 } as RecordedSet); 
+            }, { weight: 0, reps: 0, setNumber: 0 } as RecordedSet);
 
-            if (bestSetForExercise.setNumber > 0) { 
+            if (bestSetForExercise.setNumber > 0) {
                 const achievedWeight = bestSetForExercise.weight;
                 const achievedReps = bestSetForExercise.reps;
                 const achievedValueStr = `${achievedWeight}${typeof achievedWeight === 'number' ? 'kg' : ''} x ${achievedReps}powt.`;
-                const existingPb = MOCK_EXISTING_PBS[exercise.id];
+                const existingPb = MOCK_EXISTING_PBS_SUMMARY[exercise.id];
                 let isNewPb = false;
                 if (!existingPb) {
-                    isNewPb = true; 
+                    isNewPb = true;
                 } else {
                     const existingPbWeight = typeof existingPb.value === 'string' && existingPb.value.toUpperCase() === 'BW' ? 'BW' : parseFloat(String(existingPb.value));
                     const existingPbReps = existingPb.reps ? parseInt(String(existingPb.reps), 10) : 0;
@@ -215,11 +199,11 @@ export default function WorkoutSummaryPage() {
       } catch (error) {
         console.error("Error parsing summary data from localStorage:", error);
         toast({ title: "Błąd", description: "Nie udało się załadować podsumowania treningu.", variant: "destructive" });
-        router.replace("/dashboard"); 
+        router.replace("/dashboard");
       }
     } else {
       toast({ title: "Brak danych", description: "Nie znaleziono danych do podsumowania treningu.", variant: "destructive" });
-      router.replace("/dashboard"); 
+      router.replace("/dashboard");
     }
     setIsLoading(false);
   }, [router, toast]);
@@ -229,8 +213,8 @@ export default function WorkoutSummaryPage() {
     let totalVolume = 0;
     Object.values(summaryData.recordedSets).forEach(exerciseSets => {
       exerciseSets.forEach(set => {
-        const weight = parseFloat(String(set.weight)); 
-        const reps = parseInt(String(set.reps), 10);   
+        const weight = parseFloat(String(set.weight));
+        const reps = parseInt(String(set.reps), 10);
         if (!isNaN(weight) && !isNaN(reps) && weight > 0 && reps > 0) {
           totalVolume += weight * reps;
         }
@@ -245,7 +229,7 @@ export default function WorkoutSummaryPage() {
     const seconds = totalSeconds % 60;
     return `${hours > 0 ? String(hours).padStart(2, "0") + "h " : ""}${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
   };
-  
+
   // MOCK BACKEND LOGIC: Simulates saving the workout summary. In a real app, this would be an API call.
   // If `shareToCommunity` is true, it also simulates posting to a community feed.
   // Persists `lastWorkoutDate` to localStorage for inactivity reminder feature.
@@ -253,17 +237,17 @@ export default function WorkoutSummaryPage() {
     if (!summaryData) return;
     setIsSaving(true);
     const acceptedPbs = pbSuggestions.filter(s => s.status === 'accepted').map(s => ({ exercise: s.exerciseName, value: s.achievedValue }));
-    
+
     const fullSummaryToSave = {
       ...summaryData,
       difficulty,
       generalNotes,
-      exerciseNotes: summaryData.exerciseNotes, 
+      exerciseNotes: summaryData.exerciseNotes,
       calculatedTotalVolume: calculateTotalVolume(),
-      acceptedPbs, 
+      acceptedPbs,
       sharedToCommunity: shareToCommunity,
       communityPostComment: shareToCommunity ? communityPostComment : undefined,
-      userId: "testUser123", 
+      userId: "testUser123", // Placeholder user ID
     };
     console.log("Saving workout summary (mock):", fullSummaryToSave);
 
@@ -275,7 +259,7 @@ export default function WorkoutSummaryPage() {
       console.error("Failed to save last workout date to localStorage", e);
     }
 
-    const randomMotivationalMessage = MOCK_MOTIVATIONAL_MESSAGES[Math.floor(Math.random() * MOCK_MOTIVATIONAL_MESSAGES.length)];
+    const randomMotivationalMessage = MOCK_MOTIVATIONAL_MESSAGES_SUMMARY[Math.floor(Math.random() * MOCK_MOTIVATIONAL_MESSAGES_SUMMARY.length)];
     let toastDescription = `${randomMotivationalMessage}`;
     if (shareToCommunity) {
         toastDescription += " Został również udostępniony w Społeczności (symulacja)!";
@@ -287,8 +271,8 @@ export default function WorkoutSummaryPage() {
       variant: "default",
       duration: 7000,
     });
-    localStorage.removeItem('workoutSummaryData'); 
-    router.push("/dashboard/history"); 
+    localStorage.removeItem('workoutSummaryData');
+    router.push("/dashboard/history");
     setIsSaving(false);
     setShowShareConfirmDialog(false);
   };
@@ -304,16 +288,16 @@ export default function WorkoutSummaryPage() {
 
   // MOCK BACKEND LOGIC: Simulates discarding the workout summary by removing it from localStorage.
   const handleDiscardWorkout = async () => {
-    setIsSaving(true); 
-    await new Promise(resolve => setTimeout(resolve, 500)); 
-    
-    localStorage.removeItem('workoutSummaryData'); 
+    setIsSaving(true);
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    localStorage.removeItem('workoutSummaryData');
     toast({
       title: "Trening Odrzucony",
       description: "Podsumowanie treningu zostało odrzucone.",
-      variant: "default" 
+      variant: "default"
     });
-    router.push("/dashboard"); 
+    router.push("/dashboard");
     setIsSaving(false);
     setShowDiscardDialog(false);
   };
@@ -343,7 +327,7 @@ export default function WorkoutSummaryPage() {
         });
         return { name: exercise.name, volume };
       })
-      .filter(item => item.volume > 0); 
+      .filter(item => item.volume > 0);
   }, [summaryData]);
 
   const setsPerExerciseChartData = React.useMemo(() => {
@@ -353,7 +337,7 @@ export default function WorkoutSummaryPage() {
         const setsCount = (summaryData.recordedSets[exercise.id] || []).length;
         return { name: exercise.name, sets: setsCount };
       })
-      .filter(item => item.sets > 0); 
+      .filter(item => item.sets > 0);
   }, [summaryData]);
 
   const chartConfig = {
@@ -385,7 +369,7 @@ export default function WorkoutSummaryPage() {
       </div>
     );
   }
-  
+
   const totalVolume = calculateTotalVolume();
 
   return (
@@ -426,7 +410,7 @@ export default function WorkoutSummaryPage() {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><BarChartHorizontalBig className="h-6 w-6 text-primary"/>Wizualizacja Danych Treningu</CardTitle>
@@ -497,7 +481,7 @@ export default function WorkoutSummaryPage() {
                     const exerciseNote = summaryData.exerciseNotes?.[exercise.id];
                     const suggestion = pbSuggestions.find(s => s.exerciseId === exercise.id);
 
-                    if (!sets || sets.length === 0) return null; 
+                    if (!sets || sets.length === 0) return null;
 
                     return (
                       <li key={exercise.id}>

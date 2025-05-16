@@ -22,7 +22,7 @@ import {
   PlusSquare,
   Copy,
   ClipboardList,
-  Edit3, 
+  Edit3,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -56,14 +56,13 @@ import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import type { Exercise as SelectableExerciseType } from "@/components/workout/exercise-selection-dialog";
 import type { QuickAddExerciseFormData } from "@/components/workout/quick-add-exercise-dialog";
+// import { CreateWorkoutPageSkeleton } from "@/components/workout/CreateWorkoutPageSkeleton"; // Removed for no-skeleton approach
+import { MOCK_EXERCISES_DATABASE } from "@/lib/mockData";
 
-// MOCK BACKEND LOGIC: Exercise database (MOCK_EXERCISES_DATABASE) is an in-memory array from a central file.
+// MOCK BACKEND LOGIC: Exercise database (MOCK_EXERCISES_DATABASE) is imported from `src/lib/mockData.ts`.
 // "Quick Add Exercise" simulates adding to this master list (in-memory for this session).
 // Saving a workout ("Zapisz Trening") is a simulation; in a real app, it would POST to a backend.
 // There's no actual database persistence here beyond the session's in-memory state.
-
-import { MOCK_EXERCISES_DATABASE } from "@/lib/mockData";
-import { CreateWorkoutPageSkeleton } from "@/components/workout/CreateWorkoutPageSkeleton";
 
 const ExerciseSelectionDialog = dynamic(() =>
   import("@/components/workout/exercise-selection-dialog").then((mod) => mod.ExerciseSelectionDialog), {
@@ -79,12 +78,12 @@ const QuickAddExerciseDialog = dynamic(() =>
 
 
 const exerciseInWorkoutSchema = z.object({
-  id: z.string(), 
+  id: z.string(),
   name: z.string().min(1, "Nazwa ćwiczenia jest wymagana."),
   sets: z.union([z.coerce.number({invalid_type_error: "Serie muszą być liczbą."}).positive("Liczba serii musi być dodatnia.").optional().nullable(), z.literal("")]),
-  reps: z.string().optional().nullable(), 
+  reps: z.string().optional().nullable(),
   restTimeSeconds: z.union([z.coerce.number({invalid_type_error: "Czas odpoczynku musi być liczbą."}).int("Czas odpoczynku musi być liczbą całkowitą.").min(0, "Czas odpoczynku nie może być ujemny.").optional().nullable(), z.literal("")]),
-  targetRpe: z.string().optional().nullable(), 
+  targetRpe: z.string().optional().nullable(),
   exerciseNotes: z.string().optional().nullable(),
 });
 
@@ -92,7 +91,7 @@ export type ExerciseInWorkoutFormValues = z.infer<typeof exerciseInWorkoutSchema
 
 const workoutFormSchema = z.object({
   workoutName: z.string().min(1, "Nazwa treningu jest wymagana."),
-  workoutType: z.string().optional(), 
+  workoutType: z.string().optional(),
   exercises: z.array(exerciseInWorkoutSchema).min(1, "Trening musi zawierać przynajmniej jedno ćwiczenie."),
 });
 
@@ -103,9 +102,9 @@ export default function CreateWorkoutPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [pageIsLoading, setPageIsLoading] = React.useState(true);
-  const [isLoading, setIsLoading] = React.useState(false); 
+  const [isLoading, setIsLoading] = React.useState(false);
   const [serverError, setServerError] = React.useState<string | null>(null);
-  
+
   const [isExerciseSelectionDialogOpen, setIsExerciseSelectionDialogOpen] = React.useState(false);
   const [isQuickAddExerciseDialogOpen, setIsQuickAddExerciseDialogOpen] = React.useState(false);
 
@@ -117,7 +116,7 @@ export default function CreateWorkoutPage() {
     resolver: zodResolver(workoutFormSchema),
     defaultValues: {
       workoutName: "",
-      workoutType: "Mieszany", 
+      workoutType: "Mieszany",
       exercises: [],
     },
   });
@@ -128,7 +127,8 @@ export default function CreateWorkoutPage() {
   });
 
   React.useEffect(() => {
-    const timer = setTimeout(() => setPageIsLoading(false), 750);
+    // Simulate loading delay if needed, or remove for faster load
+    const timer = setTimeout(() => setPageIsLoading(false), 0); // Set to 0 for faster load
     return () => clearTimeout(timer);
   }, []);
 
@@ -141,7 +141,7 @@ export default function CreateWorkoutPage() {
     const exercisesToAppend = selectedExercises.map(ex => ({
         id: ex.id,
         name: ex.name,
-        sets: "", 
+        sets: "",
         reps: "",
         restTimeSeconds: "",
         targetRpe: "",
@@ -149,8 +149,8 @@ export default function CreateWorkoutPage() {
     }));
     append(exercisesToAppend);
     if (form.formState.errors.exercises && typeof form.formState.errors.exercises.message === 'string') {
-        form.clearErrors("exercises.root.message" as any); 
-        form.clearErrors("exercises"); 
+        form.clearErrors("exercises.root.message" as any);
+        form.clearErrors("exercises");
     }
   };
 
@@ -174,11 +174,11 @@ export default function CreateWorkoutPage() {
   // simulating an update to a global exercise database.
   const handleQuickExerciseCreated = (newExerciseData: QuickAddExerciseFormData) => {
     const newDbExercise: SelectableExerciseType = {
-      id: uuidv4(), 
+      id: uuidv4(),
       name: newExerciseData.name,
-      category: newExerciseData.category || "Inne", 
+      category: newExerciseData.category || "Inne",
     };
-    
+
     setMasterExerciseList(prev => [...prev, newDbExercise]);
 
     append({
@@ -203,10 +203,10 @@ export default function CreateWorkoutPage() {
   };
 
   const handleCopyFromPrevious = (index: number) => {
-    if (index === 0) return; 
+    if (index === 0) return;
 
     const previousExerciseData = form.getValues(`exercises.${index - 1}`);
-    
+
     form.setValue(`exercises.${index}.sets`, previousExerciseData.sets || "");
     form.setValue(`exercises.${index}.reps`, previousExerciseData.reps || "");
     form.setValue(`exercises.${index}.restTimeSeconds`, previousExerciseData.restTimeSeconds || "");
@@ -218,7 +218,7 @@ export default function CreateWorkoutPage() {
       description: `Parametry zostały skopiowane z ćwiczenia: ${previousExerciseData.name}.`,
     });
   };
-  
+
   const handleLoadMockDefaults = (index: number) => {
     form.setValue(`exercises.${index}.sets`, 3);
     form.setValue(`exercises.${index}.reps`, "10");
@@ -248,12 +248,18 @@ export default function CreateWorkoutPage() {
       variant: "default",
       duration: 3000,
     });
-    router.push("/dashboard/workout/start"); 
+    router.push("/dashboard/workout/start");
     setIsLoading(false);
   }
 
   if (pageIsLoading) {
-    return <CreateWorkoutPageSkeleton />;
+    // return <CreateWorkoutPageSkeleton />; // Removed for no-skeleton approach
+    return (
+        <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <p className="mt-4 text-muted-foreground">Wczytywanie...</p>
+        </div>
+    );
   }
 
 
@@ -407,7 +413,7 @@ export default function CreateWorkoutPage() {
                                 </Button>
                               </div>
                             </div>
-                            
+
                             <div className="flex items-center gap-2 mb-4">
                               {index > 0 && (
                                 <Button
@@ -506,7 +512,7 @@ export default function CreateWorkoutPage() {
                    )}
                 </CardContent>
               </Card>
-              
+
               <div className="flex justify-end space-x-4 mt-8">
                  <Button type="button" variant="outline" onClick={() => router.push('/dashboard/workout/start')} disabled={isLoading}>
                   Anuluj
@@ -523,7 +529,7 @@ export default function CreateWorkoutPage() {
       <ExerciseSelectionDialog
         isOpen={isExerciseSelectionDialogOpen}
         onOpenChange={setIsExerciseSelectionDialogOpen}
-        availableExercises={masterExerciseList} 
+        availableExercises={masterExerciseList}
         onExercisesSelected={handleExercisesSelected}
       />
       <QuickAddExerciseDialog

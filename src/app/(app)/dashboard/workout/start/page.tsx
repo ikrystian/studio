@@ -31,21 +31,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { StartWorkoutPageSkeleton } from '@/components/workout/StartWorkoutPageSkeleton';
+// import { StartWorkoutPageSkeleton } from '@/components/workout/StartWorkoutPageSkeleton'; // Removed for no-skeleton approach
+import { MOCK_WORKOUTS_ACTIVE as availableWorkouts } from '@/lib/mockData'; // Import from mockData
 
-// MOCK BACKEND LOGIC: `availableWorkouts` is an in-memory array. Checking for unfinished workouts
+// MOCK BACKEND LOGIC: `availableWorkouts` is imported from `src/lib/mockData.ts`. Checking for unfinished workouts
 // involves looking for specific keys in `localStorage`. Discarding an unfinished workout
 // removes the item from `localStorage`. Data is not persisted beyond the session/browser storage.
 
-const availableWorkouts = [
-  { id: 'wk1', name: 'Poranny Trening Siłowy', type: 'Siłowy', estimatedDuration: '60 min', icon: Dumbbell, description: 'Kompleksowy trening siłowy całego ciała.' },
-  { id: 'wk2', name: 'Szybkie Cardio HIIT', type: 'Cardio', estimatedDuration: '30 min', icon: Zap, description: 'Intensywny trening interwałowy dla poprawy kondycji.' },
-  { id: 'wk3', name: 'Wieczorne Rozciąganie', type: 'Rozciąganie', estimatedDuration: '20 min', icon: StretchHorizontal, description: 'Relaksacyjne ćwiczenia rozciągające na koniec dnia.' },
-  { id: 'wk4', name: 'Trening Brzucha Express', type: 'Siłowy', estimatedDuration: '15 min', icon: Dumbbell, description: 'Skupiony na mięśniach brzucha, krótki i efektywny.' },
-  { id: 'wk5', name: 'Długie Wybieganie', type: 'Cardio', estimatedDuration: '90 min', icon: Zap, description: 'Trening wytrzymałościowy na świeżym powietrzu.' },
-];
-
-function StretchHorizontal(props: React.SVGProps<SVGSVGElement>) { 
+function StretchHorizontal(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
       <path d="M4 12h16"/><path d="M4 12l4-4m-4 4l4 4m12-4l-4-4m4 4l-4 4"/>
@@ -59,8 +52,8 @@ const ACTIVE_WORKOUT_AUTOSAVE_KEY_PREFIX = "activeWorkoutAutosave_";
 interface UnfinishedWorkoutInfo {
   workoutId: string;
   workoutName: string;
-  startTime: string; 
-  autosaveKey: string; 
+  startTime: string;
+  autosaveKey: string;
 }
 
 export default function StartWorkoutPage() {
@@ -93,7 +86,7 @@ export default function StartWorkoutPage() {
                   autosaveKey: key,
                 });
                 foundUnfinished = true;
-                break; 
+                break;
               }
             } catch (e) {
               console.error("Error parsing autosaved workout data:", e);
@@ -102,9 +95,10 @@ export default function StartWorkoutPage() {
         }
       }
     }
+    // Simulate a delay even if localStorage check is fast
     const timer = setTimeout(() => {
         setIsLoading(false);
-    }, 750); 
+    }, 0); // Set to 0 for faster load
 
     return () => clearTimeout(timer);
   }, []);
@@ -124,12 +118,14 @@ export default function StartWorkoutPage() {
 
   const filteredWorkouts = availableWorkouts.filter(workout => {
     const matchesSearch = workout.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          workout.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = selectedWorkoutType === 'Wszystkie' || workout.type === selectedWorkoutType;
+                          (workout.exercises.map(ex => ex.name).join(' ').toLowerCase().includes(searchTerm.toLowerCase())); // Search in exercise names too
+    const workoutType = MOCK_WORKOUTS_ACTIVE.find(w => w.id === workout.id)?.exercises[0]?.id.startsWith('ex6') || MOCK_WORKOUTS_ACTIVE.find(w => w.id === workout.id)?.exercises[0]?.id.startsWith('ex7') ? 'Cardio' : 'Siłowy'; // Simplified type detection for mock
+    const matchesType = selectedWorkoutType === 'Wszystkie' || workoutType === selectedWorkoutType;
     return matchesSearch && matchesType;
   });
 
-  const getWorkoutIcon = (type: string) => {
+  const getWorkoutIcon = (type: string | undefined) => { // Type can be undefined for custom workouts from plan
+    if (!type) return <Dumbbell className="mr-2 h-5 w-5 text-primary" />; // Default icon
     switch (type.toLowerCase()) {
       case 'siłowy':
         return <Dumbbell className="mr-2 h-5 w-5 text-primary" />;
@@ -143,7 +139,13 @@ export default function StartWorkoutPage() {
   };
 
   if (isLoading) {
-    return <StartWorkoutPageSkeleton />;
+    // return <StartWorkoutPageSkeleton />; // Removed for no-skeleton approach
+    return (
+        <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <p className="mt-4 text-muted-foreground">Wczytywanie...</p>
+        </div>
+    );
   }
 
   return (
@@ -195,7 +197,7 @@ export default function StartWorkoutPage() {
               </CardFooter>
             </Card>
           )}
-          
+
           <AlertDialog open={showDiscardConfirmDialog} onOpenChange={setShowDiscardConfirmDialog}>
             <AlertDialogContent>
               <AlertDialogHeader>
@@ -248,25 +250,25 @@ export default function StartWorkoutPage() {
           <Separator className="my-6" />
 
           {filteredWorkouts.length > 0 ? (
-            <ScrollArea className=" pr-4"> 
+            <ScrollArea className=" pr-4">
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {filteredWorkouts.map((workout) => (
                   <Card key={workout.id} className="flex flex-col hover:shadow-lg transition-shadow duration-200">
                     <CardHeader>
                       <CardTitle className="flex items-center text-xl">
-                        {getWorkoutIcon(workout.type)}
+                        {getWorkoutIcon(workout.exercises[0]?.id.startsWith('ex6') || workout.exercises[0]?.id.startsWith('ex7') ? 'Cardio' : 'Siłowy')}
                         {workout.name}
                       </CardTitle>
-                      <CardDescription>{workout.type} - {workout.estimatedDuration}</CardDescription>
+                      <CardDescription>{workout.exercises[0]?.id.startsWith('ex6') || workout.exercises[0]?.id.startsWith('ex7') ? 'Cardio' : 'Siłowy'} - {workout.exercises.reduce((acc, ex) => acc + (ex.defaultRest || 0) + ( (typeof ex.defaultReps === 'string' && ex.defaultReps.includes('min') ? parseInt(ex.defaultReps) * 60 : 0) ), 0) / 60} min</CardDescription>
                     </CardHeader>
                     <CardContent className="flex-grow">
-                      <p className="text-sm text-muted-foreground line-clamp-3">{workout.description}</p>
+                      <p className="text-sm text-muted-foreground line-clamp-3">{workout.exercises.map(ex => ex.name).join(', ')}</p>
                     </CardContent>
                     <CardFooter>
                       <Button asChild className="w-full">
                         {/* MOCK BACKEND LOGIC: Clicking "Rozpocznij" navigates to the active workout page.
                             The active workout page will load the workout structure based on its ID
-                            (from MOCK_WORKOUTS or from localStorage if it's a custom/repeated plan workout). */}
+                            (from MOCK_WORKOUTS_ACTIVE or from localStorage if it's a custom/repeated plan workout). */}
                         <Link href={`/dashboard/workout/active/${workout.id}`}>
                           Rozpocznij
                         </Link>

@@ -42,7 +42,7 @@ type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;
 export default function ForgotPasswordPage() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = React.useState(false);
-  const [isSubmitted, setIsSubmitted] = React.useState(false); 
+  const [isSubmitted, setIsSubmitted] = React.useState(false);
 
   const form = useForm<ForgotPasswordFormValues>({
     resolver: zodResolver(forgotPasswordSchema),
@@ -56,6 +56,7 @@ export default function ForgotPasswordPage() {
     setIsLoading(true);
     console.log("Password reset requested for (simulated):", values.email);
 
+    // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1500));
 
     setIsSubmitted(true);
@@ -63,7 +64,7 @@ export default function ForgotPasswordPage() {
       title: "Instrukcje Wysłane (Symulacja)",
       description: "Jeśli ten adres email jest zarejestrowany, wysłaliśmy na niego instrukcje resetowania hasła.",
       variant: "default",
-      duration: 7000, 
+      duration: 7000,
     });
     setIsLoading(false);
   }

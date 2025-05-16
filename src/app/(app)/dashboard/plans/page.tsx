@@ -10,9 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dumbbell, Search, ListFilter, ArrowLeft, PlusCircle, Target, CalendarClock, BookOpen, Loader2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { TrainingPlansPageSkeleton } from '@/components/plans/TrainingPlansPageSkeleton';
+// import { TrainingPlansPageSkeleton } from '@/components/plans/TrainingPlansPageSkeleton'; // Removed for no-skeleton approach
+import { MOCK_TRAINING_PLANS_LIST } from '@/lib/mockData';
 
-// MOCK BACKEND LOGIC: Training plans (MOCK_TRAINING_PLANS) are sourced from an in-memory array.
+// MOCK BACKEND LOGIC: Training plans (MOCK_TRAINING_PLANS_LIST) are imported from `src/lib/mockData.ts`.
 // Filtering by search term and goal is performed client-side on this array.
 // There are no actual backend calls for fetching or manipulating plan data on this list page.
 
@@ -20,9 +21,9 @@ interface TrainingPlan {
   id: string;
   name: string;
   description: string;
-  goal: string; 
-  duration: string; 
-  icon?: React.ElementType; 
+  goal: string;
+  duration: string;
+  icon?: React.ElementType;
 }
 
 function StretchHorizontalIcon(props: React.SVGProps<SVGSVGElement>) {
@@ -33,46 +34,11 @@ function StretchHorizontalIcon(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
-const MOCK_TRAINING_PLANS: TrainingPlan[] = [
-  {
-    id: 'plan1',
-    name: 'Siła Początkującego Herkulesa',
-    description: 'Kompleksowy plan dla osób rozpoczynających przygodę z treningiem siłowym, skupiony na podstawowych ćwiczeniach wielostawowych.',
-    goal: 'Budowa podstawowej siły i masy mięśniowej',
-    duration: '8 tygodni',
-    icon: Dumbbell,
-  },
-  {
-    id: 'plan2',
-    name: 'Kardio Spalacz Kalorii',
-    description: 'Intensywny plan kardio interwałowego i aerobowego, mający na celu maksymalizację spalania kalorii i poprawę wydolności.',
-    goal: 'Redukcja tkanki tłuszczowej i poprawa kondycji',
-    duration: '6 tygodni',
-    icon: Target,
-  },
-  {
-    id: 'plan3',
-    name: 'Elastyczność i Mobilność Zen',
-    description: 'Plan skupiony na ćwiczeniach rozciągających, jodze i mobilizacji stawów, idealny dla poprawy zakresu ruchu i relaksu.',
-    goal: 'Poprawa elastyczności i mobilności',
-    duration: '4 tygodnie',
-    icon: StretchHorizontalIcon,
-  },
-  {
-    id: 'plan4',
-    name: 'Domowy Trening Full Body',
-    description: 'Efektywny plan treningowy całego ciała możliwy do wykonania w domu przy minimalnym sprzęcie lub bez niego.',
-    goal: 'Utrzymanie formy i wszechstronny rozwój',
-    duration: 'Ciągły',
-    icon: Dumbbell,
-  },
-];
-
 const PLAN_GOALS_FILTER_OPTIONS = [
-    "Wszystkie", 
-    "Budowa podstawowej siły i masy mięśniowej", 
-    "Redukcja tkanki tłuszczowej i poprawa kondycji", 
-    "Poprawa elastyczności i mobilności", 
+    "Wszystkie",
+    "Budowa podstawowej siły i masy mięśniowej",
+    "Redukcja tkanki tłuszczowej i poprawa kondycji",
+    "Poprawa elastyczności i mobilności",
     "Utrzymanie formy i wszechstronny rozwój"
 ];
 
@@ -83,15 +49,16 @@ export default function TrainingPlansPage() {
 
   React.useEffect(() => {
     // MOCK BACKEND LOGIC: Simulates fetching data. In a real app, this would be an API call.
+    // For this prototype, data is already available via import.
     const timer = setTimeout(() => {
       setIsLoading(false);
-    }, 750); 
+    }, 0); // Set to 0 for faster actual load
     return () => clearTimeout(timer);
   }, []);
 
   const filteredPlans = React.useMemo(() => {
-    // MOCK BACKEND LOGIC: Client-side filtering of `MOCK_TRAINING_PLANS`.
-    return MOCK_TRAINING_PLANS.filter(plan => {
+    // MOCK BACKEND LOGIC: Client-side filtering of `MOCK_TRAINING_PLANS_LIST`.
+    return MOCK_TRAINING_PLANS_LIST.filter(plan => {
       const matchesSearch = plan.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             plan.description.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesGoal = selectedGoal === PLAN_GOALS_FILTER_OPTIONS[0] || plan.goal === selectedGoal;
@@ -100,7 +67,13 @@ export default function TrainingPlansPage() {
   }, [searchTerm, selectedGoal]);
 
   if (isLoading) {
-    return <TrainingPlansPageSkeleton />;
+    // return <TrainingPlansPageSkeleton />; // Removed for no-skeleton approach
+     return (
+        <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <p className="mt-4 text-muted-foreground">Wczytywanie...</p>
+        </div>
+    );
   }
 
   return (
@@ -149,10 +122,10 @@ export default function TrainingPlansPage() {
           <Separator className="my-6" />
 
           {filteredPlans.length > 0 ? (
-            <ScrollArea className="h-[calc(100vh-25rem)] pr-4"> 
+            <ScrollArea className="h-[calc(100vh-25rem)] pr-4">
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {filteredPlans.map((plan) => {
-                  const IconComponent = plan.icon || Dumbbell; 
+                  const IconComponent = plan.icon || Dumbbell;
                   return (
                     <Card key={plan.id} className="flex flex-col hover:shadow-lg transition-shadow duration-200">
                       <CardHeader>
