@@ -46,6 +46,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AddEditPortionDialog, type Portion } from "@/components/hydration/add-edit-portion-dialog";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"; // Added AlertDescription
+import { HydrationTrackingPageSkeleton } from "@/components/hydration/HydrationTrackingPageSkeleton"; // Import skeleton
 
 
 const LOCAL_STORAGE_KEY = "workoutWiseHydrationData";
@@ -87,6 +88,7 @@ const DEFAULT_REMINDER_SETTINGS: ReminderSettings = {
 
 export default function HydrationTrackingPage() {
   const { toast } = useToast();
+  const [pageIsLoading, setPageIsLoading] = React.useState(true); // For skeleton
   const [hydrationData, setHydrationData] = React.useState<HydrationData>({
     dailyGoal: DEFAULT_DAILY_GOAL_ML,
     log: [],
@@ -102,49 +104,51 @@ export default function HydrationTrackingPage() {
   const [portionToDelete, setPortionToDelete] = React.useState<Portion | null>(null);
 
   const [notificationPermission, setNotificationPermission] = React.useState<NotificationPermission | "loading">("loading");
-  const [isLoading, setIsLoading] = React.useState(true);
+  // const [isLoading, setIsLoading] = React.useState(true); // Replaced by pageIsLoading
 
   React.useEffect(() => {
-    setIsLoading(true);
-    let loadedData: HydrationData = {
-        dailyGoal: DEFAULT_DAILY_GOAL_ML,
-        log: [],
-        customPortions: [],
-        reminderSettings: DEFAULT_REMINDER_SETTINGS,
-    };
-    try {
-      const storedData = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (storedData) {
-        const parsed = JSON.parse(storedData);
-        // Ensure all fields are present, falling back to defaults if not
-        loadedData = {
-            dailyGoal: parsed.dailyGoal || DEFAULT_DAILY_GOAL_ML,
-            log: parsed.log || [],
-            customPortions: parsed.customPortions || [],
-            reminderSettings: { ...DEFAULT_REMINDER_SETTINGS, ...(parsed.reminderSettings || {}) },
-        };
+    setPageIsLoading(true);
+    const timer = setTimeout(() => { // Simulate loading delay
+      let loadedData: HydrationData = {
+          dailyGoal: DEFAULT_DAILY_GOAL_ML,
+          log: [],
+          customPortions: [],
+          reminderSettings: DEFAULT_REMINDER_SETTINGS,
+      };
+      try {
+        const storedData = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (storedData) {
+          const parsed = JSON.parse(storedData);
+          loadedData = {
+              dailyGoal: parsed.dailyGoal || DEFAULT_DAILY_GOAL_ML,
+              log: parsed.log || [],
+              customPortions: parsed.customPortions || [],
+              reminderSettings: { ...DEFAULT_REMINDER_SETTINGS, ...(parsed.reminderSettings || {}) },
+          };
+        }
+      } catch (error) {
+        console.error("Error loading hydration data from localStorage:", error);
+        toast({
+          title: "Błąd ładowania danych",
+          description: "Nie udało się wczytać zapisanych danych nawodnienia.",
+          variant: "destructive",
+        });
       }
-    } catch (error) {
-      console.error("Error loading hydration data from localStorage:", error);
-      toast({
-        title: "Błąd ładowania danych",
-        description: "Nie udało się wczytać zapisanych danych nawodnienia.",
-        variant: "destructive",
-      });
-    }
-    setHydrationData(loadedData);
-    setNewGoalInput(loadedData.dailyGoal.toString());
-    setIsLoading(false);
+      setHydrationData(loadedData);
+      setNewGoalInput(loadedData.dailyGoal.toString());
+      setPageIsLoading(false);
 
-    if (typeof window !== "undefined" && "Notification" in window) {
-        setNotificationPermission(Notification.permission);
-    } else {
-        setNotificationPermission("denied"); // Or some other status indicating not supported
-    }
+      if (typeof window !== "undefined" && "Notification" in window) {
+          setNotificationPermission(Notification.permission);
+      } else {
+          setNotificationPermission("denied");
+      }
+    }, 750); // 750ms delay for skeleton visibility
+     return () => clearTimeout(timer);
   }, [toast]);
 
   React.useEffect(() => {
-    if (!isLoading) { 
+    if (!pageIsLoading) { // Save only after initial load is complete
       try {
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(hydrationData));
       } catch (error) {
@@ -156,7 +160,7 @@ export default function HydrationTrackingPage() {
         });
       }
     }
-  }, [hydrationData, isLoading, toast]);
+  }, [hydrationData, pageIsLoading, toast]);
 
   const todaysIntake = React.useMemo(() => {
     return hydrationData.log
@@ -260,7 +264,6 @@ export default function HydrationTrackingPage() {
   };
   
   const handleSaveReminderSettings = () => {
-    // Logic to save reminderSettings (already happens via useEffect on hydrationData change)
     toast({ title: "Ustawienia przypomnień zapisane (symulacja)" });
     if (hydrationData.reminderSettings.enabled && notificationPermission !== 'granted') {
         handleRequestNotificationPermission();
@@ -304,33 +307,12 @@ export default function HydrationTrackingPage() {
   }).flat();
 
 
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-muted-foreground">Ładowanie danych nawodnienia...</p>
-      </div>
-    );
+  if (pageIsLoading) {
+    return <HydrationTrackingPageSkeleton />;
   }
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      {/* Header is part of AppLayout now */}
-      {/* <header className="sticky top-16 z-30 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/50">
-        <div className="container mx-auto flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" asChild>
-              <Link href="/dashboard">
-                <ArrowLeft className="h-5 w-5" />
-                <span className="sr-only">Powrót do Panelu</span>
-              </Link>
-            </Button>
-            <GlassWater className="h-7 w-7 text-primary" />
-            <h1 className="text-xl font-bold">Śledzenie Nawodnienia</h1>
-          </div>
-        </div>
-      </header> */}
-
       <main className="flex-1 py-6 px-4 sm:px-6 lg:px-8">
         <div className="container mx-auto max-w-2xl space-y-8">
           <Card>
