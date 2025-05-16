@@ -43,23 +43,23 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const pathname = usePathname(); // Get current pathname
+  const pathname = usePathname(); 
   const { toast } = useToast();
   const [isLoading, setIsLoading] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [successMessage, setSuccessMessage] = React.useState<string | null>(null);
+  const [autoLoginAttempted, setAutoLoginAttempted] = React.useState(false);
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: "test@example.com", // Pre-filled email
-      password: "password", // Pre-filled password
+      email: "test@example.com",
+      password: "password",
     },
   });
 
 
   React.useEffect(() => {
-    // Only run this effect if we are on the /login page and there are searchParams
     if (pathname !== "/login" || !searchParams) return;
 
     const currentSearchParams = new URLSearchParams(searchParams.toString());
@@ -77,7 +77,6 @@ export function LoginForm() {
       paramsModified = true;
     }
     if (currentSearchParams.get("verified") === "true") {
-      // Avoid showing duplicate toasts if registered=true was also present
       if (!successMessage) { 
           toast({
             title: "Email Zweryfikowany!",
@@ -91,19 +90,17 @@ export function LoginForm() {
     }
 
     if (paramsModified) {
-      // Construct new path without the processed query parameters
-      // This ensures other query params (if any) are preserved
       const newQueryString = currentSearchParams.toString();
       const newPath = newQueryString ? `/login?${newQueryString}` : "/login";
-      router.replace(newPath, { scroll: false }); // Use replace to avoid adding to history
+      router.replace(newPath, { scroll: false }); 
     }
-  }, [searchParams, router, toast, pathname, successMessage]); // Added pathname and successMessage to dependencies
+  }, [searchParams, router, toast, pathname, successMessage]);
 
 
-  async function onSubmit(values: LoginFormValues) {
+  const handleLoginSubmit = React.useCallback(async (values: LoginFormValues) => {
     setIsLoading(true);
     setErrorMessage(null);
-    setSuccessMessage(null); 
+    setSuccessMessage(null);
     let navigated = false;
 
     try {
@@ -120,7 +117,6 @@ export function LoginForm() {
       if (response.ok && data.success) {
         await router.push("/dashboard");
         navigated = true;
-        // If navigation is successful, component unmounts, setIsLoading(false) might not be needed.
       } else {
         setErrorMessage(data.message || "Login failed. Please check your credentials.");
       }
@@ -130,17 +126,29 @@ export function LoginForm() {
     }
 
     if (!navigated) {
-      setIsLoading(false); // Only set to false if navigation didn't happen or failed
+      setIsLoading(false); 
     }
-  }
+  }, [router, setIsLoading, setErrorMessage, setSuccessMessage]);
+
+  React.useEffect(() => {
+    if (!autoLoginAttempted &&
+        form.getValues("email") === "test@example.com" &&
+        form.getValues("password") === "password"
+    ) {
+      setAutoLoginAttempted(true);
+      const timer = setTimeout(() => {
+        handleLoginSubmit(form.getValues());
+      }, 100); // Short delay to ensure component is fully ready
+      return () => clearTimeout(timer);
+    }
+  }, [autoLoginAttempted, form, handleLoginSubmit]);
+
 
   const handleSocialLogin = (provider: "google" | "facebook") => {
     setIsLoading(true);
     setErrorMessage(null);
     setSuccessMessage(null);
-    // Simulate social login initiation
     console.log(`Attempting ${provider} login...`);
-    // In a real app, this would redirect to an OAuth provider
     setTimeout(() => {
       setErrorMessage(`${provider.charAt(0).toUpperCase() + provider.slice(1)} login is not implemented yet.`);
       setIsLoading(false);
@@ -171,7 +179,7 @@ export function LoginForm() {
           </Alert>
         )}
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(handleLoginSubmit)} className="space-y-4">
             <FormField
               control={form.control}
               name="email"
