@@ -1,19 +1,18 @@
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import bcrypt from 'bcrypt';
-import { getDB } from '@/lib/sqlite'; // Ensure this path is correct
+import { getDB } from '@/lib/sqlite';
+import type { UserProfile } from '@/lib/mockData'; // Assuming this type aligns with what client expects
 
-type Data = {
+type LoginResponseData = {
   success: boolean;
   message?: string;
-  // In a real app, you might return a JWT token or user data
-  // token?: string; 
-  // user?: { id: number; email: string; fullName: string /* other non-sensitive fields */ }; 
+  userData?: UserProfile;
 };
 
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse<Data>
+  res: NextApiResponse<LoginResponseData>
 ) {
   if (req.method === 'POST') {
     const { email, password } = req.body;
@@ -22,66 +21,86 @@ export default async function handler(
       return res.status(400).json({ success: false, message: 'Email i hasło są wymagane.' });
     }
 
-    // --- TEMPORARY TEST BACKDOOR ---
-    // This allows easy testing with test@example.com / password
-    // REMOVE OR SECURE THIS IN A PRODUCTION ENVIRONMENT
-    if (email === "test@example.com" && password === "password") {
-      console.log("Logowanie udane przez tylne drzwi dla: test@example.com");
-      // For the test user, we don't need to return detailed user data here,
-      // the client-side will handle creating mock profile data if needed.
-      return res.status(200).json({ 
-        success: true, 
-        message: 'Logowanie udane (tylne drzwi testowe)!' 
-      });
-    }
-    // --- END TEMPORARY TEST BACKDOOR ---
-
     const db = getDB();
 
     try {
-      const stmtGetUser = db.prepare('SELECT id, email, password, fullName, fitnessLevel, dateOfBirth, gender, weight, height, createdAt AS joinDate FROM users WHERE email = ?');
-      const userFromDb = stmtGetUser.get(email) as { 
-        id: number; email: string; password: string; fullName: string; fitnessLevel: string; 
-        dateOfBirth?: string; gender?: string; weight?: number; height?: number; joinDate?: string;
+      const stmtGetUser = db.prepare(`
+        SELECT id, email, hashedPassword, fullName, username, avatarUrl, bio, fitnessLevel, joinDate, dateOfBirth, gender, weight, height, role 
+        FROM users 
+        WHERE email = ?
+      `);
+      const userFromDb = stmtGetUser.get(email) as {
+        id: string; // Should be Firebase UID from registration
+        email: string;
+        hashedPassword?: string; // Make optional as it might not exist for social-only users if schema changes
+        fullName: string;
+        username: string;
+        avatarUrl?: string;
+        bio?: string;
+        fitnessLevel: UserProfile['fitnessLevel'];
+        joinDate: string;
+        dateOfBirth?: string;
+        gender?: UserProfile['gender'];
+        weight?: number;
+        height?: number;
+        role?: UserProfile['role'];
       } | undefined;
 
       if (!userFromDb) {
-        console.log(`Próba logowania nieudana: Użytkownik ${email} nie znaleziony w DB.`);
+        console.log(`Próba logowania nieudana: Użytkownik ${email} nie znaleziony w lokalnej DB SQLite.`);
         return res.status(401).json({ success: false, message: 'Nieprawidłowe dane logowania.' });
       }
 
-      const passwordMatch = await bcrypt.compare(password, userFromDb.password);
+      // If user has no hashed password, they might have registered via social media.
+      // For email/password login, a hashed password is required.
+      if (!userFromDb.hashedPassword) {
+        console.log(`Próba logowania email/hasło dla ${email}, ale użytkownik nie ma zapisanego hasła (prawdopodobnie konto social).`);
+        return res.status(401).json({ success: false, message: 'To konto mogło zostać utworzone za pomocą logowania społecznościowego. Spróbuj zalogować się w ten sposób lub zresetuj hasło, jeśli ta opcja jest dostępna.' });
+      }
+      
+      const passwordMatch = await bcrypt.compare(password, userFromDb.hashedPassword);
 
       if (passwordMatch) {
-        console.log(`Użytkownik ${userFromDb.email} zalogowany pomyślnie przez DB.`);
-        // Prepare user data to send back to client, omitting sensitive info like password hash
-        const userDataForClient = {
-          id: `db_user_${userFromDb.id}`, // Create a unique ID combining source and DB ID
-          fullName: userFromDb.fullName,
+        console.log(`Użytkownik ${userFromDb.email} zalogowany pomyślnie przez lokalną DB SQLite.`);
+        
+        // Construct userData to match client-side expectations (UserProfile type)
+        const userData: UserProfile = {
+          id: userFromDb.id, // This is the Firebase UID stored during registration
           email: userFromDb.email,
+          fullName: userFromDb.fullName,
+          username: userFromDb.username,
+          avatarUrl: userFromDb.avatarUrl || `https://placehold.co/100x100.png?text=${userFromDb.fullName?.substring(0,1)}${userFromDb.fullName?.split(' ')[1]?.substring(0,1) || ''}`.toUpperCase(),
+          bio: userFromDb.bio,
           fitnessLevel: userFromDb.fitnessLevel,
+          joinDate: userFromDb.joinDate, // This should be an ISO string
+          followers: 0, // Default values, could be fetched from another table if implemented
+          following: 0, // Default values
+          recentActivity: [], // Default values
+          // Optional fields from DB
           dateOfBirth: userFromDb.dateOfBirth,
           gender: userFromDb.gender,
           weight: userFromDb.weight,
           height: userFromDb.height,
-          joinDate: userFromDb.joinDate || new Date().toISOString(), // Fallback for joinDate
-          username: userFromDb.email.split('@')[0], // Simple username
-           avatarUrl: `https://placehold.co/100x100.png?text=${userFromDb.fullName.substring(0,1).toUpperCase()}${(userFromDb.fullName.includes(' ') ? userFromDb.fullName.split(' ')[1]?.substring(0,1).toUpperCase() : '') || userFromDb.fullName.substring(1,2) || 'U'}`, // Simple avatar
-           role: userFromDb.email === "krystian@bpcoders.pl" ? 'admin' : 'client', // Example role assignment
+          role: userFromDb.role || 'client',
+          privacySettings: { // Default privacy settings, could be fetched from user_privacy_settings table
+            isActivityPublic: true,
+            isFriendsListPublic: true,
+            isSharedPlansPublic: true,
+          },
+          // linkedSocialAccounts will not be populated by this email/password flow
         };
 
         return res.status(200).json({ 
           success: true, 
           message: 'Logowanie udane!',
-          // @ts-ignore - In a real app, ensure this structure matches what client expects for userData.
-          userData: userDataForClient 
+          userData: userData
         });
       } else {
-        console.log(`Próba logowania nieudana: Błędne hasło dla użytkownika ${email}.`);
+        console.log(`Próba logowania nieudana: Błędne hasło dla użytkownika ${email} w lokalnej DB SQLite.`);
         return res.status(401).json({ success: false, message: 'Nieprawidłowe dane logowania.' });
       }
     } catch (error) {
-      console.error('Błąd logowania:', error);
+      console.error('Błąd logowania (SQLite):', error);
       return res.status(500).json({ success: false, message: 'Wystąpił wewnętrzny błąd serwera.' });
     }
   } else {
