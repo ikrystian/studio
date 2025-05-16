@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowLeft, GlassWater, PlusCircle, Edit3, Settings, Trash2, History, Info, Loader2, BotIcon, Droplet } from "lucide-react"; // Added BotIcon, Droplet
+import { ArrowLeft, GlassWater, PlusCircle, Edit3, Settings, Trash2, History, Info, Loader2, BotIcon, Droplet, CupSoda } from "lucide-react"; // Added CupSoda
 import { v4 as uuidv4 } from "uuid";
 import { format, isToday, parseISO } from "date-fns";
 import { pl } from "date-fns/locale";
@@ -366,11 +366,15 @@ export default function HydrationTrackingPage() {
             </CardHeader>
             <CardContent className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {DEFAULT_PORTIONS.map(portion => {
-                let Icon = BotIcon;
-                if (portion.name.toLowerCase().includes("szklanka")) Icon = GlassWater;
+                let IconComponent = CupSoda; // Default for bottles
+                const lowerPortionName = portion.name.toLowerCase();
+                if (lowerPortionName.includes("szklanka")) {
+                  IconComponent = GlassWater;
+                }
+                // BotIcon is no longer used as a default here, CupSoda is for bottles.
                 return (
                     <Button key={portion.id} variant="outline" onClick={() => handleAddWater(portion.amount)} className="py-6 text-lg flex flex-col h-auto items-center justify-center">
-                    <Icon className="mb-1 h-6 w-6"/>
+                    <IconComponent className="mb-1 h-6 w-6"/>
                     <span>{portion.name}</span>
                     <span className="text-xs text-muted-foreground">({portion.amount}ml)</span>
                     </Button>
@@ -625,5 +629,3 @@ export default function HydrationTrackingPage() {
     </div>
   );
 }
-
-    
