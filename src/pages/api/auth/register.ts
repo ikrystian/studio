@@ -1,20 +1,18 @@
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import bcrypt from 'bcrypt';
+import { v4 as uuidv4 } from 'uuid';
 import { getDB } from '@/lib/sqlite';
+import type { UserProfile } from '@/lib/mockData';
 
 type Data = {
   success: boolean;
   message?: string;
   errors?: { [key: string]: string };
-  userData?: any; // Optionally return user data
+  userData?: UserProfile; // Ensure this matches client expectations
 };
 
 const SALT_ROUNDS = 10;
-
-// Simple in-memory store for registered emails for this mock server instance
-// In a real app, this would be solely handled by the database unique constraint.
-const registeredEmails = new Set<string>(["existinguser@example.com"]);
 
 export default async function handler(
   req: NextApiRequest,
@@ -33,14 +31,14 @@ export default async function handler(
     } = req.body;
 
     // Basic validation
-    const requiredFields = { fullName, email, password, dateOfBirth, gender, fitnessLevel };
+    const requiredFields: Record<string, any> = { fullName, email, password, dateOfBirth, gender, fitnessLevel };
     for (const [key, value] of Object.entries(requiredFields)) {
       if (!value) {
-        return res.status(400).json({ success: false, message: `Missing required field: ${key}.` });
+        return res.status(400).json({ success: false, message: `Pole ${key} jest wymagane.` });
       }
     }
     if (password.length < 8) {
-      return res.status(400).json({ success: false, message: 'Password must be at least 8 characters.', errors: { password: 'Password must be at least 8 characters.' } });
+      return res.status(400).json({ success: false, message: 'Hasło musi mieć co najmniej 8 znaków.', errors: { password: 'Hasło musi mieć co najmniej 8 znaków.' } });
     }
 
     const db = getDB();
@@ -48,77 +46,113 @@ export default async function handler(
     try {
       // Check if email already exists in SQLite
       const stmtCheckEmail = db.prepare('SELECT id FROM users WHERE email = ?');
-      const existingUserInDb = stmtCheckEmail.get(email);
+      const existingUserByEmail = stmtCheckEmail.get(email);
 
-      if (existingUserInDb || registeredEmails.has(email) || email === "test@example.com") {
-        // Add test@example.com to prevent re-registration of the test backdoor user
-        if (email === "test@example.com") {
-            console.log("Attempt to re-register test@example.com blocked by mock API.");
-        }
-        return res.status(409).json({ success: false, message: 'Email already registered.', errors: { email: 'This email address is already in use.' } });
+      if (existingUserByEmail) {
+        return res.status(409).json({ success: false, message: 'Ten adres email jest już zarejestrowany.', errors: { email: 'Ten adres email jest już zarejestrowany.' } });
+      }
+      
+      // Generate a simple username from email prefix
+      let username = email.split('@')[0].replace(/[^a-zA-Z0-9_.]/g, '');
+      const stmtCheckUsername = db.prepare('SELECT id FROM users WHERE username = ?');
+      let existingUserByUsername = stmtCheckUsername.get(username);
+      let attempts = 0;
+      while(existingUserByUsername && attempts < 5) {
+        username = `${email.split('@')[0]}${Math.floor(Math.random() * 1000)}`;
+        existingUserByUsername = stmtCheckUsername.get(username);
+        attempts++;
+      }
+      if (existingUserByUsername) {
+         return res.status(409).json({ success: false, message: 'Nie udało się wygenerować unikalnej nazwy użytkownika. Spróbuj z innym adresem email.', errors: { email: 'Nie udało się wygenerować unikalnej nazwy użytkownika.' } });
       }
 
-      const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
-      const userDataToInsert = {
-        fullName,
+      const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+      const newUserId = uuidv4(); // Generate a unique ID for the new user
+      const joinDate = new Date().toISOString();
+
+      const stmtInsertUser = db.prepare(`
+        INSERT INTO users (id, email, fullName, username, hashedPassword, dateOfBirth, gender, weight, height, fitnessLevel, joinDate, role, avatarUrl, bio)
+        VALUES (@id, @email, @fullName, @username, @hashedPassword, @dateOfBirth, @gender, @weight, @height, @fitnessLevel, @joinDate, @role, @avatarUrl, @bio)
+      `);
+      
+      const avatarUrl = `https://placehold.co/100x100.png?text=${fullName.substring(0,1).toUpperCase()}${fullName.includes(' ') ? fullName.split(' ')[1].substring(0,1).toUpperCase() : ''}`;
+
+      stmtInsertUser.run({
+        id: newUserId,
         email,
-        password: hashedPassword, // Store the hashed password
-        dateOfBirth, // Store as ISO string
+        fullName,
+        username,
+        hashedPassword,
+        dateOfBirth, // Should be ISO string from client
         gender,
         weight: weight === "" || weight === undefined ? null : Number(weight),
         height: height === "" || height === undefined ? null : Number(height),
         fitnessLevel,
-        createdAt: new Date().toISOString() // Add createdAt for consistency
-      };
+        joinDate,
+        role: 'client', // Default role
+        avatarUrl: avatarUrl,
+        bio: "" // Default empty bio
+      });
       
-      console.log('Attempting to insert user data into SQLite:', userDataToInsert);
+      // Seed privacy settings for the new user
+      const stmtInsertPrivacy = db.prepare('INSERT INTO user_privacy_settings (user_id) VALUES (?)');
+      stmtInsertPrivacy.run(newUserId);
 
-      const stmtInsertUser = db.prepare(
-        'INSERT INTO users (fullName, email, password, dateOfBirth, gender, weight, height, fitnessLevel, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      // Seed app settings for the new user
+      const stmtInsertAppSettings = db.prepare('INSERT INTO user_app_settings (user_id) VALUES (?)');
+      stmtInsertAppSettings.run(newUserId);
+
+      // Seed hydration settings for the new user
+      const stmtInsertHydrationSettings = db.prepare('INSERT INTO user_hydration_settings (user_id, customPortionsJson, reminderSettingsJson) VALUES (?, ?, ?)');
+      stmtInsertHydrationSettings.run(
+        newUserId, 
+        JSON.stringify([ { id: "default-glass", name: "Szklanka", amount: 250 }, { id: "default-bottle-small", name: "Mała Butelka", amount: 500 } ]), 
+        JSON.stringify({ enabled: false, intervalMinutes: 60, startTime: "08:00", endTime: "22:00", playSound: false })
       );
-      const info = stmtInsertUser.run(
-        userDataToInsert.fullName,
-        userDataToInsert.email,
-        userDataToInsert.password,
-        userDataToInsert.dateOfBirth,
-        userDataToInsert.gender,
-        userDataToInsert.weight,
-        userDataToInsert.height,
-        userDataToInsert.fitnessLevel,
-        userDataToInsert.createdAt
-      );
 
-      console.log(`User ${email} registered with ID: ${info.lastInsertRowid} into SQLite.`);
-      registeredEmails.add(email); // Add to in-memory set for this server instance
-      console.log(`Simulating: Verification email sent to ${email}`);
 
-      // Return some user data so client can store it
-      const registeredUserData = {
-        fullName: userDataToInsert.fullName,
-        email: userDataToInsert.email,
-        fitnessLevel: userDataToInsert.fitnessLevel,
-        dateOfBirth: userDataToInsert.dateOfBirth,
-        gender: userDataToInsert.gender,
-        weight: userDataToInsert.weight,
-        height: userDataToInsert.height,
-        joinDate: userDataToInsert.createdAt, // Use createdAt as joinDate
-        username: userDataToInsert.email.split('@')[0], // Simple username generation
-        avatarUrl: `https://placehold.co/100x100.png?text=${userDataToInsert.fullName.substring(0,1).toUpperCase()}${userDataToInsert.fullName.includes(' ') ? userDataToInsert.fullName.split(' ')[1].substring(0,1).toUpperCase() : ''}` // Simple avatar
+      console.log(`Użytkownik ${email} zarejestrowany z ID: ${newUserId} w lokalnej bazie SQLite.`);
+
+      const registeredUserData: UserProfile = {
+        id: newUserId,
+        fullName,
+        username,
+        email,
+        avatarUrl,
+        bio: "",
+        fitnessLevel,
+        joinDate,
+        followers: 0,
+        following: 0,
+        recentActivity: [],
+        dateOfBirth,
+        gender,
+        weight: weight === "" || weight === undefined ? undefined : Number(weight),
+        height: height === "" || height === undefined ? undefined : Number(height),
+        role: 'client',
+        privacySettings: {
+          isActivityPublic: true,
+          isFriendsListPublic: true,
+          isSharedPlansPublic: true,
+        },
+        linkedSocialAccounts: {},
       };
 
       return res.status(201).json({ 
         success: true, 
-        message: 'Registration successful! Please check your email for verification (simulated).',
+        message: 'Rejestracja pomyślna! Możesz się teraz zalogować.',
         userData: registeredUserData
       });
 
     } catch (error: any) {
-      console.error('Registration API error:', error);
-      if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
-         return res.status(409).json({ success: false, message: 'Email already registered.', errors: { email: 'This email address is already in use.' } });
+      console.error('Błąd rejestracji (SQLite API):', error);
+      if (error.code === 'SQLITE_CONSTRAINT_UNIQUE' || error.message?.includes('UNIQUE constraint failed: users.email') || error.message?.includes('UNIQUE constraint failed: users.username')) {
+         const field = error.message.includes('users.email') ? 'email' : 'username';
+         const message = field === 'email' ? 'Ten adres email jest już zarejestrowany.' : 'Ta nazwa użytkownika jest już zajęta.';
+         return res.status(409).json({ success: false, message: message, errors: { [field]: message } });
       }
-      return res.status(500).json({ success: false, message: 'An internal server error occurred.' });
+      return res.status(500).json({ success: false, message: 'Wystąpił wewnętrzny błąd serwera.' });
     }
   } else {
     res.setHeader('Allow', ['POST']);
