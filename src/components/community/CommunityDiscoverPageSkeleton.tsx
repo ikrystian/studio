@@ -23,11 +23,12 @@ export function CommunityDiscoverPageSkeleton() {
       <main className="flex-1 py-6 px-4 sm:px-6 lg:px-8">
         <div className="container mx-auto max-w-4xl">
           <Tabs defaultValue="recommended" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 md:grid-cols-4 mb-6"> {/* Adjusted for potential 4th tab */}
+            <TabsList className="grid w-full grid-cols-3 sm:grid-cols-4 md:grid-cols-5 mb-6"> {/* Adjusted for potential 5th tab */}
               <Skeleton className="h-10 w-full rounded-md" />
               <Skeleton className="h-10 w-full rounded-md" />
+              <Skeleton className="h-10 w-full rounded-md" /> {/* Trainers Tab */}
               <Skeleton className="h-10 w-full rounded-md" />
-              <Skeleton className="h-10 w-full rounded-md hidden md:block" /> {/* Placeholder for Map tab */}
+              <Skeleton className="h-10 w-full rounded-md hidden md:block" /> {/* Map tab */}
             </TabsList>
 
             {/* Recommended Tab Skeleton */}
@@ -49,6 +50,7 @@ export function CommunityDiscoverPageSkeleton() {
                             <div className="space-y-1">
                               <Skeleton className="h-5 w-32" />
                               <Skeleton className="h-4 w-24" />
+                              <Skeleton className="h-4 w-16 mt-1" /> {/* Badge Placeholder */}
                             </div>
                           </CardHeader>
                           <CardContent><Skeleton className="h-4 w-full" /></CardContent>
@@ -90,4 +92,3 @@ export function CommunityDiscoverPageSkeleton() {
     </div>
   );
 }
-

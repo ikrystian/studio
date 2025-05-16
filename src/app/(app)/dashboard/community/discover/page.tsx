@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowLeft, Users, Search, ListFilter, BookOpen, UserPlus, Eye, Sparkles, ThumbsUp, X, MapPin, Info, Loader2 } from "lucide-react";
+import { ArrowLeft, Users, Search, ListFilter, BookOpen, UserPlus, Eye, Sparkles, ThumbsUp, X, MapPin, Info, Loader2, Users2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -29,19 +29,13 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { CommunityDiscoverPageSkeleton } from "@/components/community/CommunityDiscoverPageSkeleton";
+import { UserProfile, MOCK_USER_PROFILES_DB } from "@/lib/mockData"; // Import centralized data
+import { Badge } from "@/components/ui/badge";
 
-// Mock Data Structures
-interface DiscoverableUser {
-  id: string;
-  name: string;
-  username: string;
-  avatarUrl: string;
-  fitnessLevel: "Początkujący" | "Średniozaawansowany" | "Zaawansowany";
-  bio?: string;
-  isFollowed?: boolean; // For simulation
-  region?: string; // New field for map simulation
-}
 
+const MOCK_REGIONS = ["Wszystkie", "Mazowieckie", "Małopolskie", "Śląskie", "Dolnośląskie", "Wielkopolskie", "Pomorskie", "Łódzkie", "Kujawsko-Pomorskie"];
+
+// Mock Workouts & Plans (kept local as they are specific to discover content)
 interface DiscoverableContent {
   id: string;
   title: string;
@@ -52,21 +46,6 @@ interface DiscoverableContent {
   imageUrl?: string; // Optional image for the content card
 }
 
-const MOCK_REGIONS = ["Wszystkie", "Mazowieckie", "Małopolskie", "Śląskie", "Dolnośląskie", "Wielkopolskie", "Pomorskie", "Łódzkie", "Kujawsko-Pomorskie"];
-
-
-// Mock Users
-const MOCK_DISCOVERABLE_USERS: DiscoverableUser[] = [
-  { id: "user1", name: "Aleksandra Fit", username: "alafit", avatarUrl: "https://placehold.co/100x100.png?text=AF", fitnessLevel: "Zaawansowany", bio: "Entuzjastka crossfitu i zdrowego odżywiania.", region: MOCK_REGIONS[1] },
-  { id: "user2", name: "Krzysztof Trener", username: "ktrener", avatarUrl: "https://placehold.co/100x100.png?text=KT", fitnessLevel: "Średniozaawansowany", bio: "Certyfikowany trener personalny, specjalista od treningu siłowego.", region: MOCK_REGIONS[2] },
-  { id: "user3", name: "Fitness Explorer", username: "fitexplorer", avatarUrl: "https://placehold.co/100x100.png?text=FE", fitnessLevel: "Początkujący", bio: "Dopiero zaczynam swoją przygodę z fitnessem!", region: MOCK_REGIONS[3] },
-  { id: "user4", name: "Maria Joginka", username: "mariajoga", avatarUrl: "https://placehold.co/100x100.png?text=MJ", fitnessLevel: "Średniozaawansowany", bio: "Miłośniczka jogi i medytacji, szukająca wewnętrznej harmonii.", region: MOCK_REGIONS[1] },
-  { id: "user5", name: "Piotr Biegacz", username: "piotrekrun", avatarUrl: "https://placehold.co/100x100.png?text=PB", fitnessLevel: "Zaawansowany", bio: "Maratończyk, który nie wyobraża sobie dnia bez biegania.", region: MOCK_REGIONS[4] },
-  { id: "user6", name: "Anna Kolarz", username: "annabike", avatarUrl: "https://placehold.co/100x100.png?text=AK", fitnessLevel: "Średniozaawansowany", bio: "Weekendowe wyprawy rowerowe to moja pasja.", region: MOCK_REGIONS[2] },
-  { id: "user7", name: "Tomasz Strongman", username: "tomstrong", avatarUrl: "https://placehold.co/100x100.png?text=TS", fitnessLevel: "Zaawansowany", bio: "Podnoszenie ciężarów to styl życia.", region: MOCK_REGIONS[5] },
-];
-
-// Mock Workouts & Plans
 const MOCK_DISCOVERABLE_CONTENT: DiscoverableContent[] = [
   { id: "wk1", title: "Siła Początkującego Herkulesa", type: "Trening", category: "Siłowy", description: "Podstawowy trening siłowy dla osób zaczynających.", author: "Krzysztof Trener", imageUrl: "https://placehold.co/600x400.png?text=Siła+Początkującego" },
   { id: "plan1", title: "Spalacz Kalorii - Plan HIIT", type: "Plan Treningowy", category: "Redukcja", description: "6-tygodniowy plan interwałowy dla maksymalnego spalania.", author: "Aleksandra Fit", imageUrl: "https://placehold.co/600x400.png?text=Plan+HIIT" },
@@ -94,17 +73,18 @@ export default function CommunityDiscoverPage() {
   const [selectedContentCategory, setSelectedContentCategory] = React.useState("Wszystkie");
   const [selectedContentType, setSelectedContentType] = React.useState("Wszystkie");
   const [selectedRegion, setSelectedRegion] = React.useState(MOCK_REGIONS[0]);
+  const [selectedRegionForTrainers, setSelectedRegionForTrainers] = React.useState(MOCK_REGIONS[0]);
   
   const [followedUsers, setFollowedUsers] = React.useState<Set<string>>(new Set());
 
   // For "Polecane dla Ciebie" tab
-  const [recommendedUsers, setRecommendedUsers] = React.useState<DiscoverableUser[]>([]);
+  const [recommendedUsers, setRecommendedUsers] = React.useState<UserProfile[]>([]);
   const [recommendedContent, setRecommendedContent] = React.useState<DiscoverableContent[]>([]);
 
   React.useEffect(() => {
     setIsLoading(true);
     const timer = setTimeout(() => {
-      setRecommendedUsers(getRandomItems(MOCK_DISCOVERABLE_USERS, 3));
+      setRecommendedUsers(getRandomItems(MOCK_USER_PROFILES_DB, 3));
       setRecommendedContent(getRandomItems(MOCK_DISCOVERABLE_CONTENT, 3));
       setIsLoading(false);
     }, 750); // Simulate data fetching
@@ -112,8 +92,8 @@ export default function CommunityDiscoverPage() {
   }, []);
 
   const filteredUsers = React.useMemo(() => {
-    return MOCK_DISCOVERABLE_USERS.filter(user =>
-      user.name.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+    return MOCK_USER_PROFILES_DB.filter(user =>
+      user.fullName.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
       user.username.toLowerCase().includes(userSearchTerm.toLowerCase())
     );
   }, [userSearchTerm]);
@@ -130,10 +110,18 @@ export default function CommunityDiscoverPage() {
 
   const usersByRegion = React.useMemo(() => {
     if (selectedRegion === "Wszystkie") {
-      return MOCK_DISCOVERABLE_USERS;
+      return MOCK_USER_PROFILES_DB;
     }
-    return MOCK_DISCOVERABLE_USERS.filter(user => user.region === selectedRegion);
+    return MOCK_USER_PROFILES_DB.filter(user => user.region === selectedRegion);
   }, [selectedRegion]);
+
+  const trainersByRegion = React.useMemo(() => {
+    return MOCK_USER_PROFILES_DB.filter(user => {
+      const isTrainer = user.role === 'trener';
+      const matchesRegion = selectedRegionForTrainers === "Wszystkie" || user.region === selectedRegionForTrainers;
+      return isTrainer && matchesRegion;
+    });
+  }, [selectedRegionForTrainers]);
 
   const handleFollowUser = (userId: string) => {
     setFollowedUsers(prev => {
@@ -185,18 +173,21 @@ export default function CommunityDiscoverPage() {
       <main className="flex-1 py-6 px-4 sm:px-6 lg:px-8">
         <div className="container mx-auto max-w-4xl">
           <Tabs defaultValue="recommended" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 md:grid-cols-4 mb-6">
+            <TabsList className="grid w-full grid-cols-3 sm:grid-cols-4 md:grid-cols-5 mb-6">
               <TabsTrigger value="recommended">
                 <Sparkles className="mr-2 h-4 w-4" /> Polecane
               </TabsTrigger>
               <TabsTrigger value="users">
                 <Users className="mr-2 h-4 w-4" /> Użytkownicy
               </TabsTrigger>
+              <TabsTrigger value="trainers">
+                <Users2 className="mr-2 h-4 w-4" /> Trenerzy
+              </TabsTrigger>
               <TabsTrigger value="content">
                 <BookOpen className="mr-2 h-4 w-4" /> Treści
               </TabsTrigger>
               <TabsTrigger value="map">
-                <MapPin className="mr-2 h-4 w-4" /> Mapa (Symulacja)
+                <MapPin className="mr-2 h-4 w-4" /> Mapa (Sym.)
               </TabsTrigger>
             </TabsList>
 
@@ -215,12 +206,13 @@ export default function CommunityDiscoverPage() {
                           <Card key={user.id} className="relative group">
                             <CardHeader className="flex flex-row items-center gap-4">
                               <Avatar className="h-16 w-16">
-                                <AvatarImage src={user.avatarUrl} alt={user.name} data-ai-hint="profile avatar" />
-                                <AvatarFallback>{user.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                <AvatarImage src={user.avatarUrl} alt={user.fullName} data-ai-hint="profile avatar" />
+                                <AvatarFallback>{user.fullName.substring(0, 2).toUpperCase()}</AvatarFallback>
                               </Avatar>
                               <div>
-                                <CardTitle className="text-lg">{user.name}</CardTitle>
+                                <CardTitle className="text-lg">{user.fullName}</CardTitle>
                                 <CardDescription>@{user.username} - {user.fitnessLevel}</CardDescription>
+                                 {user.role === 'trener' && <Badge variant="default" className="mt-1">Trener</Badge>}
                               </div>
                             </CardHeader>
                             <CardContent>
@@ -298,7 +290,7 @@ export default function CommunityDiscoverPage() {
                 </CardContent>
                  <CardFooter>
                     <Button variant="outline" onClick={() => {
-                         setRecommendedUsers(getRandomItems(MOCK_DISCOVERABLE_USERS, 3));
+                         setRecommendedUsers(getRandomItems(MOCK_USER_PROFILES_DB, 3));
                          setRecommendedContent(getRandomItems(MOCK_DISCOVERABLE_CONTENT, 3));
                          toast({title: "Rekomendacje odświeżone!"});
                     }}>Odśwież Rekomendacje (Symulacja)</Button>
@@ -325,19 +317,20 @@ export default function CommunityDiscoverPage() {
                   </div>
                 </CardContent>
               </Card>
-              <ScrollArea className="">
+              <ScrollArea className="h-[calc(100vh-30rem)]">
                 {filteredUsers.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pr-4">
                     {filteredUsers.map(user => (
                       <Card key={user.id}>
                         <CardHeader className="flex flex-row items-center gap-4">
                           <Avatar className="h-16 w-16">
-                            <AvatarImage src={user.avatarUrl} alt={user.name} data-ai-hint="profile avatar" />
-                            <AvatarFallback>{user.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                            <AvatarImage src={user.avatarUrl} alt={user.fullName} data-ai-hint="profile avatar" />
+                            <AvatarFallback>{user.fullName.substring(0, 2).toUpperCase()}</AvatarFallback>
                           </Avatar>
                           <div>
-                            <CardTitle className="text-lg">{user.name}</CardTitle>
+                            <CardTitle className="text-lg">{user.fullName}</CardTitle>
                             <CardDescription>@{user.username} - {user.fitnessLevel}</CardDescription>
+                            {user.role === 'trener' && <Badge variant="default" className="mt-1">Trener</Badge>}
                           </div>
                         </CardHeader>
                         <CardContent>
@@ -359,6 +352,67 @@ export default function CommunityDiscoverPage() {
                 ) : (
                   <p className="text-center text-muted-foreground py-10">
                     {userSearchTerm ? "Nie znaleziono użytkowników pasujących do kryteriów." : "Brak użytkowników do wyświetlenia. Zacznij wyszukiwać!"}
+                  </p>
+                )}
+              </ScrollArea>
+            </TabsContent>
+
+            <TabsContent value="trainers" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Trenerzy w Twojej Okolicy (Symulacja)</CardTitle>
+                  <CardDescription>Znajdź certyfikowanych trenerów i specjalistów fitness.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Select value={selectedRegionForTrainers} onValueChange={setSelectedRegionForTrainers}>
+                      <SelectTrigger className="w-full sm:w-[280px]">
+                          <MapPin className="mr-2 h-4 w-4"/>
+                          <SelectValue placeholder="Wybierz region"/>
+                      </SelectTrigger>
+                      <SelectContent>
+                          {MOCK_REGIONS.map(region => (
+                              <SelectItem key={region} value={region}>{region}</SelectItem>
+                          ))}
+                      </SelectContent>
+                  </Select>
+                </CardContent>
+              </Card>
+              <ScrollArea className="h-[calc(100vh-30rem)]">
+                {trainersByRegion.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pr-4">
+                    {trainersByRegion.map(user => (
+                      <Card key={user.id}>
+                        <CardHeader className="flex flex-row items-center gap-4">
+                          <Avatar className="h-16 w-16">
+                            <AvatarImage src={user.avatarUrl} alt={user.fullName} data-ai-hint="profile avatar professional" />
+                            <AvatarFallback>{user.fullName.substring(0, 2).toUpperCase()}</AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <CardTitle className="text-lg">{user.fullName}</CardTitle>
+                            <CardDescription>@{user.username} - {user.fitnessLevel}</CardDescription>
+                            <Badge variant="default" className="mt-1">Trener</Badge>
+                            {user.region && user.region !== "Wszystkie" && <CardDescription className="text-xs mt-1"><MapPin className="inline h-3 w-3 mr-1"/>{user.region}</CardDescription>}
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-sm text-muted-foreground line-clamp-2">{user.bio || "Brak opisu."}</p>
+                        </CardContent>
+                        <CardFooter className="gap-2">
+                          <Button variant="outline" size="sm" asChild>
+                            <Link href={`/dashboard/profile/${user.id}`}>
+                              <Eye className="mr-2 h-4 w-4" /> Zobacz Profil
+                            </Link>
+                          </Button>
+                          <Button size="sm" onClick={() => handleFollowUser(user.id)} variant={followedUsers.has(user.id) ? "secondary" : "default"}>
+                            <UserPlus className="mr-2 h-4 w-4" /> {followedUsers.has(user.id) ? "Obserwujesz" : "Obserwuj"}
+                          </Button>
+                        </CardFooter>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-center text-muted-foreground py-10">
+                    {selectedRegionForTrainers !== "Wszystkie" ? "Brak trenerów w wybranym regionie." : "Brak trenerów do wyświetlenia."}
                   </p>
                 )}
               </ScrollArea>
@@ -479,12 +533,13 @@ export default function CommunityDiscoverPage() {
                       <Card key={user.id}>
                         <CardHeader className="flex flex-row items-center gap-4">
                           <Avatar className="h-16 w-16">
-                            <AvatarImage src={user.avatarUrl} alt={user.name} data-ai-hint="profile avatar" />
-                            <AvatarFallback>{user.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                            <AvatarImage src={user.avatarUrl} alt={user.fullName} data-ai-hint="profile avatar" />
+                            <AvatarFallback>{user.fullName.substring(0, 2).toUpperCase()}</AvatarFallback>
                           </Avatar>
                           <div>
-                            <CardTitle className="text-lg">{user.name}</CardTitle>
+                            <CardTitle className="text-lg">{user.fullName}</CardTitle>
                             <CardDescription>@{user.username} - {user.fitnessLevel}</CardDescription>
+                            {user.role === 'trener' && <Badge variant="default" className="mt-1">Trener</Badge>}
                             {user.region && <CardDescription className="text-xs"><MapPin className="inline h-3 w-3 mr-1"/>{user.region}</CardDescription>}
                           </div>
                         </CardHeader>
