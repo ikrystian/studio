@@ -2,7 +2,7 @@
 "use client";
 
 import { Skeleton } from "@/components/ui/skeleton";
-import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import { Card, CardHeader, CardContent, CardFooter } from "@/components/ui/card"; // Added CardFooter
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Trophy, Filter, Search as SearchIcon, PlusCircle, LineChart as LineChartIcon, Edit, Trash2 } from "lucide-react";
 
