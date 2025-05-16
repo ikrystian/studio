@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { LoginForm } from '@/components/auth/login-form';
 import { Suspense } from 'react';
 import Image from 'next/image';
-import { Dumbbell } from "lucide-react"; // For title next to form if needed
+import { Dumbbell, Loader2 } from "lucide-react"; // For title next to form if needed
 
 // This component handles the content of the login page.
 // The main page component will handle overall layout and auth checks.
