@@ -8,7 +8,6 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Settings, Bug, ArrowLeft, Trash2, RefreshCcw, Database, Users, Info, AlertTriangle } from "lucide-react"; // Added AlertTriangle
 import { useToast } from "@/hooks/use-toast";
-import { MOCK_USER_PROFILES_DB } from "@/lib/mockData"; // Corrected import path
 
 export default function AdminDebugPage() {
     const { toast } = useToast();

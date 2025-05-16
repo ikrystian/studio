@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -195,9 +196,6 @@ export default function UserProfilePage() {
     );
   }
   
-  // Check if the current user can view specific parts of the profile based on privacy settings
-  // For simplicity, we assume if userId is 'current_user_id', they can see everything.
-  // Otherwise, respect privacySettings. This is a basic check; real app would be more complex.
   const canViewActivity = userId === "current_user_id" || (profileData.privacySettings?.isActivityPublic ?? true);
   const canViewFriends = userId === "current_user_id" || (profileData.privacySettings?.isFriendsListPublic ?? true);
   const canViewSharedPlans = userId === "current_user_id" || (profileData.privacySettings?.isSharedPlansPublic ?? true);
@@ -407,3 +405,5 @@ export default function UserProfilePage() {
     </div>
   );
 }
+
+    
