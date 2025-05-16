@@ -67,6 +67,7 @@ import {
 import { Alert } from "@/components/ui/alert";
 import { MOCK_EXERCISES_DATABASE } from "@/lib/mockData"; // Corrected import path
 import { PbProgressionChartDialog } from "@/components/personal-bests/pb-progression-chart-dialog";
+import { PersonalBestsPageSkeleton } from "@/components/personal-bests/PersonalBestsPageSkeleton"; // Added import
 
 export interface PersonalBest {
   id: string;
@@ -130,8 +131,9 @@ const RECORD_TYPE_LABELS: Record<PersonalBest["recordType"], string> = {
 
 export default function PersonalBestsPage() {
   const { toast } = useToast();
+  const [pageIsLoading, setPageIsLoading] = React.useState(true); // Added loading state
   const [personalBests, setPersonalBests] =
-    React.useState<PersonalBest[]>(INITIAL_MOCK_PBS);
+    React.useState<PersonalBest[]>([]); // Initialize empty for skeleton
   const [isManageDialogOpen, setIsManageDialogOpen] = React.useState(false);
   const [editingPb, setEditingPb] = React.useState<PersonalBest | null>(null);
   const [pbToDelete, setPbToDelete] = React.useState<PersonalBest | null>(null);
@@ -143,6 +145,17 @@ export default function PersonalBestsPage() {
 
   const [isPbChartDialogOpen, setIsPbChartDialogOpen] = React.useState(false);
   const [pbForChart, setPbForChart] = React.useState<PersonalBest | null>(null);
+
+  React.useEffect(() => {
+    setPageIsLoading(true);
+    // Simulate data fetching
+    const timer = setTimeout(() => {
+      setPersonalBests(INITIAL_MOCK_PBS);
+      setPageIsLoading(false);
+    }, 750); // Adjust delay as needed
+    return () => clearTimeout(timer);
+  }, []);
+
 
   const filteredPbs = React.useMemo(() => {
     return personalBests
@@ -272,6 +285,10 @@ export default function PersonalBestsPage() {
       name,
     }));
   }, [personalBests]);
+
+  if (pageIsLoading) {
+    return <PersonalBestsPageSkeleton />;
+  }
 
   return (
     <>
