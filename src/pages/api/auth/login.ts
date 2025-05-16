@@ -1,3 +1,4 @@
+
 import type { NextApiRequest, NextApiResponse } from 'next';
 
 type Data = {
@@ -12,7 +13,8 @@ export default function handler(
   if (req.method === 'POST') {
     const { email, password } = req.body;
 
-    if (email === 'admin@admin.com' && password === 'password admin') {
+    // Updated credentials to match form defaults
+    if (email === 'test@example.com' && password === 'password') {
       res.status(200).json({ success: true });
     } else {
       res.status(401).json({ success: false, message: 'Invalid credentials' });
