@@ -4,6 +4,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import dynamic from 'next/dynamic';
 import { ArrowLeft, BarChart3, LineChart as LineChartIcon, CalendarDays, TrendingUp, WeightIcon as WeightLucideIcon, DumbbellIcon, AlertTriangle, PieChartIcon, ImageIcon, FileDown, Filter, Info, ArrowRightLeft, Target, Edit, Trash2, PlusCircle, Save, Loader2, ChevronDown } from "lucide-react";
 import { format, parseISO, getWeek, getYear, startOfDay, endOfDay, isValid, isWithinInterval, isBefore, isAfter } from "date-fns";
 import { pl } from "date-fns/locale";
@@ -52,7 +53,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AddGoalDialog, type AddGoalFormData } from "@/components/statistics/add-goal-dialog";
+// import { AddGoalDialog, type AddGoalFormData } from "@/components/statistics/add-goal-dialog";
+import type { AddGoalFormData } from "@/components/statistics/add-goal-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -70,6 +72,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { StatisticsPageSkeleton } from "@/components/statistics/StatisticsPageSkeleton"; // Added import
+
+const AddGoalDialog = dynamic(() =>
+  import("@/components/statistics/add-goal-dialog").then((mod) => mod.AddGoalDialog), {
+  loading: () => <div className="fixed inset-0 bg-background/50 flex items-center justify-center z-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>,
+  ssr: false
+});
 
 
 // Mock data (ideally imported from a shared location or fetched)

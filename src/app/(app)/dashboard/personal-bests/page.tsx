@@ -6,6 +6,7 @@ import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import { pl } from "date-fns/locale";
 import { v4 as uuidv4 } from "uuid";
+import dynamic from 'next/dynamic';
 import {
   ArrowLeft,
   PlusCircle,
@@ -42,10 +43,11 @@ import {
 } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import {
-  ManagePbDialog,
-  type PersonalBestFormData,
-} from "@/components/personal-bests/manage-pb-dialog";
+// import {
+//   ManagePbDialog,
+//   type PersonalBestFormData,
+// } from "@/components/personal-bests/manage-pb-dialog";
+import type { PersonalBestFormData } from "@/components/personal-bests/manage-pb-dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -66,8 +68,21 @@ import {
 } from "@/components/ui/select";
 import { Alert } from "@/components/ui/alert";
 import { MOCK_EXERCISES_DATABASE } from "@/lib/mockData"; // Corrected import path
-import { PbProgressionChartDialog } from "@/components/personal-bests/pb-progression-chart-dialog";
+// import { PbProgressionChartDialog } from "@/components/personal-bests/pb-progression-chart-dialog";
 import { PersonalBestsPageSkeleton } from "@/components/personal-bests/PersonalBestsPageSkeleton"; // Added import
+
+const ManagePbDialog = dynamic(() =>
+  import("@/components/personal-bests/manage-pb-dialog").then((mod) => mod.ManagePbDialog), {
+  loading: () => <div className="fixed inset-0 bg-background/50 flex items-center justify-center z-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>,
+  ssr: false
+});
+
+const PbProgressionChartDialog = dynamic(() =>
+  import("@/components/personal-bests/pb-progression-chart-dialog").then((mod) => mod.PbProgressionChartDialog), {
+  loading: () => <div className="fixed inset-0 bg-background/50 flex items-center justify-center z-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>,
+  ssr: false
+});
+
 
 export interface PersonalBest {
   id: string;

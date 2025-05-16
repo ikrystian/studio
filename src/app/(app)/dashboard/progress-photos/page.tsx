@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from "uuid";
 import { format, parseISO } from "date-fns";
 import { pl } from "date-fns/locale";
 import Image from "next/image";
+import dynamic from 'next/dynamic';
 
 import { Button } from "@/components/ui/button";
 import {
@@ -22,12 +23,12 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
+  DialogDescription as DialogDescriptionComponent,
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
-import { AddPhotoDialog } from "@/components/progress-photos/add-photo-dialog";
+// import { AddPhotoDialog } from "@/components/progress-photos/add-photo-dialog";
 import {
   ArrowLeft,
   Camera,
@@ -37,6 +38,7 @@ import {
   CheckCircle,
   XCircle,
   ImageOff,
+  Loader2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -51,6 +53,12 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import type { Metadata } from 'next';
+
+const AddPhotoDialog = dynamic(() =>
+  import("@/components/progress-photos/add-photo-dialog").then((mod) => mod.AddPhotoDialog), {
+  loading: () => <div className="fixed inset-0 bg-background/50 flex items-center justify-center z-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>,
+  ssr: false
+});
 
 // Metadata should be handled by parent server component or layout if dynamic title needed
 // export const metadata: Metadata = {
@@ -184,7 +192,7 @@ export default function ProgressPhotosPage() {
                 />
                 <div className="p-4 bg-card rounded-b-lg">
                     <DialogTitle className="text-lg">{photoToView.description || "Zdjęcie postępu"}</DialogTitle>
-                    <DialogDescription>Data: {format(parseISO(photoToView.date), "PPP", { locale: pl })}</DialogDescription>
+                    <DialogDescriptionComponent>Data: {format(parseISO(photoToView.date), "PPP", { locale: pl })}</DialogDescriptionComponent>
                 </div>
               </DialogContent>
             </Dialog>

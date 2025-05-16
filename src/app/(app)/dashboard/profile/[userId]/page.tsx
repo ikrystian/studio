@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation"; // Added useRouter
 import { format, parseISO } from "date-fns";
 import { pl } from "date-fns/locale";
+import dynamic from 'next/dynamic';
 import {
   User as UserIcon, // Renamed to avoid conflict with component
   Settings,
@@ -47,8 +48,15 @@ import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { MOCK_USER_PROFILES_DB, MOCK_CURRENT_USER_PROFILE, type UserProfile } from "@/lib/mockData";
-import { ProfilePrivacySettingsDialog, type UserPrivacySettings } from "@/components/profile/profile-privacy-settings-dialog";
+// import { ProfilePrivacySettingsDialog, type UserPrivacySettings } from "@/components/profile/profile-privacy-settings-dialog";
+import type { UserPrivacySettings } from "@/components/profile/profile-privacy-settings-dialog";
 import { ProfilePageSkeleton } from "@/components/profile/profile-page-skeleton"; // Added import
+
+const ProfilePrivacySettingsDialog = dynamic(() =>
+  import("@/components/profile/profile-privacy-settings-dialog").then((mod) => mod.ProfilePrivacySettingsDialog), {
+  loading: () => <div className="fixed inset-0 bg-background/50 flex items-center justify-center z-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>,
+  ssr: false
+});
 
 // Key for localStorage
 const PROFILE_PRIVACY_SETTINGS_KEY_PREFIX = "userPrivacySettings_";
@@ -389,12 +397,14 @@ export default function UserProfilePage() {
               </Card>
             </TabsContent>
           </Tabs>
-           <ProfilePrivacySettingsDialog
-                isOpen={isPrivacySettingsOpen}
-                onOpenChange={setIsPrivacySettingsOpen}
-                initialSettings={profileData.privacySettings || { isActivityPublic: true, isFriendsListPublic: true, isSharedPlansPublic: true}}
-                onSave={handleSavePrivacySettings}
-            />
+          {profileData && (
+            <ProfilePrivacySettingsDialog
+                  isOpen={isPrivacySettingsOpen}
+                  onOpenChange={setIsPrivacySettingsOpen}
+                  initialSettings={profileData.privacySettings || { isActivityPublic: true, isFriendsListPublic: true, isSharedPlansPublic: true}}
+                  onSave={handleSavePrivacySettings}
+              />
+          )}
         </div>
       </main>
     </div>

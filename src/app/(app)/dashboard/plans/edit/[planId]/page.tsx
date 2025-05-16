@@ -10,6 +10,7 @@ import * as z from "zod";
 import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isSameMonth, isSameDay, differenceInCalendarDays, isBefore, startOfDay } from "date-fns";
 import { pl } from "date-fns/locale";
 import { v4 as uuidv4 } from "uuid";
+import dynamic from 'next/dynamic';
 import {
   ClipboardEdit,
   ArrowLeft,
@@ -61,21 +62,26 @@ import { useToast } from "@/hooks/use-toast";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import { SelectWorkoutDialog, type SelectableWorkout } from "@/components/plans/select-workout-dialog";
+// import { SelectWorkoutDialog, type SelectableWorkout } from "@/components/plans/select-workout-dialog";
+// import { QuickCreateWorkoutDialog, type QuickCreateWorkoutFormData } from "@/components/plans/quick-create-workout-dialog";
+import type { SelectableWorkout } from "@/components/plans/select-workout-dialog";
+import type { QuickCreateWorkoutFormData } from "@/components/plans/quick-create-workout-dialog";
+
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { QuickCreateWorkoutDialog, type QuickCreateWorkoutFormData } from "@/components/plans/quick-create-workout-dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
 import { MOCK_DETAILED_TRAINING_PLANS, MOCK_AVAILABLE_WORKOUTS_FOR_PLAN_EDITOR, MOCK_DAY_TEMPLATES_FOR_PLAN_EDITOR, type DetailedTrainingPlan, type PlanDayDetail } from "@/lib/mockData";
 import { EditTrainingPlanPageSkeleton } from "@/components/plans/EditTrainingPlanPageSkeleton";
+
+const SelectWorkoutDialog = dynamic(() =>
+  import("@/components/plans/select-workout-dialog").then((mod) => mod.SelectWorkoutDialog), {
+  loading: () => <div className="fixed inset-0 bg-background/50 flex items-center justify-center z-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>,
+  ssr: false
+});
+
+const QuickCreateWorkoutDialog = dynamic(() =>
+  import("@/components/plans/quick-create-workout-dialog").then((mod) => mod.QuickCreateWorkoutDialog), {
+  loading: () => <div className="fixed inset-0 bg-background/50 flex items-center justify-center z-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>,
+  ssr: false
+});
 
 export interface RichDayTemplate {
   id: string;
@@ -477,7 +483,7 @@ export default function EditTrainingPlanPage() {
                 <CardContent>{form.watch("startDate") ? (<><div className="flex items-center justify-between mb-4"><Button variant="outline" size="icon" onClick={() => setCalendarViewMonth(subMonths(calendarViewMonth, 1))}><ChevronLeft className="h-4 w-4" /></Button><h3 className="text-lg font-semibold">{format(calendarViewMonth, "LLLL yyyy", { locale: pl })}</h3><Button variant="outline" size="icon" onClick={() => setCalendarViewMonth(addMonths(calendarViewMonth, 1))}><ChevronRight className="h-4 w-4" /></Button></div><div className="grid grid-cols-7 gap-px border-l border-t bg-border">{["Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd"].map(dayLabel => (<div key={dayLabel} className="py-2 text-center text-xs font-medium text-muted-foreground bg-card border-b border-r">{dayLabel}</div>))}{daysBeforeMonth.map((_, i) => (<div key={`empty-start-${i}`} className="bg-muted/30 border-b border-r min-h-[80px]"></div>))}{daysInMonth.map(day => {const assignment = getDayAssignment(day);const isDayBeforeStartDate = isBefore(day, startOfDay(form.watch("startDate")!));let content = null;let bgColor = "bg-card hover:bg-muted/50";let textColor = "text-foreground";if (assignment && !isDayBeforeStartDate) {if (assignment.isRestDay) {content = <><Coffee size={14} className="mr-1 inline-block"/> Odpoczynek</>;bgColor = "bg-green-500/10 hover:bg-green-500/20";textColor = "text-green-700 dark:text-green-400";} else if (assignment.templateName) {content = <><LayoutDashboard size={14} className="mr-1 inline-block"/> {assignment.templateName}</>;bgColor = "bg-purple-500/10 hover:bg-purple-500/20";textColor = "text-purple-700 dark:text-purple-400";} else if (assignment.assignedWorkoutName) {content = assignment.assignedWorkoutName;bgColor = "bg-primary/10 hover:bg-primary/20";textColor = "text-primary";}}return (<div key={day.toString()} className={cn("p-2 border-b border-r min-h-[80px] text-xs relative transition-colors",isSameMonth(day, calendarViewMonth) ? bgColor : "bg-muted/30",isDayBeforeStartDate && isSameMonth(day, calendarViewMonth) ? "opacity-60 bg-muted/50" : "",!isSameMonth(day, calendarViewMonth) ? "text-muted-foreground/50" : textColor)}><span className={cn("font-medium", isSameDay(day, new Date()) && "text-primary font-bold underline")}>{format(day, "d")}</span>{content && <div className="mt-1 text-xs break-words">{content}</div>}</div>);})}{Array.from({ length: (7 - (daysBeforeMonth.length + daysInMonth.length) % 7) % 7 }).map((_, i) => (<div key={`empty-end-${i}`} className="bg-muted/30 border-b border-r min-h-[80px]"></div>))}</div
 ></>) : (<Alert><CalendarDays className="h-4 w-4"/><AlertTitle>Wizualizacja Niedostępna</AlertTitle><AlertDescription>Aby zobaczyć wizualizację planu w kalendarzu, wybierz najpierw "Datę Rozpoczęcia Planu" w sekcji powyżej.</AlertDescription></Alert>)}</CardContent>
               </Card>
-              <div className="flex justify-end space-x-4">{!isPastingModeActive && (<Button type="button" variant="outline" onClick={() => router.push(`/dashboard/plans/${planId}`)} disabled={formIsLoading}>Anuluj</Button>)}{!isPastingModeActive && (<Button type="submit" disabled={formIsLoading}>{formIsLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}Zapisz Zmiany</Button>)}</div>
+              <div className="flex justify-end space-x-4">{!isPastingModeActive && (<Button type="button" variant="outline" onClick={() => router.push(`/dashboard/plans/${planId}`)} disabled={formIsLoading}>Anuluj</Button>)}{!isPastingModeActive && (<Button type="submit" disabled={formIsLoading || (form.formState.isSubmitted && !form.formState.isValid)}>{formIsLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}Zapisz Zmiany</Button>)}</div>
             </form>
           </Form>
         </div>

@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
+import dynamic from 'next/dynamic';
 import { ArrowLeft, Save, UserCircle2, Settings2, Edit3, Image as ImageIcon, Loader2, ShieldCheck } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -38,8 +39,22 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { EditProfilePictureDialog } from "@/components/profile/edit-profile-picture-dialog";
-import { ProfilePrivacySettingsDialog, type UserPrivacySettings } from "@/components/profile/profile-privacy-settings-dialog";
+// import { EditProfilePictureDialog } from "@/components/profile/edit-profile-picture-dialog";
+// import { ProfilePrivacySettingsDialog, type UserPrivacySettings } from "@/components/profile/profile-privacy-settings-dialog";
+import type { UserPrivacySettings } from "@/components/profile/profile-privacy-settings-dialog";
+
+const EditProfilePictureDialog = dynamic(() =>
+  import("@/components/profile/edit-profile-picture-dialog").then((mod) => mod.EditProfilePictureDialog), {
+  loading: () => <div className="fixed inset-0 bg-background/50 flex items-center justify-center z-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>,
+  ssr: false
+});
+
+const ProfilePrivacySettingsDialog = dynamic(() =>
+  import("@/components/profile/profile-privacy-settings-dialog").then((mod) => mod.ProfilePrivacySettingsDialog), {
+  loading: () => <div className="fixed inset-0 bg-background/50 flex items-center justify-center z-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>,
+  ssr: false
+});
+
 
 // Mock data for the current user - in a real app, this would be fetched
 const MOCK_USER_DATA_EDIT = {
@@ -194,6 +209,16 @@ export default function EditProfilePage() {
     if (typeof window !== 'undefined') {
         try {
             localStorage.setItem(PROFILE_PRIVACY_SETTINGS_KEY, JSON.stringify(newSettings));
+            // Also update the main profile data if it exists
+            const profileDataStr = localStorage.getItem(CURRENT_USER_PROFILE_DATA_KEY);
+            if (profileDataStr) {
+                try {
+                    const profileData = JSON.parse(profileDataStr);
+                    profileData.privacySettings = newSettings; // Assuming privacySettings is a field in the main profile object
+                    localStorage.setItem(CURRENT_USER_PROFILE_DATA_KEY, JSON.stringify(profileData));
+                } catch (e) { console.error("Error updating privacy settings in profile data:", e); }
+            }
+
             toast({
                 title: "Ustawienia prywatności zapisane!",
                 description: "Twoje preferencje prywatności profilu zostały zaktualizowane."

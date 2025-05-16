@@ -8,6 +8,7 @@ import { useForm, Controller } from "react-hook-form";
 import * as z from "zod";
 import { format, parseISO } from "date-fns";
 import { pl } from "date-fns/locale";
+import dynamic from 'next/dynamic';
 import {
   ArrowLeft,
   UserCircle2,
@@ -70,18 +71,30 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
+  AlertDialogDescription as AlertDialogDescriptionComponent,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { TwoFactorAuthDialog } from "@/components/account/two-factor-auth-dialog";
-import { ViewBackupCodesDialog } from "@/components/account/view-backup-codes-dialog";
+
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import type { UserPrivacySettings } from "@/components/profile/profile-privacy-settings-dialog";
 import { AccountSettingsPageSkeleton } from "@/components/account/AccountSettingsPageSkeleton";
+
+const TwoFactorAuthDialog = dynamic(() =>
+  import("@/components/account/two-factor-auth-dialog").then((mod) => mod.TwoFactorAuthDialog), {
+  loading: () => <div className="fixed inset-0 bg-background/50 flex items-center justify-center z-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>,
+  ssr: false
+});
+
+const ViewBackupCodesDialog = dynamic(() =>
+  import("@/components/account/view-backup-codes-dialog").then((mod) => mod.ViewBackupCodesDialog), {
+  loading: () => <div className="fixed inset-0 bg-background/50 flex items-center justify-center z-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>,
+  ssr: false
+});
+
 
 // Default user data structure - in a real app, this would come from context or API
 const DEFAULT_USER_ACCOUNT_DATA = {
@@ -593,7 +606,7 @@ export default function AccountSettingsPage() {
                                         <AlertDialog>
                                             <AlertDialogTrigger asChild><Button variant="destructive" disabled={isSubmitting} className="w-full sm:w-auto">Dezaktywuj 2FA</Button></AlertDialogTrigger>
                                             <AlertDialogContent>
-                                                <AlertDialogHeader><AlertDialogTitle>Dezaktywować 2FA?</AlertDialogTitle><AlertDialogDescription>Aby potwierdzić, wprowadź swoje obecne hasło.</AlertDialogDescription></AlertDialogHeader>
+                                                <AlertDialogHeader><AlertDialogTitle>Dezaktywować 2FA?</AlertDialogTitle><AlertDialogDescriptionComponent>Aby potwierdzić, wprowadź swoje obecne hasło.</AlertDialogDescriptionComponent></AlertDialogHeader>
                                                 <Form {...deactivate2faForm}>
                                                     <form onSubmit={deactivate2faForm.handleSubmit(onDeactivate2FASubmit)} className="space-y-4">
                                                         <FormField control={deactivate2faForm.control} name="password" render={({ field }) => (<FormItem><FormLabel>Obecne hasło</FormLabel><FormControl><Input type="password" {...field} /></FormControl><FormMessage /></FormItem>)} />
@@ -693,7 +706,7 @@ export default function AccountSettingsPage() {
                                             <AlertDialog>
                                                 <AlertDialogTrigger asChild><Button variant="destructive" className="w-full" type="button" disabled={!deleteAccountForm.formState.isValid || isSubmitting}><Trash2 className="mr-2 h-4 w-4" /> Usuń Moje Konto Na Stałe</Button></AlertDialogTrigger>
                                                 <AlertDialogContent>
-                                                    <AlertDialogHeader><AlertDialogTitle>Czy na pewno chcesz usunąć konto?</AlertDialogTitle><AlertDialogDescription>To jest Twoja ostatnia szansa na przerwanie tej operacji. Po potwierdzeniu, wszystkie Twoje dane zostaną usunięte i nie będzie można ich odzyskać.</AlertDialogDescription></AlertDialogHeader>
+                                                    <AlertDialogHeader><AlertDialogTitle>Czy na pewno chcesz usunąć konto?</AlertDialogTitle><AlertDialogDescriptionComponent>To jest Twoja ostatnia szansa na przerwanie tej operacji. Po potwierdzeniu, wszystkie Twoje dane zostaną usunięte i nie będzie można ich odzyskać.</AlertDialogDescriptionComponent></AlertDialogHeader>
                                                     <AlertDialogFooter><AlertDialogCancel disabled={isSubmitting}>Anuluj</AlertDialogCancel><AlertDialogAction onClick={deleteAccountForm.handleSubmit(onSubmitDeleteAccount)} disabled={isSubmitting} className="bg-destructive hover:bg-destructive/90">{isSubmitting ? <Loader2 className="animate-spin mr-2"/> : <Trash2 className="mr-2 h-4 w-4"/>} Tak, usuń konto</AlertDialogAction></AlertDialogFooter>
                                                 </AlertDialogContent>
                                             </AlertDialog>
@@ -712,5 +725,3 @@ export default function AccountSettingsPage() {
     </div>
   );
 }
-
-    

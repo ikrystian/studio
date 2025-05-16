@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useFieldArray } from "react-hook-form";
 import * as z from "zod";
 import { v4 as uuidv4 } from "uuid";
+import dynamic from 'next/dynamic';
 import {
   Dumbbell,
   ArrowLeft,
@@ -53,10 +54,25 @@ import {
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ExerciseSelectionDialog, type Exercise as SelectableExerciseType } from "@/components/workout/exercise-selection-dialog";
-import { QuickAddExerciseDialog, type QuickAddExerciseFormData } from "@/components/workout/quick-add-exercise-dialog";
+// import { ExerciseSelectionDialog, type Exercise as SelectableExerciseType } from "@/components/workout/exercise-selection-dialog";
+// import { QuickAddExerciseDialog, type QuickAddExerciseFormData } from "@/components/workout/quick-add-exercise-dialog";
+import type { Exercise as SelectableExerciseType } from "@/components/workout/exercise-selection-dialog";
+import type { QuickAddExerciseFormData } from "@/components/workout/quick-add-exercise-dialog";
+
 import { MOCK_EXERCISES_DATABASE } from "@/lib/mockData"; // Updated import
 import { CreateWorkoutPageSkeleton } from "@/components/workout/CreateWorkoutPageSkeleton";
+
+const ExerciseSelectionDialog = dynamic(() =>
+  import("@/components/workout/exercise-selection-dialog").then((mod) => mod.ExerciseSelectionDialog), {
+  loading: () => <div className="fixed inset-0 bg-background/50 flex items-center justify-center z-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>,
+  ssr: false
+});
+
+const QuickAddExerciseDialog = dynamic(() =>
+  import("@/components/workout/quick-add-exercise-dialog").then((mod) => mod.QuickAddExerciseDialog), {
+  loading: () => <div className="fixed inset-0 bg-background/50 flex items-center justify-center z-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>,
+  ssr: false
+});
 
 
 const exerciseInWorkoutSchema = z.object({
@@ -505,7 +521,7 @@ export default function CreateWorkoutPage() {
       <QuickAddExerciseDialog
         isOpen={isQuickAddExerciseDialogOpen}
         onOpenChange={setIsQuickAddExerciseDialogOpen}
-        onWorkoutCreated={handleQuickExerciseCreated}
+        onExerciseCreated={handleQuickExerciseCreated}
       />
     </div>
   );

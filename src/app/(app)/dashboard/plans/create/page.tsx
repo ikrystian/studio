@@ -10,6 +10,7 @@ import * as z from "zod";
 import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isSameMonth, isSameDay, differenceInCalendarDays, isBefore } from "date-fns";
 import { pl } from "date-fns/locale";
 import { v4 as uuidv4 } from "uuid";
+import dynamic from 'next/dynamic';
 import {
   ClipboardEdit,
   ArrowLeft,
@@ -61,9 +62,11 @@ import { useToast } from "@/hooks/use-toast";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import { SelectWorkoutDialog, type SelectableWorkout } from "@/components/plans/select-workout-dialog";
+// import { SelectWorkoutDialog, type SelectableWorkout } from "@/components/plans/select-workout-dialog";
+import type { SelectableWorkout } from "@/components/plans/select-workout-dialog";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { QuickCreateWorkoutDialog, type QuickCreateWorkoutFormData } from "@/components/plans/quick-create-workout-dialog";
+// import { QuickCreateWorkoutDialog, type QuickCreateWorkoutFormData } from "@/components/plans/quick-create-workout-dialog";
+import type { QuickCreateWorkoutFormData } from "@/components/plans/quick-create-workout-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -76,6 +79,19 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { CreateTrainingPlanPageSkeleton } from "@/components/plans/CreateTrainingPlanPageSkeleton";
 import { MOCK_AVAILABLE_WORKOUTS_FOR_PLAN_EDITOR, MOCK_DAY_TEMPLATES_FOR_PLAN_EDITOR } from "@/lib/mockData"; // Import from mockData
+
+const SelectWorkoutDialog = dynamic(() =>
+  import("@/components/plans/select-workout-dialog").then((mod) => mod.SelectWorkoutDialog), {
+  loading: () => <div className="fixed inset-0 bg-background/50 flex items-center justify-center z-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>,
+  ssr: false
+});
+
+const QuickCreateWorkoutDialog = dynamic(() =>
+  import("@/components/plans/quick-create-workout-dialog").then((mod) => mod.QuickCreateWorkoutDialog), {
+  loading: () => <div className="fixed inset-0 bg-background/50 flex items-center justify-center z-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>,
+  ssr: false
+});
+
 
 // Interface for RichDayTemplate is now imported implicitly via MOCK_DAY_TEMPLATES_FOR_PLAN_EDITOR
 export interface RichDayTemplate {
@@ -736,7 +752,7 @@ export default function CreateTrainingPlanPage() {
                     </Button>
                  )}
                 {!isPastingModeActive && (
-                    <Button type="submit" disabled={isLoading}>
+                    <Button type="submit" disabled={isLoading || (form.formState.isSubmitted && !form.formState.isValid)}>
                    {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
                     Zapisz Plan
                     </Button>
@@ -755,4 +771,8 @@ export default function CreateTrainingPlanPage() {
       <QuickCreateWorkoutDialog
         isOpen={isQuickCreateWorkoutDialogOpen}
         onOpenChange={setIsQuickCreateWorkoutDialogOpen}
-        on
+        onWorkoutCreated={handleQuickWorkoutCreated}
+      />
+    </div>
+  );
+}

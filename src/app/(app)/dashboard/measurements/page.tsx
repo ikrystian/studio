@@ -5,6 +5,7 @@ import * as React from "react";
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import { pl } from "date-fns/locale";
+import dynamic from 'next/dynamic';
 import {
   ArrowLeft,
   PlusCircle,
@@ -45,7 +46,7 @@ import {
 } from "@/components/ui/chart";
 import {
   LineChart as RechartsLineChart,
-  Line,
+  Line as RechartsLine, // Alias to avoid conflict with Lucide Line icon
   XAxis,
   YAxis,
   CartesianGrid,
@@ -60,11 +61,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import {
-  AddMeasurementDialog,
-  type MeasurementFormData,
-  PREDEFINED_BODY_PARTS,
-} from "@/components/measurements/add-measurement-dialog";
+// import {
+//   AddMeasurementDialog,
+//   type MeasurementFormData,
+//   PREDEFINED_BODY_PARTS,
+// } from "@/components/measurements/add-measurement-dialog";
+import type { MeasurementFormData } from "@/components/measurements/add-measurement-dialog";
+import { PREDEFINED_BODY_PARTS } from "@/components/measurements/add-measurement-dialog";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -87,6 +91,12 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { MeasurementsPageSkeleton } from "@/components/measurements/MeasurementsPageSkeleton";
+
+const AddMeasurementDialog = dynamic(() =>
+  import("@/components/measurements/add-measurement-dialog").then((mod) => mod.AddMeasurementDialog), {
+  loading: () => <div className="fixed inset-0 bg-background/50 flex items-center justify-center z-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>,
+  ssr: false
+});
 
 export interface BodyPartData {
   name: string;
@@ -241,7 +251,7 @@ export default function MeasurementsPage() {
             return (
               metricValue !== undefined &&
               metricValue !== null &&
-              typeof metricValue === 'number' && // Ensure it's a number
+              typeof metricValue === 'number' && 
               !isNaN(metricValue) &&
               dp.date !== "Invalid Date"
             );
@@ -630,7 +640,7 @@ export default function MeasurementsPage() {
                   >
                     <RechartsLineChart
                       data={chartData}
-                      margin={{ top: 5, right: 20, left: 5, bottom: 5 }} // Adjusted left margin
+                      margin={{ top: 5, right: 20, left: 5, bottom: 5 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" vertical={false} />
                       <XAxis
@@ -643,15 +653,14 @@ export default function MeasurementsPage() {
                         tickLine={false}
                         axisLine={false}
                         tickMargin={8}
-                        domain={yDomain} // Apply calculated domain
+                        domain={yDomain} 
                         allowDecimals={true}
-                        // Removed explicit width to let Recharts auto-calculate
                       />
                       <ChartTooltip
                         cursor={false}
                         content={<ChartTooltipContent hideLabel />}
                       />
-                      <Line
+                      <RechartsLine
                         dataKey={selectedChartMetric}
                         type="monotone"
                         stroke={`var(--color-${selectedChartMetric.replace(
