@@ -121,7 +121,6 @@ export function AppHeader() {
                     <span>Ustawienia Konta</span>
                 </Link>
               </DropdownMenuItem>
-              {headerUser.role === 'admin' && (
                 <DropdownMenuItem asChild className="app-header-admin-debug-link-item">
                   {/* Added a comment to force re-evaluation by Next.js */}
                   {/* Admin Debug Link */}
@@ -130,7 +129,6 @@ export function AppHeader() {
                     <span>Admin Debug</span>
                   </Link>
                 </DropdownMenuItem>
-              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive focus:bg-destructive/10 app-header-logout-button">
                 <LogOut className="mr-2 h-4 w-4" />

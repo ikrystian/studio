@@ -29,14 +29,13 @@ export default function AppGroupLayout({
 
   if (isCheckingAuth) {
     // Display a full-page loading skeleton while checking authentication status.
-    // This assumes RootLoading is suitable for this initial auth check display.
     return <RootLoading />;
   }
 
   return (
     <>
       <AppHeader />
-      <main>{children}</main>
+      <main className="flex-1">{children}</main> {/* Added flex-1 for main content area */}
     </>
   );
 }

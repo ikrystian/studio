@@ -29,7 +29,7 @@ export default function TrainingPlanDetailPage() {
           Ta sekcja jest w budowie. Wkrótce będziesz mógł tutaj przeglądać szczegóły wybranego planu treningowego.
         </p>
         <Button asChild>
-          <Link href="/plans">
+          <Link href="/dashboard/plans"> {/* Updated link to new path */}
             <ArrowLeft className="mr-2 h-4 w-4" />
             Wróć do Listy Planów
           </Link>

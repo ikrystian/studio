@@ -87,8 +87,8 @@ export default function TrainingPlansPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <header className="sticky top-16 z-30 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/50">
-        {/* Adjust top based on AppHeader height */}
+      {/* Header part of AppLayout */}
+      {/* <header className="sticky top-16 z-30 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/50">
         <div className="container mx-auto flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2">
             <Button variant="outline" size="icon" asChild>
@@ -107,15 +107,23 @@ export default function TrainingPlansPage() {
             </Link>
           </Button>
         </div>
-      </header>
+      </header> */}
 
       <main className="flex-1 py-6 px-4 sm:px-6 lg:px-8">
         <div className="container mx-auto">
-          <section className="mb-6">
-            <h2 className="text-2xl font-semibold tracking-tight mb-1">Odkryj Plany Treningowe</h2>
-            <p className="text-sm text-muted-foreground">
-              Znajdź idealny plan dla siebie lub stwórz własny, dopasowany do Twoich celów.
-            </p>
+          <section className="mb-6 flex justify-between items-center">
+            <div>
+                <h2 className="text-2xl font-semibold tracking-tight mb-1">Odkryj Plany Treningowe</h2>
+                <p className="text-sm text-muted-foreground">
+                Znajdź idealny plan dla siebie lub stwórz własny, dopasowany do Twoich celów.
+                </p>
+            </div>
+            <Button asChild>
+                <Link href="/dashboard/plans/create">
+                <PlusCircle className="mr-2 h-5 w-5" />
+                Nowy Plan
+                </Link>
+            </Button>
           </section>
 
           <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -145,7 +153,7 @@ export default function TrainingPlansPage() {
           <Separator className="my-6" />
 
           {filteredPlans.length > 0 ? (
-            <ScrollArea className="h-[calc(100vh-25rem)] pr-4"> {/* Adjust height if header is taller */}
+            <ScrollArea className="h-[calc(100vh-25rem)] pr-4"> 
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {filteredPlans.map((plan) => {
                   const IconComponent = plan.icon || Dumbbell;
@@ -198,5 +206,3 @@ export default function TrainingPlansPage() {
     </div>
   );
 }
-
-    

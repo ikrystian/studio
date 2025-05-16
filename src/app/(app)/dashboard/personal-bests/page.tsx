@@ -275,7 +275,8 @@ export default function PersonalBestsPage() {
 
   return (
     <>
-      <header className="sticky top-16 z-30 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/50">
+      {/* Header part of AppLayout */}
+      {/* <header className="sticky top-16 z-30 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/50">
         <div className="container mx-auto flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2">
             <Button variant="outline" size="icon" asChild>
@@ -297,10 +298,21 @@ export default function PersonalBestsPage() {
             Dodaj Rekord
           </Button>
         </div>
-      </header>
+      </header> */}
 
       <main className="flex-1 py-6 px-4 sm:px-6 lg:px-8">
         <div className="container mx-auto space-y-8">
+          <div className="flex justify-end">
+            <Button
+              onClick={() => {
+                setEditingPb(null);
+                setIsManageDialogOpen(true);
+              }}
+            >
+              <PlusCircle className="mr-2 h-5 w-5" />
+              Dodaj Rekord
+            </Button>
+          </div>
           <ManagePbDialog
             isOpen={isManageDialogOpen}
             onOpenChange={setIsManageDialogOpen}
@@ -534,5 +546,3 @@ export default function PersonalBestsPage() {
     </>
   );
 }
-
-    

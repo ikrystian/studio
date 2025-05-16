@@ -229,8 +229,9 @@ export default function WellnessJournalPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
+      {/* Header part of AppLayout */}
+      {/* <header className="sticky top-16 z-30 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/50">
+        <div className="container mx-auto flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2">
             <Button variant="outline" size="icon" asChild>
               <Link href="/dashboard">
@@ -238,13 +239,13 @@ export default function WellnessJournalPage() {
                 <span className="sr-only">Powrót do Panelu</span>
               </Link>
             </Button>
-            <HeartPulse className="h-8 w-8 text-primary" />
-            <h1 className="text-2xl font-bold">Dziennik Samopoczucia</h1>
+            <HeartPulse className="h-7 w-7 text-primary" />
+            <h1 className="text-xl font-bold">Dziennik Samopoczucia</h1>
           </div>
         </div>
-      </header>
+      </header> */}
 
-      <main className="flex-1 p-4 sm:p-6 lg:p-8">
+      <main className="flex-1 py-6 px-4 sm:px-6 lg:px-8">
         <div className="container mx-auto space-y-8">
           <Card>
             <CardHeader>

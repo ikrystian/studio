@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, Controller } from "react-hook-form";
 import * as z from "zod";
 import Link from "next/link";
-import { ArrowLeft, BellRing, Save, Loader2, AlertCircle, CalendarDays, Info, RefreshCw } from "lucide-react";
+import { ArrowLeft, BellRing, Save, Loader2, AlertCircle, CalendarDays, Info, RefreshCw, CheckCircle, XCircle } from "lucide-react";
 import { format, parseISO, differenceInDays } from "date-fns";
 import { pl } from "date-fns/locale";
 
@@ -255,11 +255,12 @@ export default function ReminderSettingsPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
+      {/* Header part of AppLayout */}
+      {/* <header className="sticky top-16 z-30 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/50">
+        <div className="container mx-auto flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2">
             <Button variant="outline" size="icon" asChild>
-              <Link href="/settings">
+              <Link href="/dashboard/settings">
                 <ArrowLeft className="h-5 w-5" />
                 <span className="sr-only">Powrót do Ustawień</span>
               </Link>
@@ -272,10 +273,16 @@ export default function ReminderSettingsPage() {
             Zapisz Ustawienia
           </Button>
         </div>
-      </header>
+      </header> */}
 
       <main className="flex-1 p-4 sm:p-6 lg:p-8">
         <div className="container mx-auto max-w-2xl">
+          <div className="flex justify-end mb-4">
+             <Button form="reminder-settings-form" type="submit" disabled={isLoading}>
+                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                Zapisz Ustawienia
+            </Button>
+          </div>
           <Form {...form}>
             <form id="reminder-settings-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
               <Card>
@@ -565,12 +572,13 @@ export default function ReminderSettingsPage() {
                   )}
                 </CardContent>
               </Card>
-              <div className="flex justify-end">
+              {/* Save button moved to header for consistency */}
+              {/* <div className="flex justify-end">
                 <Button type="submit" disabled={isLoading}>
                   {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
                   Zapisz Ustawienia
                 </Button>
-              </div>
+              </div> */}
             </form>
           </Form>
         </div>

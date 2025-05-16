@@ -1,9 +1,16 @@
+
 import type { SVGProps } from 'react';
 
+// This is a common representation of the Google "G" logo.
+// Ensure this usage complies with Google's branding guidelines if used in production.
 export function GoogleIcon(props: SVGProps<SVGSVGElement>) {
   return (
-    <svg aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512" {...props}>
-      <path fill="currentColor" d="M488 261.8C488 403.3 381.5 512 244 512 110.5 512 0 401.5 0 265.5S110.5 19 244 19c70.5 0 132.5 29 177.5 76.5l-66.5 64.5c-26-24.5-61-39.5-111-39.5-91.5 0-166 76.5-166 174.5s74.5 174.5 166 174.5c57.5 0 102-22 129-49.5l66.5 64.5c-43.5 41.5-104.5 64.5-177 64.5-137.5 0-244-110-244-248S106.5 19 244 19c80.5 0 147 32.5 196.5 80.5l-66.5 64.5c-24.5-23-58.5-38.5-99-38.5-87.5 0-159.5 69.5-159.5 161s72 161 159.5 161c107.5 0 151.5-80 151.5-150.5H244V261.8h244z"></path>
+    <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" {...props}>
+      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
+      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6.04C43.41 37.26 46.98 31.45 46.98 24.55z"></path>
+      <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path>
+      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6.04c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
+      <path fill="none" d="M0 0h48v48H0z"></path>
     </svg>
   );
 }

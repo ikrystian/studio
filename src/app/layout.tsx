@@ -1,10 +1,12 @@
+
 import type {Metadata} from 'next';
-import { Inter } from 'next/font/google'; // Using Inter as a common, readable sans-serif font
+import { Inter } from 'next/font/google';
 import './globals.css';
-import { Toaster } from "@/components/ui/toaster"; // Added Toaster
+import { Toaster } from "@/components/ui/toaster";
 
 const inter = Inter({ 
   subsets: ['latin'],
+  display: 'swap', // Ensure font swapping behavior
   variable: '--font-sans', // Define a CSS variable for the font
 });
 
@@ -14,6 +16,10 @@ export const metadata: Metadata = {
     template: '%s | WorkoutWise',
   },
   description: 'Manage your workouts efficiently with WorkoutWise.',
+  icons: {
+    // While favicons are out of scope for generation, this is where they would be defined.
+    // icon: '/favicon.ico', 
+  }
 };
 
 export default function RootLayout({
@@ -22,8 +28,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} font-sans antialiased bg-background text-foreground`}>
+    <html lang="pl" suppressHydrationWarning className={inter.variable}>
+      <body className={`font-sans antialiased bg-background text-foreground`}>
         {children}
         <Toaster />
       </body>
