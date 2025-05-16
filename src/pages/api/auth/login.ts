@@ -1,12 +1,11 @@
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import bcrypt from 'bcrypt';
-import { getDB } from '@/lib/sqlite'; // Corrected import path
+import { getDB } from '@/lib/sqlite';
 
 type Data = {
   success: boolean;
   message?: string;
-  // You might want to return a token or user info here in a real app
   // token?: string; 
   // user?: { id: number; email: string; fullName: string }; 
 };
@@ -22,6 +21,19 @@ export default async function handler(
       return res.status(400).json({ success: false, message: 'Email and password are required.' });
     }
 
+    // --- TEMPORARY TEST BACKDOOR ---
+    // For easy testing, allow login with test@example.com and password "password"
+    // without checking the database.
+    // REMOVE THIS IN PRODUCTION or for more thorough database testing.
+    if (email === "test@example.com" && password === "password") {
+      console.log("Login successful via test backdoor for: test@example.com");
+      return res.status(200).json({ 
+        success: true, 
+        message: 'Login successful (test backdoor)!' 
+      });
+    }
+    // --- END TEMPORARY TEST BACKDOOR ---
+
     const db = getDB();
 
     try {
@@ -29,24 +41,20 @@ export default async function handler(
       const user = stmtGetUser.get(email) as { id: number; email: string; password: string; fullName: string } | undefined;
 
       if (!user) {
+        console.log(`Login attempt failed: User ${email} not found in DB.`);
         return res.status(401).json({ success: false, message: 'Invalid credentials.' });
       }
 
       const passwordMatch = await bcrypt.compare(password, user.password);
 
       if (passwordMatch) {
-        // Passwords match - login successful
-        // In a real app, you'd generate a session token (e.g., JWT) here
-        // and send it back to the client.
-        console.log(`User ${user.email} logged in successfully.`);
+        console.log(`User ${user.email} logged in successfully via DB check.`);
         return res.status(200).json({ 
           success: true, 
           message: 'Login successful!' 
-          // token: "your_generated_session_token", // Example
-          // user: { id: user.id, email: user.email, fullName: user.fullName } // Example
         });
       } else {
-        // Passwords don't match
+        console.log(`Login attempt failed: Password mismatch for user ${email}.`);
         return res.status(401).json({ success: false, message: 'Invalid credentials.' });
       }
     } catch (error) {
