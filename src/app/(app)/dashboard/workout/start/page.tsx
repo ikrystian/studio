@@ -10,7 +10,7 @@ import { pl } from "date-fns/locale";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Dumbbell, Zap, Search, ListFilter, ArrowLeft, PlusCircle, PlayCircle, Trash2, AlertTriangle } from 'lucide-react'; // Added PlayCircle, Trash2
+import { Dumbbell, Zap, Search, ListFilter, ArrowLeft, PlusCircle, PlayCircle, Trash2, AlertTriangle, Loader2 } from 'lucide-react'; // Added Loader2
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -31,7 +31,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-
+import { StartWorkoutPageSkeleton } from '@/components/workout/StartWorkoutPageSkeleton'; // Added import
 
 // Simulated workout data - replace with actual data fetching
 const availableWorkouts = [
@@ -62,6 +62,7 @@ interface UnfinishedWorkoutInfo {
 
 export default function StartWorkoutPage() {
   const { toast } = useToast();
+  const [isLoading, setIsLoading] = React.useState(true); // Added loading state
   const [searchTerm, setSearchTerm] = React.useState('');
   const [selectedWorkoutType, setSelectedWorkoutType] = React.useState('Wszystkie');
   const [unfinishedWorkoutInfo, setUnfinishedWorkoutInfo] = React.useState<UnfinishedWorkoutInfo | null>(null);
@@ -69,6 +70,8 @@ export default function StartWorkoutPage() {
 
 
   React.useEffect(() => {
+    setIsLoading(true);
+    let foundUnfinished = false;
     if (typeof window !== 'undefined') {
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
@@ -84,17 +87,22 @@ export default function StartWorkoutPage() {
                   startTime: parsedData.workoutStartTime,
                   autosaveKey: key,
                 });
-                // Found one, stop looking for more for this simple implementation
+                foundUnfinished = true;
                 break; 
               }
             } catch (e) {
               console.error("Error parsing autosaved workout data:", e);
-              // Optionally remove corrupted item: localStorage.removeItem(key);
             }
           }
         }
       }
     }
+    // Simulate a delay for fetching/checking data
+    const timer = setTimeout(() => {
+        setIsLoading(false);
+    }, 750); // Adjust delay as needed
+
+    return () => clearTimeout(timer);
   }, []);
 
   const handleDiscardUnfinishedWorkout = () => {
@@ -128,6 +136,10 @@ export default function StartWorkoutPage() {
         return <Dumbbell className="mr-2 h-5 w-5 text-primary" />;
     }
   };
+
+  if (isLoading) {
+    return <StartWorkoutPageSkeleton />;
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -278,5 +290,3 @@ export default function StartWorkoutPage() {
     </div>
   );
 }
-
-    
