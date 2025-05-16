@@ -7,9 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dumbbell, Search, ListFilter, ArrowLeft, PlusCircle, Target, CalendarClock, BookOpen } from 'lucide-react';
+import { Dumbbell, Search, ListFilter, ArrowLeft, PlusCircle, Target, CalendarClock, BookOpen, Loader2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { TrainingPlansPageSkeleton } from '@/components/plans/TrainingPlansPageSkeleton'; // Added import
 
 interface TrainingPlan {
   id: string;
@@ -73,8 +74,17 @@ const PLAN_GOALS_FILTER_OPTIONS = [
 ];
 
 export default function TrainingPlansPage() {
+  const [isLoading, setIsLoading] = React.useState(true); // Added loading state
   const [searchTerm, setSearchTerm] = React.useState('');
   const [selectedGoal, setSelectedGoal] = React.useState(PLAN_GOALS_FILTER_OPTIONS[0]);
+
+  React.useEffect(() => {
+    // Simulate data fetching
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 750); // Adjust delay as needed
+    return () => clearTimeout(timer);
+  }, []);
 
   const filteredPlans = React.useMemo(() => {
     return MOCK_TRAINING_PLANS.filter(plan => {
@@ -84,6 +94,10 @@ export default function TrainingPlansPage() {
       return matchesSearch && matchesGoal;
     });
   }, [searchTerm, selectedGoal]);
+
+  if (isLoading) {
+    return <TrainingPlansPageSkeleton />;
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -206,3 +220,4 @@ export default function TrainingPlansPage() {
     </div>
   );
 }
+
