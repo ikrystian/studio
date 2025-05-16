@@ -17,6 +17,17 @@ import { ArrowLeft, CalendarDays, Target, Dumbbell, Coffee, Edit3, PlayCircle, I
 import { useToast } from "@/hooks/use-toast";
 import { MOCK_DETAILED_TRAINING_PLANS, type DetailedTrainingPlan, MOCK_EXERCISES_DATABASE, type ExerciseInWorkout } from "@/lib/mockData";
 import { TrainingPlanDetailPageSkeleton } from "@/components/plans/TrainingPlanDetailPageSkeleton";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"; // Ensure this import is correct
 
 const PENDING_CUSTOM_WORKOUT_KEY = 'pendingCustomWorkoutToStart';
 
