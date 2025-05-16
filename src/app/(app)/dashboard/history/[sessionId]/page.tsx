@@ -5,7 +5,7 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'; // Added CardFooter
 import { ArrowLeft, Info, History as HistoryIcon } from 'lucide-react';
 
 // If you need dynamic metadata, this should be a server component or use a different approach.
