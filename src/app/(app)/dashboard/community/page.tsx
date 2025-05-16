@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ArrowLeft, Users, MessageSquare, Search, Trophy } from "lucide-react";
+import { CommunityHomePageSkeleton } from "@/components/community/CommunityHomePageSkeleton"; // Added import
 
 const communityFeatures = [
   {
@@ -29,6 +30,20 @@ const communityFeatures = [
 ];
 
 export default function CommunityHomePage() {
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    // Simulate data fetching or component initialization
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 750); // Adjust delay as needed
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (isLoading) {
+    return <CommunityHomePageSkeleton />;
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
       <header className="sticky top-16 z-30 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/50">
