@@ -237,6 +237,7 @@ export default function MeasurementsPage() {
           (dp) =>
             dp[selectedChartMetric] !== undefined &&
             dp[selectedChartMetric] !== null &&
+            !isNaN(dp[selectedChartMetric]) && // Added NaN check
             dp.date !== "Invalid Date"
         )
     );
