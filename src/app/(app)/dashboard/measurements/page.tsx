@@ -204,7 +204,6 @@ export default function MeasurementsPage() {
     return (
       measurements
         .filter((m) => {
-          // Dodatkowe filtrowanie na początku w celu usunięcia nieprawidłowych dat
           if (!m.date) return false;
           try {
             const parsedDate = parseISO(m.date);
@@ -215,33 +214,58 @@ export default function MeasurementsPage() {
         })
         .sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime())
         .map((m) => {
-          // Pewność, że m.date jest prawidłowe po filtrowaniu powyżej
           const dateStr = format(parseISO(m.date), "dd MMM yy", { locale: pl });
           const dataPoint: { date: string; [key: string]: any } = {
             date: dateStr,
-            "Waga (kg)": m.weight,
           };
+          
+          const weightValue = parseFloat(String(m.weight));
+          dataPoint["Waga (kg)"] = !isNaN(weightValue) ? weightValue : undefined;
+
           const bmi = calculateBMI(m.weight, USER_HEIGHT_CM);
-          if (bmi !== null) {
-            dataPoint["BMI"] = bmi;
-          }
+          dataPoint["BMI"] = bmi; // Can be null, filter will handle
+
           m.bodyParts.forEach((bp) => {
-            if (bp.value !== null) {
-              dataPoint[bp.name] = bp.value;
+            const partValue = parseFloat(String(bp.value));
+            if (bp.value !== null && bp.value !== undefined && bp.value !== "") {
+               dataPoint[bp.name] = !isNaN(partValue) ? partValue : undefined;
+            } else {
+               dataPoint[bp.name] = undefined;
             }
           });
           return dataPoint;
         })
-        // Filtracja po wartościach metryk - upewniamy się, że data jest nadal prawidłowa (choć powinna być po pierwszym filtrze)
         .filter(
-          (dp) =>
-            dp[selectedChartMetric] !== undefined &&
-            dp[selectedChartMetric] !== null &&
-            !isNaN(dp[selectedChartMetric]) && // Added NaN check
-            dp.date !== "Invalid Date"
+          (dp) => {
+            const metricValue = dp[selectedChartMetric];
+            return (
+              metricValue !== undefined &&
+              metricValue !== null &&
+              typeof metricValue === 'number' && // Ensure it's a number
+              !isNaN(metricValue) &&
+              dp.date !== "Invalid Date"
+            );
+          }
         )
     );
-  }, [measurements, selectedChartMetric]); // Removed USER_HEIGHT_CM from deps here as it's constant
+  }, [measurements, selectedChartMetric]);
+
+  const yDomain = React.useMemo(() => {
+    if (chartData.length === 0) return ['auto', 'auto'] as [any, any];
+    const values = chartData.map(p => p[selectedChartMetric]).filter(v => typeof v === 'number' && !isNaN(v));
+    if (values.length === 0) return ['auto', 'auto'] as [any, any];
+    
+    let min = Math.min(...values);
+    let max = Math.max(...values);
+    
+    if (min === max) {
+      // Add padding if all values are the same or only one value exists
+      const padding = Math.abs(min * 0.1) || 1; // 10% padding, or 1 if min is 0
+      return [min - padding, max + padding] as [any, any];
+    }
+    return ['auto', 'auto'] as [any, any];
+  }, [chartData, selectedChartMetric]);
+
 
   const chartConfig = React.useMemo(() => {
     const config: any = {};
@@ -385,31 +409,6 @@ export default function MeasurementsPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      {/* Header part of AppLayout */}
-      {/* <header className="sticky top-16 z-30 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/50">
-        <div className="container mx-auto flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" asChild>
-              <Link href="/dashboard">
-                <ArrowLeft className="h-5 w-5" />
-                <span className="sr-only">Powrót do Panelu</span>
-              </Link>
-            </Button>
-            <Scale className="h-7 w-7 text-primary" />
-            <h1 className="text-xl font-bold">Pomiary Ciała</h1>
-          </div>
-          <Button
-            onClick={() => {
-              setEditingMeasurement(null);
-              setIsAddDialogOpen(true);
-            }}
-          >
-            <PlusCircle className="mr-2 h-5 w-5" />
-            Dodaj Pomiar
-          </Button>
-        </div>
-      </header> */}
-
       <main className="flex-1 py-6 px-4 sm:px-6 lg:px-8">
         <div className="container mx-auto space-y-8">
           <div className="flex justify-end">
@@ -631,7 +630,7 @@ export default function MeasurementsPage() {
                   >
                     <RechartsLineChart
                       data={chartData}
-                      margin={{ top: 5, right: 20, left: -10, bottom: 5 }}
+                      margin={{ top: 5, right: 20, left: 5, bottom: 5 }} // Adjusted left margin
                     >
                       <CartesianGrid strokeDasharray="3 3" vertical={false} />
                       <XAxis
@@ -644,9 +643,9 @@ export default function MeasurementsPage() {
                         tickLine={false}
                         axisLine={false}
                         tickMargin={8}
-                        domain={["auto", "auto"]}
+                        domain={yDomain} // Apply calculated domain
                         allowDecimals={true}
-                        width={selectedChartMetric === "BMI" ? 30 : undefined} // Adjust YAxis width for BMI
+                        // Removed explicit width to let Recharts auto-calculate
                       />
                       <ChartTooltip
                         cursor={false}
@@ -658,7 +657,7 @@ export default function MeasurementsPage() {
                         stroke={`var(--color-${selectedChartMetric.replace(
                           /[()\s./]/g,
                           "_"
-                        )})`} // Sanitize name for CSS variable
+                        )})`}
                         strokeWidth={2}
                         dot={{
                           fill: `var(--color-${selectedChartMetric.replace(
