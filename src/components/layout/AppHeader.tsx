@@ -3,8 +3,8 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation'; // Corrected from 'next/navigation'
-import { Dumbbell, UserCircle, LogOut, Settings2 } from 'lucide-react'; // Added Settings2 for consistency
+import { useRouter } from 'next/navigation';
+import { Dumbbell, UserCircle, LogOut, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -16,13 +16,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-// Mock user data for the header - Updated to match profile data
+// Mock user data for the header - Ensure this user has 'admin' role for the link to show
 const MOCK_HEADER_USER = {
-  name: 'Jan Kowalski', // Matched with MOCK_USER_PROFILES_DB for current_user_id
-  avatarUrl: 'https://placehold.co/100x100.png?text=JK', // Matched
-  initials: 'JK', // Matched
-  profileLink: '/dashboard/profile/current_user_id', 
-  accountSettingsLink: '/dashboard/account', 
+  name: 'Jan Kowalski',
+  avatarUrl: 'https://placehold.co/100x100.png?text=JK',
+  initials: 'JK',
+  profileLink: '/dashboard/profile/current_user_id',
+  accountSettingsLink: '/dashboard/account',
+  role: 'admin', // This user is an admin
 };
 
 export function AppHeader() {
@@ -30,7 +31,7 @@ export function AppHeader() {
 
   const handleLogout = () => {
     console.log("User logging out...");
-    router.push('/login?status=logged_out'); 
+    router.push('/login?status=logged_out');
   };
 
   return (
@@ -55,9 +56,6 @@ export function AppHeader() {
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
                   <p className="text-sm font-medium leading-none">{MOCK_HEADER_USER.name}</p>
-                  {/* <p className="text-xs leading-none text-muted-foreground">
-                    placeholder@example.com 
-                  </p> */}
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
@@ -73,6 +71,15 @@ export function AppHeader() {
                     <span>Ustawienia Konta</span>
                 </Link>
               </DropdownMenuItem>
+              {/* Conditional rendering for Admin Debug link */}
+              {MOCK_HEADER_USER.role === 'admin' && (
+                <DropdownMenuItem asChild>
+                  <Link href="/dashboard/admin/debug">
+                    <Settings2 className="mr-2 h-4 w-4" /> {/* Using Settings2 icon as placeholder */}
+                    <span>Admin Debug</span>
+                  </Link>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive focus:bg-destructive/10">
                 <LogOut className="mr-2 h-4 w-4" />
