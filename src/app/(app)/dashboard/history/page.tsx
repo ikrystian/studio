@@ -48,6 +48,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 // Import types and mock data from centralized location
 import { MOCK_HISTORY_SESSIONS, type HistoricalWorkoutSession, type RecordedSet, type ExerciseInWorkout } from "@/lib/mockData";
+import { WorkoutHistoryPageSkeleton } from "@/components/history/WorkoutHistoryPageSkeleton"; // Added import
 
 
 const WORKOUT_TYPES = ["Wszystkie", "Siłowy", "Cardio", "Mieszany", "Rozciąganie", "Inny"];
@@ -89,7 +90,7 @@ export default function WorkoutHistoryPage() {
     setTimeout(() => {
       setAllSessions(MOCK_HISTORY_SESSIONS);
       setIsLoading(false);
-    }, 500); // Simulate network delay
+    }, 750); // Simulate network delay, increased for skeleton visibility
   }, []);
 
 
@@ -252,12 +253,7 @@ export default function WorkoutHistoryPage() {
 
 
   if (isLoading) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-muted-foreground">Ładowanie historii treningów...</p>
-      </div>
-    );
+    return <WorkoutHistoryPageSkeleton />;
   }
 
   return (
