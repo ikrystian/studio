@@ -31,12 +31,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-// import { StartWorkoutPageSkeleton } from '@/components/workout/StartWorkoutPageSkeleton'; // Removed for no-skeleton approach
-import { MOCK_WORKOUTS_ACTIVE as availableWorkouts } from '@/lib/mockData'; // Import from mockData
+// MOCK_WORKOUTS_ACTIVE is no longer imported here
+import type { Workout } from '@/app/(app)/dashboard/workout/active/[workoutId]/page';
 
-// MOCK BACKEND LOGIC: `availableWorkouts` is imported from `src/lib/mockData.ts`. Checking for unfinished workouts
-// involves looking for specific keys in `localStorage`. Discarding an unfinished workout
-// removes the item from `localStorage`. Data is not persisted beyond the session/browser storage.
 
 function StretchHorizontal(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -46,7 +43,7 @@ function StretchHorizontal(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
-const WORKOUT_TYPES_FILTER = ["Wszystkie", "Siłowy", "Cardio", "Rozciąganie"];
+const WORKOUT_TYPES_FILTER = ["Wszystkie", "Siłowy", "Cardio", "Rozciąganie", "Mieszany", "Inny"]; // Expanded for DB types
 const ACTIVE_WORKOUT_AUTOSAVE_KEY_PREFIX = "activeWorkoutAutosave_";
 
 interface UnfinishedWorkoutInfo {
@@ -59,6 +56,8 @@ interface UnfinishedWorkoutInfo {
 export default function StartWorkoutPage() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = React.useState(true);
+  const [availableWorkouts, setAvailableWorkouts] = React.useState<Workout[]>([]);
+  const [fetchError, setFetchError] = React.useState<string | null>(null);
   const [searchTerm, setSearchTerm] = React.useState('');
   const [selectedWorkoutType, setSelectedWorkoutType] = React.useState('Wszystkie');
   const [unfinishedWorkoutInfo, setUnfinishedWorkoutInfo] = React.useState<UnfinishedWorkoutInfo | null>(null);
@@ -66,41 +65,61 @@ export default function StartWorkoutPage() {
 
 
   React.useEffect(() => {
-    setIsLoading(true);
-    let foundUnfinished = false;
-    // MOCK BACKEND LOGIC: Checks localStorage for any keys starting with ACTIVE_WORKOUT_AUTOSAVE_KEY_PREFIX
-    // to find previously started but unfinished workouts.
-    if (typeof window !== 'undefined') {
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith(ACTIVE_WORKOUT_AUTOSAVE_KEY_PREFIX)) {
-          const savedDataString = localStorage.getItem(key);
-          if (savedDataString) {
-            try {
-              const parsedData = JSON.parse(savedDataString);
-              if (parsedData.workoutId && parsedData.workoutName && parsedData.workoutStartTime) {
-                setUnfinishedWorkoutInfo({
-                  workoutId: parsedData.workoutId,
-                  workoutName: parsedData.workoutName,
-                  startTime: parsedData.workoutStartTime,
-                  autosaveKey: key,
-                });
-                foundUnfinished = true;
-                break;
+    async function loadData() {
+      setIsLoading(true);
+      setFetchError(null);
+      let foundUnfinished = false;
+
+      // MOCK BACKEND LOGIC: Checks localStorage for any keys starting with ACTIVE_WORKOUT_AUTOSAVE_KEY_PREFIX
+      // to find previously started but unfinished workouts.
+      if (typeof window !== 'undefined') {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith(ACTIVE_WORKOUT_AUTOSAVE_KEY_PREFIX)) {
+            const savedDataString = localStorage.getItem(key);
+            if (savedDataString) {
+              try {
+                const parsedData = JSON.parse(savedDataString);
+                if (parsedData.workoutId && parsedData.workoutName && parsedData.workoutStartTime) {
+                  setUnfinishedWorkoutInfo({
+                    workoutId: parsedData.workoutId,
+                    workoutName: parsedData.workoutName,
+                    startTime: parsedData.workoutStartTime,
+                    autosaveKey: key,
+                  });
+                  foundUnfinished = true;
+                  break;
+                }
+              } catch (e) {
+                console.error("Error parsing autosaved workout data:", e);
               }
-            } catch (e) {
-              console.error("Error parsing autosaved workout data:", e);
             }
           }
         }
       }
-    }
-    // Simulate a delay even if localStorage check is fast
-    const timer = setTimeout(() => {
-        setIsLoading(false);
-    }, 0); // Set to 0 for faster load
+      
+      // Fetch workout definitions from the API
+      try {
+        const response = await fetch('/api/workout-definitions');
+        if (!response.ok) {
+          throw new Error(`Failed to fetch workout definitions: ${response.statusText}`);
+        }
+        const result = await response.json();
+        if (result.success && result.data) {
+          setAvailableWorkouts(result.data);
+        } else {
+          setFetchError(result.message || "Could not load workout definitions.");
+          setAvailableWorkouts([]);
+        }
+      } catch (error) {
+        console.error("Error fetching workout definitions:", error);
+        setFetchError(error instanceof Error ? error.message : "An unknown error occurred.");
+        setAvailableWorkouts([]);
+      }
 
-    return () => clearTimeout(timer);
+      setIsLoading(false);
+    }
+    loadData();
   }, []);
 
   // MOCK BACKEND LOGIC: Simulates discarding an unfinished workout by removing its data from localStorage.
@@ -118,14 +137,14 @@ export default function StartWorkoutPage() {
 
   const filteredWorkouts = availableWorkouts.filter(workout => {
     const matchesSearch = workout.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          (workout.exercises.map(ex => ex.name).join(' ').toLowerCase().includes(searchTerm.toLowerCase())); // Search in exercise names too
-    const workoutType = MOCK_WORKOUTS_ACTIVE.find(w => w.id === workout.id)?.exercises[0]?.id.startsWith('ex6') || MOCK_WORKOUTS_ACTIVE.find(w => w.id === workout.id)?.exercises[0]?.id.startsWith('ex7') ? 'Cardio' : 'Siłowy'; // Simplified type detection for mock
+                          (workout.exercises.map(ex => ex.name).join(' ').toLowerCase().includes(searchTerm.toLowerCase()));
+    const workoutType = workout.type || "Inny"; // Fallback if type is not set from DB
     const matchesType = selectedWorkoutType === 'Wszystkie' || workoutType === selectedWorkoutType;
     return matchesSearch && matchesType;
   });
 
-  const getWorkoutIcon = (type: string | undefined) => { // Type can be undefined for custom workouts from plan
-    if (!type) return <Dumbbell className="mr-2 h-5 w-5 text-primary" />; // Default icon
+  const getWorkoutIcon = (type: string | undefined) => {
+    if (!type) return <Dumbbell className="mr-2 h-5 w-5 text-primary" />;
     switch (type.toLowerCase()) {
       case 'siłowy':
         return <Dumbbell className="mr-2 h-5 w-5 text-primary" />;
@@ -139,11 +158,10 @@ export default function StartWorkoutPage() {
   };
 
   if (isLoading) {
-    // return <StartWorkoutPageSkeleton />; // Removed for no-skeleton approach
     return (
         <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <p className="mt-4 text-muted-foreground">Wczytywanie...</p>
+            <p className="mt-4 text-muted-foreground">Wczytywanie treningów...</p>
         </div>
     );
   }
@@ -248,27 +266,40 @@ export default function StartWorkoutPage() {
           </div>
 
           <Separator className="my-6" />
+          
+          {fetchError && (
+            <Card className="mb-6 border-destructive bg-destructive/10">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-destructive-foreground">
+                  <AlertTriangle className="h-6 w-6" />
+                  Błąd Ładowania Treningów
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-destructive-foreground">
+                <p>{fetchError}</p>
+                <p className="mt-2">Spróbuj odświeżyć stronę lub skontaktuj się z administratorem.</p>
+              </CardContent>
+            </Card>
+          )}
 
-          {filteredWorkouts.length > 0 ? (
+
+          {!fetchError && filteredWorkouts.length > 0 ? (
             <ScrollArea className=" pr-4">
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {filteredWorkouts.map((workout) => (
                   <Card key={workout.id} className="flex flex-col hover:shadow-lg transition-shadow duration-200">
                     <CardHeader>
                       <CardTitle className="flex items-center text-xl">
-                        {getWorkoutIcon(workout.exercises[0]?.id.startsWith('ex6') || workout.exercises[0]?.id.startsWith('ex7') ? 'Cardio' : 'Siłowy')}
+                        {getWorkoutIcon(workout.type)}
                         {workout.name}
                       </CardTitle>
-                      <CardDescription>{workout.exercises[0]?.id.startsWith('ex6') || workout.exercises[0]?.id.startsWith('ex7') ? 'Cardio' : 'Siłowy'} - {workout.exercises.reduce((acc, ex) => acc + (ex.defaultRest || 0) + ( (typeof ex.defaultReps === 'string' && ex.defaultReps.includes('min') ? parseInt(ex.defaultReps) * 60 : 0) ), 0) / 60} min</CardDescription>
+                      <CardDescription>{workout.type || "Niestandardowy"} - {workout.exercises.length} ćw.</CardDescription>
                     </CardHeader>
                     <CardContent className="flex-grow">
                       <p className="text-sm text-muted-foreground line-clamp-3">{workout.exercises.map(ex => ex.name).join(', ')}</p>
                     </CardContent>
                     <CardFooter>
                       <Button asChild className="w-full">
-                        {/* MOCK BACKEND LOGIC: Clicking "Rozpocznij" navigates to the active workout page.
-                            The active workout page will load the workout structure based on its ID
-                            (from MOCK_WORKOUTS_ACTIVE or from localStorage if it's a custom/repeated plan workout). */}
                         <Link href={`/dashboard/workout/active/${workout.id}`}>
                           Rozpocznij
                         </Link>
@@ -279,22 +310,27 @@ export default function StartWorkoutPage() {
               </div>
             </ScrollArea>
           ) : (
-            <div className="mt-10 flex flex-col items-center justify-center text-center">
-              <Dumbbell className="mb-4 h-16 w-16 text-muted-foreground" />
-              <h3 className="text-xl font-semibold">Brak dostępnych treningów</h3>
-              <p className="text-muted-foreground mb-4">
-                {searchTerm || selectedWorkoutType !== 'Wszystkie' ? `Nie znaleziono treningów pasujących do Twoich kryteriów.` : "Nie masz jeszcze żadnych zapisanych treningów."}
-              </p>
-              <Button asChild size="lg">
-                <Link href="/dashboard/workout/create">
-                  <PlusCircle className="mr-2 h-5 w-5" />
-                  Utwórz Nowy Trening
-                </Link>
-              </Button>
-            </div>
+            !fetchError && (
+              <div className="mt-10 flex flex-col items-center justify-center text-center">
+                <Dumbbell className="mb-4 h-16 w-16 text-muted-foreground" />
+                <h3 className="text-xl font-semibold">Brak dostępnych treningów</h3>
+                <p className="text-muted-foreground mb-4">
+                  {searchTerm || selectedWorkoutType !== 'Wszystkie' 
+                    ? `Nie znaleziono treningów pasujących do Twoich kryteriów.` 
+                    : "Nie zdefiniowano jeszcze żadnych treningów. Możesz utworzyć nowy."}
+                </p>
+                <Button asChild size="lg">
+                  <Link href="/dashboard/workout/create">
+                    <PlusCircle className="mr-2 h-5 w-5" />
+                    Utwórz Nowy Trening
+                  </Link>
+                </Button>
+              </div>
+            )
           )}
         </div>
       </main>
     </div>
   );
 }
+
