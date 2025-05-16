@@ -493,6 +493,7 @@ export default function ReminderSettingsPage() {
                                                 {MOCK_PLANS_FOR_REMINDERS.map(plan => (
                                                     <SelectItem key={plan.id} value={plan.id}>{plan.name}</SelectItem>
                                                 ))}
+                                                 {MOCK_PLANS_FOR_REMINDERS.length === 0 && <SelectItem value="" disabled>Brak zdefiniowanych planów</SelectItem>}
                                             </SelectContent>
                                         </Select>
                                         <FormDescription>Przypomnienie zostanie wysłane o podanej godzinie w dni treningowe z tego planu (symulacja).</FormDescription>
