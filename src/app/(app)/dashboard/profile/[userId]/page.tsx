@@ -25,7 +25,8 @@ import {
   ArrowLeft, // For a potential back button if not using global AppHeader one
   UserPlus,
   Check,
-  Image as ImageIcon // Lucide Image icon
+  Image as ImageIcon, // Lucide Image icon
+  Dumbbell, // Added Dumbbell icon
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
