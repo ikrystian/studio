@@ -56,13 +56,13 @@ import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import type { Exercise as SelectableExerciseType } from "@/components/workout/exercise-selection-dialog";
 import type { QuickAddExerciseFormData } from "@/components/workout/quick-add-exercise-dialog";
-// import { CreateWorkoutPageSkeleton } from "@/components/workout/CreateWorkoutPageSkeleton"; // Removed for no-skeleton approach
+// Removed for no-skeleton approach
 import { MOCK_EXERCISES_DATABASE } from "@/lib/mockData";
 
-// MOCK BACKEND LOGIC: Exercise database (MOCK_EXERCISES_DATABASE) is imported from `src/lib/mockData.ts`.
-// "Quick Add Exercise" simulates adding to this master list (in-memory for this session).
-// Saving a workout ("Zapisz Trening") is a simulation; in a real app, it would POST to a backend.
-// There's no actual database persistence here beyond the session's in-memory state.
+// MOCK BACKEND LOGIC: 
+// - "Quick Add Exercise" simulates adding to a master list (in-memory for this session).
+// - Saving a workout ("Zapisz Trening") now POSTs data to a backend API (/api/workout-definitions/create)
+//   which then saves to the SQLite database.
 
 const ExerciseSelectionDialog = dynamic(() =>
   import("@/components/workout/exercise-selection-dialog").then((mod) => mod.ExerciseSelectionDialog), {
@@ -78,7 +78,7 @@ const QuickAddExerciseDialog = dynamic(() =>
 
 
 const exerciseInWorkoutSchema = z.object({
-  id: z.string(),
+  id: z.string(), // ID from the master exercises list
   name: z.string().min(1, "Nazwa ćwiczenia jest wymagana."),
   sets: z.union([z.coerce.number({invalid_type_error: "Serie muszą być liczbą."}).positive("Liczba serii musi być dodatnia.").optional().nullable(), z.literal("")]),
   reps: z.string().optional().nullable(),
@@ -102,15 +102,37 @@ export default function CreateWorkoutPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [pageIsLoading, setPageIsLoading] = React.useState(true);
-  const [isLoading, setIsLoading] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(false); // Used for form submission
   const [serverError, setServerError] = React.useState<string | null>(null);
 
   const [isExerciseSelectionDialogOpen, setIsExerciseSelectionDialogOpen] = React.useState(false);
   const [isQuickAddExerciseDialogOpen, setIsQuickAddExerciseDialogOpen] = React.useState(false);
 
   // MOCK BACKEND LOGIC: `masterExerciseList` starts with MOCK_EXERCISES_DATABASE and can be expanded
-  // by the "Quick Add Exercise" dialog. This simulates a global exercise database.
-  const [masterExerciseList, setMasterExerciseList] = React.useState<SelectableExerciseType[]>(MOCK_EXERCISES_DATABASE);
+  // by the "Quick Add Exercise" dialog. This simulates a global exercise database for selection.
+  const [masterExerciseList, setMasterExerciseList] = React.useState<SelectableExerciseType[]>([]);
+
+  React.useEffect(() => {
+    async function fetchExercises() {
+        try {
+            const response = await fetch('/api/exercises');
+            if (!response.ok) throw new Error('Nie udało się załadować listy ćwiczeń');
+            const data = await response.json();
+            if (data.success) {
+                setMasterExerciseList(data.data);
+            } else {
+                toast({ title: "Błąd", description: data.message || "Nie udało się załadować ćwiczeń.", variant: "destructive" });
+            }
+        } catch (error) {
+            toast({ title: "Błąd", description: "Nie udało się załadować ćwiczeń.", variant: "destructive" });
+            console.error(error);
+        } finally {
+            setPageIsLoading(false);
+        }
+    }
+    fetchExercises();
+  }, [toast]);
+
 
   const form = useForm<WorkoutFormValues>({
     resolver: zodResolver(workoutFormSchema),
@@ -125,13 +147,6 @@ export default function CreateWorkoutPage() {
     control: form.control,
     name: "exercises",
   });
-
-  React.useEffect(() => {
-    // Simulate loading delay if needed, or remove for faster load
-    const timer = setTimeout(() => setPageIsLoading(false), 0); // Set to 0 for faster load
-    return () => clearTimeout(timer);
-  }, []);
-
 
   const handleOpenExerciseSelectionDialog = () => {
     setIsExerciseSelectionDialogOpen(true);
@@ -170,15 +185,19 @@ export default function CreateWorkoutPage() {
     setIsQuickAddExerciseDialogOpen(true);
   };
 
-  // MOCK BACKEND LOGIC: "Quick Add Exercise" adds to the in-memory `masterExerciseList`,
-  // simulating an update to a global exercise database.
+  // MOCK BACKEND LOGIC (Quick Add): This adds to the client-side `masterExerciseList`.
+  // In a full app, this might also hit an API to add to the persistent exercise database.
   const handleQuickExerciseCreated = (newExerciseData: QuickAddExerciseFormData) => {
     const newDbExercise: SelectableExerciseType = {
-      id: uuidv4(),
+      id: `custom-${uuidv4().substring(0,8)}`, // Create a temporary client-side ID
       name: newExerciseData.name,
       category: newExerciseData.category || "Inne",
+      // instructions and videoUrl would be undefined here or set to defaults
     };
 
+    // For now, we only add to the local list for selection.
+    // A real implementation would POST this to an /api/exercises/create endpoint
+    // and then potentially re-fetch or optimistically update masterExerciseList.
     setMasterExerciseList(prev => [...prev, newDbExercise]);
 
     append({
@@ -192,8 +211,8 @@ export default function CreateWorkoutPage() {
     });
 
     toast({
-      title: "Ćwiczenie Dodane!",
-      description: `"${newDbExercise.name}" zostało dodane do bazy i obecnego treningu.`,
+      title: "Ćwiczenie Dodane (Lokalnie)!",
+      description: `"${newDbExercise.name}" zostało dodane do listy wyboru i obecnego treningu. Zmiany w głównej bazie ćwiczeń nie są tutaj symulowane.`,
     });
     setIsQuickAddExerciseDialogOpen(false);
     if (form.formState.errors.exercises && typeof form.formState.errors.exercises.message === 'string') {
@@ -227,37 +246,72 @@ export default function CreateWorkoutPage() {
     form.setValue(`exercises.${index}.exerciseNotes`, "Załadowano domyślne parametry (symulacja).");
     toast({
       title: "Domyślne Parametry Załadowane (Symulacja)",
-      description: `Ustawiono domyślne wartości dla ćwiczenia: ${form.getValues(`exercises.${index}.name`)}. Funkcja pełnego wczytywania domyślnych ustawień wkrótce!`,
+      description: `Ustawiono domyślne wartości dla ćwiczenia: ${form.getValues(`exercises.${index}.name`)}.`,
     });
   };
 
-  // MOCK BACKEND LOGIC: Saving a workout is simulated. In a real app, this would involve
-  // an API call to store the workout structure (name, type, exercises with their parameters)
-  // in a database. The `masterExerciseList` also represents a simulated global DB state.
   async function onSubmit(values: WorkoutFormValues) {
     setIsLoading(true);
     setServerError(null);
-    console.log("Workout data submitted (simulated save):", values);
-    console.log("Current Master Exercise List (simulated DB state):", masterExerciseList);
+    
+    const payload = {
+      workoutName: values.workoutName,
+      workoutType: values.workoutType,
+      exercises: values.exercises.map(ex => ({
+        id: ex.id, // This ID comes from the master list (or custom generated if quick-added)
+        name: ex.name, // This is for display, actual link is via id
+        sets: ex.sets,
+        reps: ex.reps,
+        restTimeSeconds: ex.restTimeSeconds,
+        targetRpe: ex.targetRpe,
+        exerciseNotes: ex.exerciseNotes,
+      })),
+    };
 
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    console.log("Submitting workout data to API:", payload);
 
-    toast({
-      title: "Trening zapisany (Symulacja)!",
-      description: `Trening "${values.workoutName}" został pomyślnie utworzony.`,
-      variant: "default",
-      duration: 3000,
-    });
-    router.push("/dashboard/workout/start");
-    setIsLoading(false);
+    try {
+      const response = await fetch('/api/workout-definitions/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        toast({
+          title: "Trening zapisany!",
+          description: `Trening "${values.workoutName}" został pomyślnie zapisany w bazie danych.`,
+          variant: "default",
+        });
+        router.push("/dashboard/workout/start"); // Or to plan list, or plan detail if editing
+      } else {
+        setServerError(result.message || "Wystąpił błąd podczas zapisywania treningu.");
+        toast({
+          title: "Błąd Zapisu",
+          description: result.message || "Nie udało się zapisać treningu.",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error("API call error:", error);
+      setServerError("Nie udało się połączyć z serwerem. Spróbuj ponownie później.");
+      toast({
+        title: "Błąd Połączenia",
+        description: "Nie udało się połączyć z serwerem.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   if (pageIsLoading) {
-    // return <CreateWorkoutPageSkeleton />; // Removed for no-skeleton approach
     return (
         <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <p className="mt-4 text-muted-foreground">Wczytywanie...</p>
+            <p className="mt-4 text-muted-foreground">Wczytywanie edytora treningów...</p>
         </div>
     );
   }
@@ -370,7 +424,7 @@ export default function CreateWorkoutPage() {
                   ) : (
                     <ul className="space-y-6">
                       {fields.map((item, index) => (
-                        <li key={item.id}>
+                        <li key={item.id}> {/* Use item.id from useFieldArray which should be unique */}
                           <Card className="bg-card p-4 shadow-md">
                             <div className="flex items-start justify-between gap-2 mb-4">
                               <div className="flex items-center gap-2 flex-grow min-w-0">
