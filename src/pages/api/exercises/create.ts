@@ -36,14 +36,13 @@ export default async function handler(
         VALUES (@id, @name, @category, @createdBy_user_id)
       `);
       
-      // In a real app, createdBy_user_id would come from the authenticated user's session
-      const mockUserId = 'current_user_id'; // Placeholder
-
+      // Set createdBy_user_id to NULL as we don't have a real user session here yet.
+      // The schema allows for NULL (ON DELETE SET NULL).
       stmt.run({
         id: newExerciseId,
         name: name.trim(),
         category: category || 'Inne', // Default category if not provided
-        createdBy_user_id: mockUserId, 
+        createdBy_user_id: null, 
       });
 
       const newExercise: SelectableExerciseType = {
