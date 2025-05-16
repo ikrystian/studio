@@ -78,7 +78,7 @@ const registrationSchema = z
       required_error: "Date of birth is required.",
       invalid_type_error: "Invalid date format.",
     }),
-    gender: z.enum(["male", "female"], { 
+    gender: z.enum(["male", "female"], {
       required_error: "Gender is required.",
     }),
     weight: z.coerce
@@ -87,14 +87,14 @@ const registrationSchema = z
       .min(1, "Weight must be at least 1 kg.")
       .max(500, "Weight cannot exceed 500 kg.")
       .optional()
-      .or(z.literal("")), // Allow empty string, will be converted to undefined/null
+      .or(z.literal("")),
     height: z.coerce
       .number({ invalid_type_error: "Height must be a number."})
       .positive("Height must be a positive number.")
       .min(50, "Height must be at least 50 cm.")
       .max(300, "Height cannot exceed 300 cm.")
       .optional()
-      .or(z.literal("")), // Allow empty string, will be converted to undefined/null
+      .or(z.literal("")),
     fitnessLevel: z.enum(["beginner", "intermediate", "advanced"], {
       required_error: "Fitness level is required.",
     }),
@@ -141,17 +141,14 @@ export function RegistrationForm() {
       fullName: values.fullName,
       email: values.email,
       password: values.password,
-      // Ensure dateOfBirth is sent as ISO string if defined, otherwise undefined
       dateOfBirth: values.dateOfBirth ? values.dateOfBirth.toISOString() : undefined,
       gender: values.gender,
-      // Convert empty string to undefined for optional number fields
       weight: values.weight === "" ? undefined : Number(values.weight),
       height: values.height === "" ? undefined : Number(values.height),
       fitnessLevel: values.fitnessLevel,
     };
     
     console.log("Submitting registration data to API:", userData);
-
 
     try {
       const response = await fetch('/api/auth/register', {
@@ -187,50 +184,50 @@ export function RegistrationForm() {
   }
 
   return (
-    <Card className="w-full max-w-2xl shadow-2xl">
-      <CardHeader className="text-center">
-        <CardTitle className="text-3xl font-bold">Create Your WorkoutWise Account</CardTitle>
-        <CardDescription>
+    <Card className={cn("w-full max-w-2xl shadow-2xl", "registration-form-card")}>
+      <CardHeader className={cn("text-center", "registration-form-header")}>
+        <CardTitle className={cn("text-3xl font-bold", "registration-form-title")}>Create Your WorkoutWise Account</CardTitle>
+        <CardDescription className="registration-form-description">
           Fill in the details below to get started.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className={cn("space-y-6", "registration-form-content")}>
         {serverError && (
-          <Alert variant="destructive">
+          <Alert variant="destructive" className="registration-form-server-error-alert">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Registration Failed</AlertTitle>
             <AlertDescription>{serverError}</AlertDescription>
           </Alert>
         )}
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 registration-main-form">
             
-            <div className="flex flex-col items-center space-y-2 mb-6">
+            <div className="flex flex-col items-center space-y-2 mb-6 registration-avatar-section">
               <FormLabel>Zdjęcie Profilowe (opcjonalnie)</FormLabel>
-              <Avatar className="h-24 w-24">
+              <Avatar className="h-24 w-24 registration-avatar-preview">
                 <AvatarImage src="" alt="Profile picture placeholder" data-ai-hint="profile avatar placeholder" />
                 <AvatarFallback>
                   <ImageIcon className="h-12 w-12 text-muted-foreground" />
                 </AvatarFallback>
               </Avatar>
-              <Button type="button" variant="outline" size="sm" disabled>
+              <Button type="button" variant="outline" size="sm" disabled className="registration-avatar-button">
                 <ImageIcon className="mr-2 h-4 w-4" />
                 Dodaj zdjęcie (wkrótce)
               </Button>
-              <FormDescription className="text-xs text-center">Możliwość dodania zdjęcia będzie dostępna wkrótce.</FormDescription>
+              <FormDescription className="text-xs text-center registration-avatar-description">Możliwość dodania zdjęcia będzie dostępna wkrótce.</FormDescription>
             </div>
 
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 registration-fields-grid">
               <FormField
                 control={form.control}
                 name="fullName"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="registration-fullname-item">
                     <FormLabel>Full Name</FormLabel>
                     <FormControl>
                       <div className="relative">
                         <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input placeholder="John Doe" {...field} className="pl-10" disabled={isLoading} />
+                        <Input placeholder="John Doe" {...field} className="pl-10 registration-fullname-input" disabled={isLoading} />
                       </div>
                     </FormControl>
                     <FormMessage />
@@ -241,12 +238,12 @@ export function RegistrationForm() {
                 control={form.control}
                 name="email"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="registration-email-item">
                     <FormLabel>Email</FormLabel>
                     <FormControl>
                       <div className="relative">
                         <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input type="email" placeholder="yourname@example.com" {...field} className="pl-10" disabled={isLoading} />
+                        <Input type="email" placeholder="yourname@example.com" {...field} className="pl-10 registration-email-input" disabled={isLoading} />
                       </div>
                     </FormControl>
                     <FormMessage />
@@ -257,7 +254,7 @@ export function RegistrationForm() {
                 control={form.control}
                 name="password"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="registration-password-item">
                     <FormLabel>Password</FormLabel>
                     <FormControl>
                       <div className="relative">
@@ -266,14 +263,14 @@ export function RegistrationForm() {
                           type={showPassword ? "text" : "password"}
                           placeholder="••••••••"
                           {...field}
-                          className="pl-10 pr-10"
+                          className="pl-10 pr-10 registration-password-input"
                           disabled={isLoading}
                         />
                         <Button
                           type="button"
                           variant="ghost"
                           size="sm"
-                          className="absolute right-1 top-1/2 -translate-y-1/2 px-2"
+                          className="absolute right-1 top-1/2 -translate-y-1/2 px-2 registration-password-toggle"
                           onClick={() => setShowPassword(!showPassword)}
                           disabled={isLoading}
                           aria-label={showPassword ? "Hide password" : "Show password"}
@@ -282,7 +279,7 @@ export function RegistrationForm() {
                         </Button>
                       </div>
                     </FormControl>
-                    <FormDescription className="text-xs">
+                    <FormDescription className="text-xs registration-password-description">
                       Min 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special.
                     </FormDescription>
                     <FormMessage />
@@ -293,7 +290,7 @@ export function RegistrationForm() {
                 control={form.control}
                 name="confirmPassword"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="registration-confirm-password-item">
                     <FormLabel>Confirm Password</FormLabel>
                     <FormControl>
                       <div className="relative">
@@ -302,14 +299,14 @@ export function RegistrationForm() {
                           type={showConfirmPassword ? "text" : "password"}
                           placeholder="••••••••"
                           {...field}
-                          className="pl-10 pr-10"
+                          className="pl-10 pr-10 registration-confirm-password-input"
                           disabled={isLoading}
                         />
                          <Button
                           type="button"
                           variant="ghost"
                           size="sm"
-                          className="absolute right-1 top-1/2 -translate-y-1/2 px-2"
+                          className="absolute right-1 top-1/2 -translate-y-1/2 px-2 registration-confirm-password-toggle"
                           onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                           disabled={isLoading}
                           aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
@@ -326,7 +323,7 @@ export function RegistrationForm() {
                 control={form.control}
                 name="dateOfBirth"
                 render={({ field }) => (
-                  <FormItem className="flex flex-col">
+                  <FormItem className="flex flex-col registration-dob-item">
                     <FormLabel>Date of Birth</FormLabel>
                     <Popover>
                       <PopoverTrigger asChild>
@@ -334,7 +331,7 @@ export function RegistrationForm() {
                           <Button
                             variant={"outline"}
                             className={cn(
-                              "w-full pl-3 text-left font-normal",
+                              "w-full pl-3 text-left font-normal registration-dob-button",
                               !field.value && "text-muted-foreground"
                             )}
                             disabled={isLoading}
@@ -348,7 +345,7 @@ export function RegistrationForm() {
                           </Button>
                         </FormControl>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
+                      <PopoverContent className="w-auto p-0 registration-dob-popover" align="start">
                         <Calendar
                           mode="single"
                           selected={field.value}
@@ -372,7 +369,7 @@ export function RegistrationForm() {
                 control={form.control}
                 name="gender"
                 render={({ field }) => (
-                  <FormItem className="space-y-3">
+                  <FormItem className="space-y-3 registration-gender-item">
                     <FormLabel>Gender</FormLabel>
                     <FormControl>
                       <RadioGroup
@@ -381,13 +378,13 @@ export function RegistrationForm() {
                         className="flex flex-col space-y-1 md:flex-row md:space-y-0 md:space-x-4"
                         disabled={isLoading}
                       >
-                        <FormItem className="flex items-center space-x-2 space-y-0">
+                        <FormItem className="flex items-center space-x-2 space-y-0 registration-gender-male">
                           <FormControl>
                             <RadioGroupItem value="male" />
                           </FormControl>
                           <FormLabel className="font-normal">Mężczyzna</FormLabel>
                         </FormItem>
-                        <FormItem className="flex items-center space-x-2 space-y-0">
+                        <FormItem className="flex items-center space-x-2 space-y-0 registration-gender-female">
                           <FormControl>
                             <RadioGroupItem value="female" />
                           </FormControl>
@@ -403,12 +400,12 @@ export function RegistrationForm() {
                 control={form.control}
                 name="weight"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="registration-weight-item">
                     <FormLabel>Weight (optional)</FormLabel>
                     <FormControl>
                       <div className="relative">
                         <Weight className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input type="number" placeholder="e.g., 70 (in kg)" {...field} className="pl-10" disabled={isLoading}/>
+                        <Input type="number" placeholder="e.g., 70 (in kg)" {...field} className="pl-10 registration-weight-input" disabled={isLoading}/>
                       </div>
                     </FormControl>
                     <FormMessage />
@@ -419,12 +416,12 @@ export function RegistrationForm() {
                 control={form.control}
                 name="height"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="registration-height-item">
                     <FormLabel>Height (optional)</FormLabel>
                     <FormControl>
                        <div className="relative">
                         <Ruler className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input type="number" placeholder="e.g., 175 (in cm)" {...field} className="pl-10" disabled={isLoading} />
+                        <Input type="number" placeholder="e.g., 175 (in cm)" {...field} className="pl-10 registration-height-input" disabled={isLoading} />
                       </div>
                     </FormControl>
                     <FormMessage />
@@ -436,11 +433,11 @@ export function RegistrationForm() {
               control={form.control}
               name="fitnessLevel"
               render={({ field }) => (
-                <FormItem>
+                <FormItem className="registration-fitnesslevel-item">
                   <FormLabel>Fitness Level</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading}>
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className="registration-fitnesslevel-trigger">
                         <TrendingUp className="mr-2 h-4 w-4 text-muted-foreground" />
                         <SelectValue placeholder="Select your fitness level" />
                       </SelectTrigger>
@@ -459,23 +456,24 @@ export function RegistrationForm() {
               control={form.control}
               name="termsAccepted"
               render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow-sm">
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow-sm registration-terms-item">
                   <FormControl>
                     <Checkbox
                       checked={field.value}
                       onCheckedChange={field.onChange}
                       disabled={isLoading}
                       aria-labelledby="terms-label"
+                      className="registration-terms-checkbox"
                     />
                   </FormControl>
                   <div className="space-y-1 leading-none">
-                    <FormLabel id="terms-label" className="cursor-pointer">
+                    <FormLabel id="terms-label" className="cursor-pointer registration-terms-label">
                       I accept the{" "}
-                      <Link href="/terms" className="font-medium text-primary hover:underline" target="_blank">
+                      <Link href="/terms" className="font-medium text-primary hover:underline registration-terms-link" target="_blank">
                         terms and conditions
                       </Link>{" "}
                       and{" "}
-                      <Link href="/privacy" className="font-medium text-primary hover:underline" target="_blank">
+                      <Link href="/privacy" className="font-medium text-primary hover:underline registration-privacy-link" target="_blank">
                         privacy policy
                       </Link>
                       .
@@ -485,7 +483,7 @@ export function RegistrationForm() {
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button type="submit" className={cn("w-full", "registration-submit-button")} disabled={isLoading}>
               {isLoading ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
@@ -495,10 +493,10 @@ export function RegistrationForm() {
           </form>
         </Form>
       </CardContent>
-      <CardFooter className="flex flex-col items-center space-y-2 text-sm">
-        <p className="text-muted-foreground">
+      <CardFooter className={cn("flex flex-col items-center space-y-2 text-sm", "registration-form-footer")}>
+        <p className="text-muted-foreground registration-login-prompt">
           Already have an account?{" "}
-          <Link href="/login" className="font-medium text-primary hover:underline">
+          <Link href="/login" className="font-medium text-primary hover:underline registration-login-link">
             Login
           </Link>
         </p>

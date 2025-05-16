@@ -37,13 +37,14 @@ import {
   User as UserIcon,
   Users,
   XCircle,
+  MessageSquare, // For Wellness Journal
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Skeleton } from "@/components/ui/skeleton";
 
 const MOCK_USER_DATA = {
-  name: 'Alex',
+  name: 'Alex', // This will be overridden by MOCK_HEADER_USER in AppHeader for display
   avatarUrl: 'https://placehold.co/100x100.png?text=AV',
   id: 'current_user_id'
 };
@@ -54,7 +55,7 @@ const MOCK_LAST_WORKOUT = {
   duration: '45 min',
   calories: '350 kcal',
   exercises: 5,
-  link: '/dashboard/history/hist1',
+  link: '/dashboard/history/hist1', // Ensure this path is correct
 };
 
 const MOCK_PROGRESS_STATS = {
@@ -65,7 +66,7 @@ const MOCK_PROGRESS_STATS = {
 };
 
 const MOCK_UPCOMING_REMINDERS = [
-  { id: 1, title: 'Leg Day', time: 'Tomorrow, 10:00 AM', link: '/dashboard/plans/plan1' },
+  { id: 1, title: 'Leg Day', time: 'Tomorrow, 10:00 AM', link: '/dashboard/plans/plan1' }, // Ensure paths are correct
   { id: 2, title: 'Cardio Session', time: 'Wednesday, 6:00 PM', link: '/dashboard/plans/plan2' },
 ];
 
@@ -85,7 +86,7 @@ const ALL_NAV_ITEMS: NavItem[] = [
   { id: 'community', href: '/dashboard/community', label: 'Społeczność', icon: Users, description: 'Połącz się z innymi.' },
   { id: 'measurements', href: '/dashboard/measurements', label: 'Pomiary Ciała', icon: Scale, description: 'Rejestruj wagę i obwody.' },
   { id: 'progress-photos', href: '/dashboard/progress-photos', label: 'Zdjęcia Postępu', icon: Camera, description: 'Dokumentuj zmiany wizualne.' },
-  { id: 'wellness-journal', href: '/dashboard/wellness-journal', label: 'Dziennik Samopoczucia', icon: HeartPulse, description: 'Monitoruj swoje samopoczucie.' },
+  { id: 'wellness-journal', href: '/dashboard/wellness-journal', label: 'Dziennik Samopoczucia', icon: MessageSquare, description: 'Monitoruj swoje samopoczucie.' },
   { id: 'hydration', href: '/dashboard/hydration', label: 'Śledzenie Nawodnienia', icon: GlassWater, description: 'Monitoruj spożycie wody.' },
   { id: 'statistics', href: '/dashboard/statistics', label: 'Statystyki', icon: BarChart3, description: 'Analizuj swoje postępy.'},
   { id: 'my-account', href: '/dashboard/account', label: 'Moje Konto', icon: Settings2, description: 'Zarządzaj ustawieniami konta.' },
@@ -93,11 +94,10 @@ const ALL_NAV_ITEMS: NavItem[] = [
   { id: 'rest-timer', href: '/dashboard/tools/rest-timer', label: 'Timer Odpoczynku', icon: Timer, description: 'Niezależny stoper odpoczynku.' },
 ];
 
-// New component for a single quick action item
 const SingleQuickActionCard: React.FC<{ item: NavItem }> = ({ item }) => {
   const IconComponent = item.icon;
   return (
-    <Card className="hover:shadow-lg transition-shadow duration-200">
+    <Card className={cn("hover:shadow-lg transition-shadow duration-200", `dashboard-quick-action-card dashboard-quick-action-${item.id}`)}>
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center text-lg">
           <IconComponent className="mr-2 h-5 w-5 text-primary" />
@@ -138,7 +138,7 @@ const SingleQuickActionCardSkeleton: React.FC = () => (
 
 
 const LastWorkoutWidget: React.FC = () => (
-  <Card>
+  <Card className="dashboard-widget-last-workout">
     <CardHeader>
       <CardTitle className="flex items-center text-lg">
         <Activity className="mr-2 h-5 w-5 text-primary" /> Ostatni trening
@@ -181,7 +181,7 @@ const LastWorkoutWidgetSkeleton: React.FC = () => (
 );
 
 const ProgressStatsWidget: React.FC = () => (
-  <Card>
+  <Card className="dashboard-widget-progress-stats">
     <CardHeader>
       <CardTitle className="flex items-center text-lg">
         <BarChart3 className="mr-2 h-5 w-5 text-primary" /> Statystyki postępu
@@ -238,7 +238,7 @@ const ProgressStatsWidgetSkeleton: React.FC = () => (
 );
 
 const UpcomingRemindersWidget: React.FC = () => (
-  <Card>
+  <Card className="dashboard-widget-upcoming-reminders">
     <CardHeader>
       <CardTitle className="flex items-center text-lg">
         <CalendarDays className="mr-2 h-5 w-5 text-primary" /> Nadchodzące przypomnienia
@@ -308,21 +308,20 @@ const generateQuickActionWidgets = (): DashboardWidgetConfig[] => {
     title: item.label,
     component: <SingleQuickActionCard item={item} />,
     skeletonComponent: <SingleQuickActionCardSkeleton />,
-    area: 'main',
-    defaultOrder: index + 1, // Simple sequential order for quick actions
+    area: 'main', // Quick actions are now main area widgets
+    defaultOrder: index + 1, 
     defaultVisible: true,
   }));
 };
 
 const INITIAL_DASHBOARD_LAYOUT: DashboardWidgetConfig[] = [
   ...generateQuickActionWidgets(),
-  // Sidebar widgets will have higher order numbers in 'sidebar' area
   { id: 'last-workout', title: 'Ostatni Trening', component: <LastWorkoutWidget />, skeletonComponent: <LastWorkoutWidgetSkeleton />, area: 'sidebar', defaultOrder: 1, defaultVisible: true },
   { id: 'progress-stats', title: 'Statystyki Postępu', component: <ProgressStatsWidget />, skeletonComponent: <ProgressStatsWidgetSkeleton />, area: 'sidebar', defaultOrder: 2, defaultVisible: true },
   { id: 'upcoming-reminders', title: 'Nadchodzące Przypomnienia', component: <UpcomingRemindersWidget />, skeletonComponent: <UpcomingRemindersWidgetSkeleton />, area: 'sidebar', defaultOrder: 3, defaultVisible: true },
 ];
 
-const DASHBOARD_LAYOUT_STORAGE_KEY = "dashboardLayoutConfigV3"; // Incremented version to avoid conflicts
+const DASHBOARD_LAYOUT_STORAGE_KEY = "dashboardLayoutConfigV3";
 
 export default function DashboardPage() {
   const { toast } = useToast();
@@ -356,10 +355,9 @@ export default function DashboardPage() {
           };
         });
         
-        // Ensure all widgets from INITIAL_DASHBOARD_LAYOUT are present, add if missing from saved
         baseLayout.forEach(initialWidget => {
           if (!loadedLayout.find(w => w.id === initialWidget.id)) {
-            loadedLayout.push({ ...initialWidget }); // Add with its default settings
+            loadedLayout.push({ ...initialWidget, isVisible: initialWidget.defaultVisible, currentOrder: initialWidget.defaultOrder });
           }
         });
 
@@ -388,7 +386,7 @@ export default function DashboardPage() {
 
   const handleMoveWidget = (widgetId: string, direction: 'up' | 'down') => {
     setDashboardWidgets(prevWidgets => {
-      const newWidgets = prevWidgets.map(w => ({...w}));
+      const newWidgets = prevWidgets.map(w => ({...w})); // Deep copy
       const widgetIndex = newWidgets.findIndex(w => w.id === widgetId);
       if (widgetIndex === -1) return prevWidgets;
 
@@ -432,12 +430,12 @@ export default function DashboardPage() {
   };
 
   const handleEnterEditMode = () => {
-    setWidgetsBeforeEdit(dashboardWidgets.map(w => ({...w})));
+    setWidgetsBeforeEdit(JSON.parse(JSON.stringify(dashboardWidgets))); // Deep copy for cancel
     setIsEditMode(true);
   };
 
   const handleCancelEdit = () => {
-    setDashboardWidgets(widgetsBeforeEdit.map(w => ({...w})));
+    setDashboardWidgets(JSON.parse(JSON.stringify(widgetsBeforeEdit))); // Restore from copy
     setIsEditMode(false);
     toast({ title: "Zmiany w układzie anulowane." });
   };
@@ -475,28 +473,28 @@ export default function DashboardPage() {
 
   return (
     <>
-      <div className="sticky top-16 z-30 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/50">
+      <div className="sticky top-16 z-30 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/50 dashboard-page-header">
         <div className="container mx-auto flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-4">
-            <h2 className="text-2xl font-semibold tracking-tight">
+            <h2 className="text-2xl font-semibold tracking-tight dashboard-welcome-message">
               Witaj, <span className="text-primary">{userName}</span>!
             </h2>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 dashboard-controls-container">
             {isEditMode ? (
               <>
-                <Button variant="outline" size="sm" onClick={handleRestoreDefaults}>
+                <Button variant="outline" size="sm" onClick={handleRestoreDefaults} className="dashboard-restore-defaults-button">
                   <RotateCcw className="h-4 w-4 mr-1 sm:mr-2" /> <span className="hidden sm:inline">Domyślne</span>
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleCancelEdit}>
+                <Button variant="outline" size="sm" onClick={handleCancelEdit} className="dashboard-cancel-edit-button">
                   <XCircle className="h-4 w-4 mr-1 sm:mr-2" /> <span className="hidden sm:inline">Anuluj</span>
                 </Button>
-                <Button size="sm" onClick={handleSaveLayout}>
+                <Button size="sm" onClick={handleSaveLayout} className="dashboard-save-layout-button">
                   <Save className="h-4 w-4 mr-1 sm:mr-2" /> <span className="hidden sm:inline">Zapisz Układ</span>
                 </Button>
               </>
             ) : (
-              <Button variant="outline" size="sm" onClick={handleEnterEditMode}>
+              <Button variant="outline" size="sm" onClick={handleEnterEditMode} className="dashboard-customize-button">
                 <Edit className="h-4 w-4 mr-1 sm:mr-2" /> Dostosuj Dashboard
               </Button>
             )}
@@ -504,69 +502,68 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="container mx-auto py-6 px-4 sm:px-6 lg:px-8">
+      <div className="container mx-auto py-6 px-4 sm:px-6 lg:px-8 dashboard-content-area">
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
-            {/* Main content area - now renders individual quick actions and other main widgets */}
-            <div className="lg:col-span-2 space-y-6">
+            <div className="lg:col-span-2 space-y-6 dashboard-main-content">
               {mainAreaWidgets.map(widget => (
-                 <div key={widget.id} className={cn(isEditMode && "border-2 border-dashed border-primary/50 p-2 rounded-lg bg-primary/5 mb-4 relative")}>
+                 <div key={widget.id} className={cn("dashboard-widget-wrapper", isEditMode && "border-2 border-dashed border-primary/50 p-2 rounded-lg bg-primary/5 mb-4 relative")}>
                   {isEditMode && (
-                    <div className="absolute top-1 right-1 bg-card border-l border-b border-primary/50 rounded-bl-md p-0.5 z-10 flex gap-0 items-center">
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleToggleWidgetVisibility(widget.id)} title={widget.isVisible ? "Ukryj widget" : "Pokaż widget"}>
+                    <div className="absolute top-1 right-1 bg-card border-l border-b border-primary/50 rounded-bl-md p-0.5 z-10 flex gap-0 items-center widget-edit-controls">
+                      <Button variant="ghost" size="icon" className="h-6 w-6 widget-toggle-visibility-button" onClick={() => handleToggleWidgetVisibility(widget.id)} title={widget.isVisible ? "Ukryj widget" : "Pokaż widget"}>
                         {widget.isVisible ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleMoveWidget(widget.id, 'up')} title="Przesuń w górę">
+                      <Button variant="ghost" size="icon" className="h-6 w-6 widget-move-up-button" onClick={() => handleMoveWidget(widget.id, 'up')} title="Przesuń w górę">
                         <MoveUp className="h-3 w-3" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleMoveWidget(widget.id, 'down')} title="Przesuń w dół">
+                      <Button variant="ghost" size="icon" className="h-6 w-6 widget-move-down-button" onClick={() => handleMoveWidget(widget.id, 'down')} title="Przesuń w dół">
                         <MoveDown className="h-3 w-3" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => toast({description: "Zmiana rozmiaru - Wkrótce!"})} title="Zmień rozmiar (Wkrótce)">
+                      <Button variant="ghost" size="icon" className="h-6 w-6 widget-resize-button" onClick={() => toast({description: "Zmiana rozmiaru - Wkrótce!"})} title="Zmień rozmiar (Wkrótce)">
                         <Maximize2 className="h-3 w-3" />
                       </Button>
                     </div>
                   )}
                   <div className={cn(isEditMode && "pt-6")}>
                     {isEditMode && (
-                        <p className="text-xs font-semibold text-primary/70 mb-1 ml-1">{widget.title}</p>
+                        <p className="text-xs font-semibold text-primary/70 mb-1 ml-1 widget-edit-title">{widget.title}</p>
                     )}
                     {renderWidgetContent(widget)}
                   </div>
                 </div>
               ))}
               {mainAreaWidgets.length === 0 && !pageIsLoading && (
-                <Card>
+                <Card className="dashboard-empty-main-area">
                     <CardHeader><CardTitle>Brak widgetów</CardTitle></CardHeader>
                     <CardContent><p className="text-muted-foreground">Wszystkie widgety w tej sekcji są ukryte. Włącz tryb edycji, aby je pokazać.</p></CardContent>
                 </Card>
               )}
             </div>
-            <aside className="space-y-6 lg:col-span-1">
+            <aside className="space-y-6 lg:col-span-1 dashboard-sidebar-content">
               {sidebarAreaWidgets.map(widget => (
-                <div key={widget.id} className={cn(isEditMode && "border-2 border-dashed border-primary/50 p-2 rounded-lg bg-primary/5 mb-4 relative")}>
+                <div key={widget.id} className={cn("dashboard-widget-wrapper", isEditMode && "border-2 border-dashed border-primary/50 p-2 rounded-lg bg-primary/5 mb-4 relative")}>
                   {isEditMode && (
-                     <div className="absolute top-1 right-1 bg-card border-l border-b border-primary/50 rounded-bl-md p-0.5 z-10 flex gap-0 items-center">
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleToggleWidgetVisibility(widget.id)} title={widget.isVisible ? "Ukryj widget" : "Pokaż widget"}>
+                     <div className="absolute top-1 right-1 bg-card border-l border-b border-primary/50 rounded-bl-md p-0.5 z-10 flex gap-0 items-center widget-edit-controls">
+                      <Button variant="ghost" size="icon" className="h-6 w-6 widget-toggle-visibility-button" onClick={() => handleToggleWidgetVisibility(widget.id)} title={widget.isVisible ? "Ukryj widget" : "Pokaż widget"}>
                         {widget.isVisible ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleMoveWidget(widget.id, 'up')} title="Przesuń w górę">
+                      <Button variant="ghost" size="icon" className="h-6 w-6 widget-move-up-button" onClick={() => handleMoveWidget(widget.id, 'up')} title="Przesuń w górę">
                         <MoveUp className="h-3 w-3" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleMoveWidget(widget.id, 'down')} title="Przesuń w dół">
+                      <Button variant="ghost" size="icon" className="h-6 w-6 widget-move-down-button" onClick={() => handleMoveWidget(widget.id, 'down')} title="Przesuń w dół">
                         <MoveDown className="h-3 w-3" />
                       </Button>
                     </div>
                   )}
                   <div className={cn(isEditMode && "pt-6")}>
                      {isEditMode && (
-                        <p className="text-xs font-semibold text-primary/70 mb-1 ml-1">{widget.title}</p>
+                        <p className="text-xs font-semibold text-primary/70 mb-1 ml-1 widget-edit-title">{widget.title}</p>
                     )}
                     {renderWidgetContent(widget)}
                   </div>
                 </div>
               ))}
               {sidebarAreaWidgets.length === 0 && !pageIsLoading && (
-                <Card>
+                <Card className="dashboard-empty-sidebar-area">
                     <CardHeader><CardTitle>Brak widgetów</CardTitle></CardHeader>
                     <CardContent><p className="text-muted-foreground">Wszystkie widgety w tej sekcji są ukryte. Włącz tryb edycji, aby je pokazać.</p></CardContent>
                 </Card>
@@ -577,5 +574,3 @@ export default function DashboardPage() {
     </>
   );
 }
-
-    

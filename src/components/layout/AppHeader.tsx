@@ -15,12 +15,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { cn } from '@/lib/utils';
 
 // Mock user data for the header - Ensure this user has 'admin' role for the link to show
 const MOCK_HEADER_USER = {
-  name: 'Jan Kowalski',
-  avatarUrl: 'https://placehold.co/100x100.png?text=JK',
-  initials: 'JK',
+  name: 'Jan Kowalski', // Zgodnie z profilem
+  avatarUrl: 'https://placehold.co/100x100.png?text=JK', // Zgodnie z profilem
+  initials: 'JK', // Zgodnie z profilem
   profileLink: '/dashboard/profile/current_user_id',
   accountSettingsLink: '/dashboard/account',
   role: 'admin', // This user is an admin
@@ -31,49 +32,50 @@ export function AppHeader() {
 
   const handleLogout = () => {
     console.log("User logging out...");
+    // Simulate API call if needed
+    // In a real app, you'd clear session/token here
     router.push('/login?status=logged_out');
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
-        <Link href="/dashboard" className="flex items-center gap-2">
-          <Dumbbell className="h-7 w-7 text-primary" />
-          <span className="text-xl font-bold">WorkoutWise</span>
+    <header className={cn("sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60", "app-header")}>
+      <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8 app-header-container">
+        <Link href="/dashboard" className="flex items-center gap-2 app-header-logo-link">
+          <Dumbbell className="h-7 w-7 text-primary app-header-logo-icon" />
+          <span className="text-xl font-bold app-header-title">WorkoutWise</span>
         </Link>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 app-header-actions">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                <Avatar className="h-9 w-9">
+              <Button variant="ghost" className="relative h-10 w-10 rounded-full app-header-user-menu-trigger">
+                <Avatar className="h-9 w-9 app-header-user-avatar">
                   <AvatarImage src={MOCK_HEADER_USER.avatarUrl} alt={MOCK_HEADER_USER.name} data-ai-hint="profile avatar small"/>
                   <AvatarFallback>{MOCK_HEADER_USER.initials}</AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56" align="end" forceMount>
-              <DropdownMenuLabel className="font-normal">
+            <DropdownMenuContent className="w-56 app-header-user-dropdown" align="end" forceMount>
+              <DropdownMenuLabel className="font-normal app-header-user-dropdown-label">
                 <div className="flex flex-col space-y-1">
                   <p className="text-sm font-medium leading-none">{MOCK_HEADER_USER.name}</p>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
+              <DropdownMenuItem asChild className="app-header-profile-link-item">
                 <Link href={MOCK_HEADER_USER.profileLink}>
                   <UserCircle className="mr-2 h-4 w-4" />
                   <span>Mój Profil Publiczny</span>
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem asChild>
+              <DropdownMenuItem asChild className="app-header-account-settings-link-item">
                  <Link href={MOCK_HEADER_USER.accountSettingsLink}>
                     <Settings2 className="mr-2 h-4 w-4" />
                     <span>Ustawienia Konta</span>
                 </Link>
               </DropdownMenuItem>
-              {/* Conditional rendering for Admin Debug link */}
               {MOCK_HEADER_USER.role === 'admin' && (
-                <DropdownMenuItem asChild>
+                <DropdownMenuItem asChild className="app-header-admin-debug-link-item">
                   <Link href="/dashboard/admin/debug">
                     <Settings2 className="mr-2 h-4 w-4" /> {/* Using Settings2 icon as placeholder */}
                     <span>Admin Debug</span>
@@ -81,7 +83,7 @@ export function AppHeader() {
                 </DropdownMenuItem>
               )}
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+              <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive focus:bg-destructive/10 app-header-logout-button">
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Wyloguj</span>
               </DropdownMenuItem>
