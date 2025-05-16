@@ -6,20 +6,23 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Settings, Bug, ArrowLeft, Trash2, RefreshCcw, Database, Users, Info, AlertTriangle } from "lucide-react";
+import { Settings, Bug, ArrowLeft, Trash2, RefreshCcw, Database, Users as UsersIcon, Info, AlertTriangle, UserCircle } from "lucide-react"; // Added UsersIcon and UserCircle
 import { useToast } from "@/hooks/use-toast";
-import { MOCK_USER_PROFILES_DB } from "@/lib/mockData";
-import { AdminDebugPageSkeleton } from "@/components/admin/AdminDebugPageSkeleton"; // Added import
+import { MOCK_USER_PROFILES_DB, type UserProfile } from "@/lib/mockData"; // Import UserProfile type
+import { AdminDebugPageSkeleton } from "@/components/admin/AdminDebugPageSkeleton";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 
 export default function AdminDebugPage() {
     const { toast } = useToast();
-    const [isLoading, setIsLoading] = React.useState(true); // Added loading state
+    const [isLoading, setIsLoading] = React.useState(true);
     const [localStorageSize, setLocalStorageSize] = React.useState<string>("0 KB");
-    const [userCount, setUserCount] = React.useState<number>(0);
+    const [userProfiles, setUserProfiles] = React.useState<UserProfile[]>([]);
 
 
     React.useEffect(() => {
-        setIsLoading(true); // Start loading
+        setIsLoading(true);
         if (typeof window !== 'undefined') {
             let total = 0;
             for (let i = 0; i < localStorage.length; i++) {
@@ -33,11 +36,12 @@ export default function AdminDebugPage() {
             }
             setLocalStorageSize(`${(total / 1024).toFixed(2)} KB`);
         }
-        setUserCount(MOCK_USER_PROFILES_DB.length);
-        // Simulate data fetching or setup delay
+        // Simulate fetching users
+        setUserProfiles(MOCK_USER_PROFILES_DB);
+
         const timer = setTimeout(() => {
-            setIsLoading(false); // Finish loading
-        }, 750); // Adjust delay as needed
+            setIsLoading(false);
+        }, 750);
         return () => clearTimeout(timer);
     }, []);
 
@@ -53,9 +57,12 @@ export default function AdminDebugPage() {
     const handleResetMockUsers = () => {
         if (typeof window !== 'undefined') {
             localStorage.removeItem('currentUserProfileData');
+            // Note: Resetting MOCK_USER_PROFILES_DB itself is tricky here as it's an imported constant.
+            // This function would typically trigger an API call to reset a backend database.
+            // For now, it just clears the current user's local profile.
         }
-        toast({ title: "Symulacja Resetu Użytkowników", description: "W prawdziwej aplikacji to zresetowałoby bazę użytkowników. Obecnie tylko czyści 'currentUserProfileData'.", variant: "default" });
-        setUserCount(MOCK_USER_PROFILES_DB.length); 
+        setUserProfiles(MOCK_USER_PROFILES_DB); // Re-set from original mock
+        toast({ title: "Symulacja Resetu Użytkowników", description: "W prawdziwej aplikacji to zresetowałoby bazę użytkowników. Obecnie tylko czyści 'currentUserProfileData' i odświeża listę z mocka.", variant: "default" });
     };
     
     if (isLoading) {
@@ -64,7 +71,6 @@ export default function AdminDebugPage() {
 
     return (
         <div className="flex min-h-screen flex-col bg-background text-foreground">
-             {/* Header part of AppLayout */}
             <main className="flex-1 py-6 px-4 sm:px-6 lg:px-8">
                 <div className="container mx-auto max-w-3xl space-y-8">
                     <Card>
@@ -87,7 +93,7 @@ export default function AdminDebugPage() {
                                     <p><strong>Środowisko:</strong> Rozwojowe (Symulacja)</p>
                                     <p><strong>Wersja Aplikacji:</strong> 1.0.0-beta (Symulacja)</p>
                                     <p><strong>Rozmiar LocalStorage:</strong> {localStorageSize}</p>
-                                    <p><strong>Liczba Użytkowników (Mock DB):</strong> {userCount}</p>
+                                    <p><strong>Liczba Użytkowników (Mock DB):</strong> {userProfiles.length}</p>
                                 </CardContent>
                             </Card>
 
@@ -111,6 +117,41 @@ export default function AdminDebugPage() {
                                     <p className="text-xs text-muted-foreground">
                                         Niektóre akcje mogą wymagać odświeżenia strony, aby zobaczyć pełny efekt.
                                     </p>
+                                </CardFooter>
+                            </Card>
+
+                            <Card>
+                                <CardHeader><CardTitle className="text-lg flex items-center gap-2"><UsersIcon className="h-5 w-5 text-primary"/>Użytkownicy (Mock DB)</CardTitle></CardHeader>
+                                <CardContent>
+                                    {userProfiles.length > 0 ? (
+                                        <ScrollArea className="h-[300px] w-full rounded-md border p-2">
+                                            <div className="space-y-3">
+                                                {userProfiles.map(user => (
+                                                    <div key={user.id} className="flex items-center gap-3 p-2 hover:bg-muted/50 rounded-md">
+                                                        <Avatar className="h-10 w-10">
+                                                            <AvatarImage src={user.avatarUrl} alt={user.fullName} data-ai-hint="profile avatar" />
+                                                            <AvatarFallback>
+                                                                {user.fullName?.substring(0,1).toUpperCase()}
+                                                                {user.fullName?.split(' ')[1]?.substring(0,1).toUpperCase() || user.username?.substring(0,1).toUpperCase() || 'U'}
+                                                            </AvatarFallback>
+                                                        </Avatar>
+                                                        <div className="flex-1 text-sm">
+                                                            <p className="font-semibold">{user.fullName} <span className="text-xs text-muted-foreground">(@{user.username})</span></p>
+                                                            <p className="text-xs text-muted-foreground">{user.email}</p>
+                                                        </div>
+                                                        <Badge variant={user.role === 'admin' ? 'destructive' : (user.role === 'trener' ? 'default' : 'secondary')}>
+                                                            {user.role || 'client'}
+                                                        </Badge>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </ScrollArea>
+                                    ) : (
+                                        <p className="text-sm text-muted-foreground text-center py-4">Brak użytkowników w mockowej bazie danych.</p>
+                                    )}
+                                </CardContent>
+                                <CardFooter>
+                                    <p className="text-xs text-muted-foreground">Lista użytkowników pobierana z MOCK_USER_PROFILES_DB.</p>
                                 </CardFooter>
                             </Card>
                             
