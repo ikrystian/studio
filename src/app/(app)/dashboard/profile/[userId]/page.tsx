@@ -26,7 +26,7 @@ import {
   UserPlus,
   Check,
   Image as ImageIcon, // Lucide Image icon
-  Dumbbell, // Added Dumbbell icon
+  Dumbbell, 
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -48,6 +48,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { MOCK_USER_PROFILES_DB, MOCK_CURRENT_USER_PROFILE, type UserProfile } from "@/lib/mockData";
 import { ProfilePrivacySettingsDialog, type UserPrivacySettings } from "@/components/profile/profile-privacy-settings-dialog";
+import { ProfilePageSkeleton } from "@/components/profile/profile-page-skeleton"; // Added import
 
 // Key for localStorage
 const PROFILE_PRIVACY_SETTINGS_KEY_PREFIX = "userPrivacySettings_";
@@ -71,63 +72,64 @@ export default function UserProfilePage() {
     setIsLoading(true);
     let userToDisplay: UserProfile | null = null;
 
-    if (typeof window !== 'undefined') {
-        const loggedInUserEmail = localStorage.getItem('loggedInUserEmail');
-        const currentUserProfileStr = localStorage.getItem(CURRENT_USER_PROFILE_DATA_KEY);
-        let currentUserFromStorage: UserProfile | null = null;
+    // Simulate a short delay for data fetching for skeleton visibility
+    const fetchData = async () => {
+        await new Promise(resolve => setTimeout(resolve, 500)); // Adjust delay as needed
 
-        if (currentUserProfileStr) {
-            try {
-                currentUserFromStorage = JSON.parse(currentUserProfileStr);
-            } catch (e) { console.error("Error parsing current user profile from storage", e); }
-        }
+        if (typeof window !== 'undefined') {
+            const loggedInUserEmail = localStorage.getItem('loggedInUserEmail');
+            const currentUserProfileStr = localStorage.getItem(CURRENT_USER_PROFILE_DATA_KEY);
+            let currentUserFromStorage: UserProfile | null = null;
 
-        if (userId === "current_user_id") {
-            // If it's current_user_id, try to load from localStorage first
-            if (currentUserFromStorage && currentUserFromStorage.email === loggedInUserEmail) {
-                userToDisplay = currentUserFromStorage;
-            } else {
-                 // Fallback to MOCK_CURRENT_USER_PROFILE if localStorage is not set or mismatch
-                userToDisplay = MOCK_CURRENT_USER_PROFILE;
-                // Optionally, update localStorage if it was missing for the test user
-                if (loggedInUserEmail === MOCK_CURRENT_USER_PROFILE.email) {
-                   localStorage.setItem(CURRENT_USER_PROFILE_DATA_KEY, JSON.stringify(MOCK_CURRENT_USER_PROFILE));
-                }
+            if (currentUserProfileStr) {
+                try {
+                    currentUserFromStorage = JSON.parse(currentUserProfileStr);
+                } catch (e) { console.error("Error parsing current user profile from storage", e); }
             }
-        } else {
-            // For other user IDs, find in the mock DB
-            userToDisplay = MOCK_USER_PROFILES_DB.find(p => p.id === userId) || null;
+
+            if (userId === "current_user_id") {
+                if (currentUserFromStorage && currentUserFromStorage.email === loggedInUserEmail) {
+                    userToDisplay = currentUserFromStorage;
+                } else {
+                    userToDisplay = MOCK_CURRENT_USER_PROFILE;
+                    if (loggedInUserEmail === MOCK_CURRENT_USER_PROFILE.email) {
+                       localStorage.setItem(CURRENT_USER_PROFILE_DATA_KEY, JSON.stringify(MOCK_CURRENT_USER_PROFILE));
+                    }
+                }
+            } else {
+                userToDisplay = MOCK_USER_PROFILES_DB.find(p => p.id === userId) || null;
+            }
         }
-    }
 
+        if (userToDisplay) {
+          if (!userToDisplay.privacySettings) {
+            const storedPrivacy = typeof window !== 'undefined' ? localStorage.getItem(`${PROFILE_PRIVACY_SETTINGS_KEY_PREFIX}${userToDisplay.id}`) : null;
+            userToDisplay.privacySettings = storedPrivacy ? JSON.parse(storedPrivacy) : {
+              isActivityPublic: true, isFriendsListPublic: true, isSharedPlansPublic: true
+            };
+          }
+          setProfileData(userToDisplay);
 
-    if (userToDisplay) {
-      // Ensure privacySettings are initialized
-      if (!userToDisplay.privacySettings) {
-        const storedPrivacy = typeof window !== 'undefined' ? localStorage.getItem(`${PROFILE_PRIVACY_SETTINGS_KEY_PREFIX}${userToDisplay.id}`) : null;
-        userToDisplay.privacySettings = storedPrivacy ? JSON.parse(storedPrivacy) : {
-          isActivityPublic: true, isFriendsListPublic: true, isSharedPlansPublic: true
-        };
-      }
-      setProfileData(userToDisplay);
+          if (userId !== "current_user_id" && typeof window !== 'undefined') {
+            const followStatus = localStorage.getItem(`${USER_FOLLOW_STATUS_KEY_PREFIX}${userId}`);
+            setIsFollowing(followStatus === "true");
+          }
+        } else {
+          toast({
+            title: "Profil nie znaleziony",
+            description: "Nie można załadować danych tego użytkownika.",
+            variant: "destructive",
+          });
+        }
+        setIsLoading(false);
+    };
+    
+    fetchData();
 
-      if (userId !== "current_user_id" && typeof window !== 'undefined') {
-        const followStatus = localStorage.getItem(`${USER_FOLLOW_STATUS_KEY_PREFIX}${userId}`);
-        setIsFollowing(followStatus === "true");
-      }
-    } else {
-      toast({
-        title: "Profil nie znaleziony",
-        description: "Nie można załadować danych tego użytkownika.",
-        variant: "destructive",
-      });
-      // Potentially redirect or show a 'not found' state
-    }
-    setIsLoading(false);
   }, [userId, toast]);
 
   const handleFollowToggle = () => {
-    if (userId === "current_user_id") return; // Cannot follow self
+    if (userId === "current_user_id") return; 
 
     const newFollowStatus = !isFollowing;
     setIsFollowing(newFollowStatus);
@@ -143,23 +145,20 @@ export default function UserProfilePage() {
   const handleSavePrivacySettings = (newSettings: UserPrivacySettings) => {
     if (!profileData) return;
     
-    // Update profileData state
     const updatedProfile = { ...profileData, privacySettings: newSettings };
     setProfileData(updatedProfile);
 
     if (typeof window !== 'undefined') {
-        // Update current_user_id's privacy settings in its main storage if it's the current user
         if (profileData.id === "current_user_id") {
             const currentUserDataStr = localStorage.getItem(CURRENT_USER_PROFILE_DATA_KEY);
             if(currentUserDataStr){
                 try {
                     const currentUserData = JSON.parse(currentUserDataStr);
-                    currentUserData.privacySettings = newSettings; // Update the privacy part
+                    currentUserData.privacySettings = newSettings; 
                     localStorage.setItem(CURRENT_USER_PROFILE_DATA_KEY, JSON.stringify(currentUserData));
                 } catch (e) {console.error("Failed to update main profile data with privacy settings", e);}
             }
         }
-        // Also update the specific privacy key (can be redundant for current user but good for others if they could edit)
         localStorage.setItem(`${PROFILE_PRIVACY_SETTINGS_KEY_PREFIX}${profileData.id}`, JSON.stringify(newSettings));
     }
 
@@ -172,12 +171,7 @@ export default function UserProfilePage() {
 
 
   if (isLoading) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
-        <Loader2 className="h-12 w-12 animate-spin text-primary"/>
-        <p className="mt-4 text-muted-foreground">Ładowanie profilu...</p>
-      </div>
-    );
+    return <ProfilePageSkeleton />;
   }
 
   if (!profileData) {
@@ -406,5 +400,3 @@ export default function UserProfilePage() {
     </div>
   );
 }
-
-    
