@@ -108,9 +108,9 @@ const MOCK_USER_PROFILES_DB: MockUserProfile[] = [
     joinDate: "2023-05-15T10:00:00.000Z",
     stats: { completedWorkouts: 125, followers: 256, following: 180 },
     activities: [
-      { id: "act1", type: "shared_workout", content: "Ukończyłem dzisiaj mocny trening nóg!", workoutName: "Trening Nóg #3", timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), link: "/history/hist1" },
+      { id: "act1", type: "shared_workout", content: "Ukończyłem dzisiaj mocny trening nóg!", workoutName: "Trening Nóg #3", timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), link: "/dashboard/history/hist1" },
       { id: "act2", type: "new_post", content: "Nowy tydzień, nowe cele! Kto ze mną? 💪 #motywacja", timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 * 1).toISOString() },
-      { id: "act3", type: "achieved_pb", content: "Nowy rekord w wyciskaniu!", workoutName: "Wyciskanie sztangi na ławce płaskiej", pbValue: "105kg x 3", timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3).toISOString(), link: "/personal-bests" },
+      { id: "act3", type: "achieved_pb", content: "Nowy rekord w wyciskaniu!", workoutName: "Wyciskanie sztangi na ławce płaskiej", pbValue: "105kg x 3", timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3).toISOString(), link: "/dashboard/personal-bests" },
     ],
     friends: [
       { id: "user2", name: "Anna Fit", username: "annafit_active", avatarUrl: "https://placehold.co/100x100.png?text=AF" },
@@ -266,7 +266,7 @@ export default function UserProfilePage() {
           Przykro nam, ale profil o podanym ID nie istnieje lub nie jest dostępny.
         </p>
         <Button asChild variant="outline">
-          <Link href="/community/discover">
+          <Link href="/dashboard/community/discover">
             <ArrowLeft className="mr-2 h-4 w-4" /> Wróć do Odkrywania
           </Link>
         </Button>
@@ -286,7 +286,7 @@ export default function UserProfilePage() {
         <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2">
             <Button variant="outline" size="icon" asChild>
-              <Link href="/community">
+              <Link href="/dashboard/community">
                 <ArrowLeft className="h-5 w-5" />
                 <span className="sr-only">Powrót do Społeczności</span>
               </Link>
@@ -298,10 +298,10 @@ export default function UserProfilePage() {
           </div>
           {isOwnProfile && (
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => router.push('/account')}>
+              <Button variant="outline" size="sm" onClick={() => router.push('/dashboard/account')}>
                 <Settings2 className="mr-2 h-4 w-4" /> Ustawienia Konta
               </Button>
-              <Button variant="outline" size="sm" onClick={() => router.push('/profile/edit')}>
+              <Button variant="outline" size="sm" onClick={() => router.push('/dashboard/profile/edit')}>
                 <Edit3 className="mr-2 h-4 w-4" /> Edytuj Profil
               </Button>
             </div>
@@ -425,13 +425,13 @@ export default function UserProfilePage() {
                                     <AvatarFallback>{friend.name.substring(0, 1)}</AvatarFallback>
                                   </Avatar>
                                   <div>
-                                    <Link href={`/profile/${friend.id}`} className="font-semibold hover:underline">{friend.name}</Link>
+                                    <Link href={`/dashboard/profile/${friend.id}`} className="font-semibold hover:underline">{friend.name}</Link>
                                     <p className="text-xs text-muted-foreground">@{friend.username}</p>
                                   </div>
                                 </div>
                                 <CardFooter className="p-0 pt-3 flex gap-2">
                                   <Button variant="outline" size="sm" className="flex-1" asChild>
-                                    <Link href={`/profile/${friend.id}`}><Eye className="mr-1 h-3 w-3" /> Profil</Link>
+                                    <Link href={`/dashboard/profile/${friend.id}`}><Eye className="mr-1 h-3 w-3" /> Profil</Link>
                                   </Button>
                                   {isOwnProfile && (
                                     <AlertDialogTrigger asChild>
@@ -454,7 +454,7 @@ export default function UserProfilePage() {
                   </CardContent>
                 </Card>
               </TabsContent>
-              {friendToRemove && ( // Ensure dialog content is only rendered when friendToRemove is set
+              {friendToRemove && ( 
                 <AlertDialogContent>
                   <AlertDialogHeader>
                     <AlertDialogTitle>Usunąć znajomego?</AlertDialogTitle>
@@ -482,20 +482,27 @@ export default function UserProfilePage() {
                     <ScrollArea className="max-h-[400px]">
                       <div className="space-y-4 pr-3">
                         {profileData.sharedPlans.map(plan => {
-                          const IconComponent = plan.icon || BookOpen;
+                          let IconComponent: React.ElementType = BookOpen; 
+                          if (plan.icon) {
+                            if (typeof plan.icon === 'function' || typeof plan.icon === 'string') {
+                                IconComponent = plan.icon;
+                            } else {
+                                console.warn(\`Invalid icon type provided for plan "\${plan.name}". Expected function or string, got \${typeof plan.icon}. Defaulting to BookOpen.\`);
+                            }
+                          }
                           return (
                             <Card key={plan.id} className="p-4 hover:shadow-md transition-shadow">
                               <div className="flex items-start gap-3">
                                 <IconComponent className="h-6 w-6 text-primary mt-1 flex-shrink-0" />
                                 <div className="flex-1">
-                                  <Link href={`/plans/${plan.id}`} className="font-semibold text-lg hover:underline">{plan.name}</Link>
+                                  <Link href={`/dashboard/plans/${plan.id}`} className="font-semibold text-lg hover:underline">{plan.name}</Link>
                                   <p className="text-xs text-muted-foreground">Cel: {plan.goal}</p>
                                   <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{plan.description || "Brak opisu."}</p>
                                 </div>
                               </div>
                               <CardFooter className="p-0 pt-3">
                                 <Button variant="outline" size="sm" asChild>
-                                  <Link href={`/plans/${plan.id}`}>Zobacz szczegóły</Link>
+                                  <Link href={`/dashboard/plans/${plan.id}`}>Zobacz szczegóły</Link>
                                 </Button>
                               </CardFooter>
                             </Card>
@@ -519,4 +526,3 @@ export default function UserProfilePage() {
   );
 }
 
-    

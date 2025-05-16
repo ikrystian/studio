@@ -200,20 +200,16 @@ export default function UserProfilePage() {
   const [friendToRemove, setFriendToRemove] = React.useState<MockFriend | null>(null);
 
   const [loggedInUserIdFromStorage, setLoggedInUserIdFromStorage] = React.useState<string | null>(null);
-  const isOwnProfile = loggedInUserIdFromStorage ? userId === loggedInUserIdFromStorage : userId === LOGGED_IN_USER_ID; // Fallback if localStorage is slow
+  const isOwnProfile = loggedInUserIdFromStorage ? userId === loggedInUserIdFromStorage : userId === LOGGED_IN_USER_ID;
 
 
   React.useEffect(() => {
     setIsLoading(true);
-    let effectiveLoggedInUserId = LOGGED_IN_USER_ID; // Default mock
+    let effectiveLoggedInUserId = LOGGED_IN_USER_ID;
     
     if (typeof window !== 'undefined') {
       const storedEmail = localStorage.getItem('loggedInUserEmail');
-      // For prototype, map email to ID or use a generic 'current_user_id'
-      // In a real app, you'd get the ID from auth context
       if (storedEmail) {
-        // Find the user by email to get their ID for "isOwnProfile" check.
-        // This assumes email is unique and can map to a user ID.
         const userFromDb = MOCK_USER_PROFILES_DB.find(u => u.email === storedEmail);
         if (userFromDb) {
           effectiveLoggedInUserId = userFromDb.id;
@@ -227,13 +223,12 @@ export default function UserProfilePage() {
       let foundProfile = MOCK_USER_PROFILES_DB.find((p) => p.id === userId);
       
       if (foundProfile) {
-        if (userId === effectiveLoggedInUserId) { // Check if it's the currently "logged in" user's profile
+        if (userId === effectiveLoggedInUserId) {
             try {
                 const storedProfileData = typeof window !== 'undefined' ? localStorage.getItem('currentUserProfileData') : null;
                 if (storedProfileData) {
                    const parsedLocalStorageProfile = JSON.parse(storedProfileData);
-                   // Merge, giving precedence to localStorage but keeping base structure
-                   foundProfile = { ...foundProfile, ...parsedLocalStorageProfile, id: foundProfile.id, email: foundProfile.email}; // ensure ID and email from DB are not overwritten
+                   foundProfile = { ...foundProfile, ...parsedLocalStorageProfile, id: foundProfile.id, email: foundProfile.email};
                 }
                 const storedPrivacySettings = typeof window !== 'undefined' ? localStorage.getItem("currentUserPrivacySettings") : null;
                 if (storedPrivacySettings) {
@@ -253,7 +248,7 @@ export default function UserProfilePage() {
             }
         }
 
-        setProfileData(JSON.parse(JSON.stringify(foundProfile))); // Deep copy
+        setProfileData(JSON.parse(JSON.stringify(foundProfile)));
         
         if (userId !== effectiveLoggedInUserId) {
           const loggedInUser = MOCK_USER_PROFILES_DB.find(u => u.id === effectiveLoggedInUserId);
@@ -286,7 +281,6 @@ export default function UserProfilePage() {
       const updatedFriends = prev.friends.filter(f => f.id !== friendToRemove.id);
       const updatedProfileData = { ...prev, friends: updatedFriends };
       
-      // If this is the "current_user_id", update localStorage as well
       if (prev.id === loggedInUserIdFromStorage && typeof window !== 'undefined') {
           localStorage.setItem('currentUserProfileData', JSON.stringify(updatedProfileData));
       }
@@ -539,7 +533,7 @@ export default function UserProfilePage() {
                             if (typeof plan.icon === 'function' || typeof plan.icon === 'string') {
                                 IconComponent = plan.icon;
                             } else {
-                                console.warn(`Invalid icon type provided for plan "${plan.name}". Expected function or string, got ${typeof plan.icon}. Defaulting to BookOpen.`);
+                                console.warn(\`Invalid icon type provided for plan "\${plan.name}". Expected function or string, got \${typeof plan.icon}. Defaulting to BookOpen.\`);
                             }
                           }
                           return (
@@ -577,3 +571,5 @@ export default function UserProfilePage() {
     </div>
   );
 }
+
+    
