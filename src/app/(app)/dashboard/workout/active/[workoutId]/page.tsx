@@ -75,6 +75,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger, // Added missing import
 } from "@/components/ui/alert-dialog";
 import {
   Accordion,
@@ -857,7 +858,7 @@ export default function ActiveWorkoutPage() {
                         {currentExerciseTrackingType === "time" && (<span>{getSetFormFieldLabel("reps")}: {set.reps} {set.weight !== "N/A" && set.weight !== "" ? `(Intensywność: ${set.weight})` : ""}</span>)}
                         {currentExerciseTrackingType === "distance" && (<span>{getSetFormFieldLabel("reps")}: {set.reps} {set.weight !== "N/A" && set.weight !== "" ? `(Intensywność: ${set.weight})` : ""}</span>)}
                         {set.rpe && <span className="ml-2 text-muted-foreground">(RPE: {set.rpe})</span>}
-                        {set.notes && <p className="text-xs text-muted-foreground mt-1 italic">Notatka: {set.notes}</p>}
+                        {set.notes && <p className="text-xs text-muted-foreground mt-1 italic">Notatka do serii: {set.notes}</p>}
                       </div>
                       <div className="flex gap-2 self-start sm:self-center flex-shrink-0">
                         <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 edit-set-button" onClick={() => handleStartEditSet(currentExercise.id, index)} aria-label="Edytuj serię" disabled={!!editingSetInfo}><Edit3 className="mr-1 h-4 w-4" /> Edytuj</Button>
