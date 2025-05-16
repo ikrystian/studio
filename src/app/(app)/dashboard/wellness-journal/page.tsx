@@ -76,6 +76,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { WellnessJournalPageSkeleton } from "@/components/wellness-journal/WellnessJournalPageSkeleton"; // Added import
 
 export interface WellnessEntry {
   id: string;
@@ -155,7 +156,8 @@ const INITIAL_MOCK_ENTRIES: WellnessEntry[] = [
 
 export default function WellnessJournalPage() {
   const { toast } = useToast();
-  const [entries, setEntries] = React.useState<WellnessEntry[]>(INITIAL_MOCK_ENTRIES);
+  const [isLoading, setIsLoading] = React.useState(true); // For skeleton
+  const [entries, setEntries] = React.useState<WellnessEntry[]>([]);
   const [isSaving, setIsSaving] = React.useState(false);
   const [entryToDelete, setEntryToDelete] = React.useState<WellnessEntry | null>(null);
 
@@ -172,6 +174,15 @@ export default function WellnessJournalPage() {
       notes: "",
     },
   });
+
+  React.useEffect(() => {
+    setIsLoading(true);
+    // Simulate fetching data
+    setTimeout(() => {
+      setEntries(INITIAL_MOCK_ENTRIES);
+      setIsLoading(false);
+    }, 750); // Simulate network delay
+  }, []);
 
   async function onSubmit(values: WellnessEntryFormValues) {
     setIsSaving(true);
@@ -226,25 +237,12 @@ export default function WellnessJournalPage() {
     return CONTEXT_OPTIONS.find(opt => opt.value === value)?.label || value;
   }
 
+  if (isLoading) {
+    return <WellnessJournalPageSkeleton />;
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      {/* Header part of AppLayout */}
-      {/* <header className="sticky top-16 z-30 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/50">
-        <div className="container mx-auto flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" asChild>
-              <Link href="/dashboard">
-                <ArrowLeft className="h-5 w-5" />
-                <span className="sr-only">Powrót do Panelu</span>
-              </Link>
-            </Button>
-            <HeartPulse className="h-7 w-7 text-primary" />
-            <h1 className="text-xl font-bold">Dziennik Samopoczucia</h1>
-          </div>
-        </div>
-      </header> */}
-
       <main className="flex-1 py-6 px-4 sm:px-6 lg:px-8">
         <div className="container mx-auto space-y-8">
           <Card>
