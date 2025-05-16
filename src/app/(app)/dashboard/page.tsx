@@ -38,13 +38,13 @@ import {
   Users,
   XCircle,
   MessageSquare,
-  Lightbulb, // Added for Tip of the Day
+  Lightbulb, 
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Skeleton } from "@/components/ui/skeleton";
 
-const MOCK_HEADER_USER = { // This should ideally come from context/session
+const MOCK_HEADER_USER = { 
   name: 'Jan Kowalski',
   avatarUrl: 'https://placehold.co/100x100.png?text=JK',
   id: 'current_user_id'
@@ -63,7 +63,7 @@ const MOCK_PROGRESS_STATS = {
   weightTrend: 'stable',
   currentWeight: '70kg',
   workoutsThisWeek: 3,
-  weeklyGoal: 4, // Target 4 workouts
+  weeklyGoal: 4, 
 };
 
 const MOCK_UPCOMING_REMINDERS = [
@@ -94,7 +94,6 @@ interface NavItem {
   description: string;
 }
 
-// Define all navigation items that can become quick action widgets
 const ALL_NAV_ITEMS: NavItem[] = [
   { id: 'workout-start', href: '/dashboard/workout/start', label: 'Rozpocznij trening', icon: PlayCircle, description: 'Rozpocznij nową sesję lub kontynuuj istniejącą.' },
   { id: 'plans', href: '/dashboard/plans', label: 'Plany treningowe', icon: BookOpen, description: 'Przeglądaj, twórz i zarządzaj swoimi planami treningowymi.' },
@@ -115,24 +114,27 @@ const ALL_NAV_ITEMS: NavItem[] = [
 const SingleQuickActionCard: React.FC<{ item: NavItem }> = ({ item }) => {
   const IconComponent = item.icon;
   return (
-    <Card className={cn("hover:shadow-lg transition-shadow duration-200", `dashboard-quick-action-card dashboard-quick-action-${item.id}`)}>
-      <CardHeader className="pb-2">
-        <CardTitle className="flex items-center text-lg">
+    <Link
+      href={item.href}
+      className={cn(
+        "block rounded-lg border bg-card text-card-foreground shadow-sm transition-shadow duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 dashboard-quick-action-card",
+        `dashboard-quick-action-${item.id}`
+      )}
+    >
+      <div className="flex flex-col h-full p-6">
+        <div className="flex items-center text-lg font-semibold pb-2">
           <IconComponent className="mr-2 h-5 w-5 text-primary" />
           {item.label}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="pb-4 min-h-[60px]">
-        <p className="text-sm text-muted-foreground line-clamp-2">{item.description}</p>
-      </CardContent>
-      <CardFooter>
-        <Button variant="ghost" size="sm" asChild className="w-full justify-start">
-          <Link href={item.href}>
-            Przejdź <ChevronRight className="ml-auto h-4 w-4" />
-          </Link>
-        </Button>
-      </CardFooter>
-    </Card>
+        </div>
+        <div className="pb-4 flex-grow min-h-[60px]">
+          <p className="text-sm text-muted-foreground line-clamp-2">{item.description}</p>
+        </div>
+        <div className="pt-2 flex items-center text-sm text-primary">
+          Przejdź
+          <ChevronRight className="ml-auto h-4 w-4" />
+        </div>
+      </div>
+    </Link>
   );
 };
 
@@ -156,28 +158,35 @@ const SingleQuickActionCardSkeleton: React.FC = () => (
 
 
 const LastWorkoutWidget: React.FC = () => (
-  <Card className="dashboard-widget-last-workout">
-    <CardHeader>
-      <CardTitle className="flex items-center text-lg">
-        <Activity className="mr-2 h-5 w-5 text-primary" /> Ostatni trening
-      </CardTitle>
-      <CardDescription>{new Date(MOCK_LAST_WORKOUT.date).toLocaleDateString('pl-PL', { year: 'numeric', month: 'long', day: 'numeric' })}</CardDescription>
-    </CardHeader>
-    <CardContent className="space-y-3">
-      <h4 className="font-semibold">{MOCK_LAST_WORKOUT.name}</h4>
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
-        <span><CalendarDays className="mr-1 inline-block h-4 w-4" />{MOCK_LAST_WORKOUT.duration}</span>
-        <span><Flame className="mr-1 inline-block h-4 w-4" />{MOCK_LAST_WORKOUT.calories}</span>
-        <span><Dumbbell className="mr-1 inline-block h-4 w-4" />{MOCK_LAST_WORKOUT.exercises} ćwiczeń</span>
+  <Link
+    href={MOCK_LAST_WORKOUT.link}
+    className={cn(
+      "block rounded-lg border bg-card text-card-foreground shadow-sm transition-shadow duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 dashboard-widget-last-workout"
+    )}
+  >
+    <div className="p-6 flex flex-col h-full">
+      <div className="pb-2"> {/* Header-like structure */}
+        <h3 className="flex items-center text-lg font-semibold">
+          <Activity className="mr-2 h-5 w-5 text-primary" /> Ostatni trening
+        </h3>
+        <p className="text-sm text-muted-foreground">{new Date(MOCK_LAST_WORKOUT.date).toLocaleDateString('pl-PL', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
       </div>
-    </CardContent>
-    <CardFooter>
-      <Button variant="outline" size="sm" asChild className="w-full">
-        <Link href={MOCK_LAST_WORKOUT.link}>Zobacz szczegóły</Link>
-      </Button>
-    </CardFooter>
-  </Card>
+      <div className="space-y-3 flex-grow"> {/* Content-like structure */}
+        <h4 className="font-semibold">{MOCK_LAST_WORKOUT.name}</h4>
+        <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <span><CalendarDays className="mr-1 inline-block h-4 w-4" />{MOCK_LAST_WORKOUT.duration}</span>
+          <span><Flame className="mr-1 inline-block h-4 w-4" />{MOCK_LAST_WORKOUT.calories}</span>
+          <span><Dumbbell className="mr-1 inline-block h-4 w-4" />{MOCK_LAST_WORKOUT.exercises} ćwiczeń</span>
+        </div>
+      </div>
+      <div className="pt-4 flex items-center text-sm text-primary"> {/* Footer-like structure */}
+        Zobacz szczegóły
+        <ChevronRight className="ml-auto h-4 w-4" />
+      </div>
+    </div>
+  </Link>
 );
+
 const LastWorkoutWidgetSkeleton: React.FC = () => (
   <Card>
     <CardHeader>
@@ -199,35 +208,42 @@ const LastWorkoutWidgetSkeleton: React.FC = () => (
 );
 
 const ProgressStatsWidget: React.FC = () => (
-  <Card className="dashboard-widget-progress-stats">
-    <CardHeader>
-      <CardTitle className="flex items-center text-lg">
-        <BarChart3 className="mr-2 h-5 w-5 text-primary" /> Statystyki postępu
-      </CardTitle>
-      <CardDescription>Twój postęp w tym tygodniu.</CardDescription>
-    </CardHeader>
-    <CardContent className="space-y-4">
-      <div>
-        <div className="mb-1 flex justify-between text-sm">
-          <span>Waga</span>
-          <span className="font-medium">{MOCK_PROGRESS_STATS.currentWeight} ({MOCK_PROGRESS_STATS.weightTrend})</span>
+  <Link
+    href="/dashboard/statistics"
+    className={cn(
+      "block rounded-lg border bg-card text-card-foreground shadow-sm transition-shadow duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 dashboard-widget-progress-stats"
+    )}
+  >
+    <div className="p-6 flex flex-col h-full">
+      <div className="pb-2"> {/* Header-like structure */}
+        <h3 className="flex items-center text-lg font-semibold">
+          <BarChart3 className="mr-2 h-5 w-5 text-primary" /> Statystyki postępu
+        </h3>
+        <p className="text-sm text-muted-foreground">Twój postęp w tym tygodniu.</p>
+      </div>
+      <div className="space-y-4 flex-grow"> {/* Content-like structure */}
+        <div>
+          <div className="mb-1 flex justify-between text-sm">
+            <span>Waga</span>
+            <span className="font-medium">{MOCK_PROGRESS_STATS.currentWeight} ({MOCK_PROGRESS_STATS.weightTrend})</span>
+          </div>
+        </div>
+        <div>
+          <div className="mb-1 flex justify-between text-sm">
+            <span>Treningi w tym tygodniu</span>
+            <span className="font-medium">{MOCK_PROGRESS_STATS.workoutsThisWeek} / {MOCK_PROGRESS_STATS.weeklyGoal}</span>
+          </div>
+          <Progress value={(MOCK_PROGRESS_STATS.workoutsThisWeek / MOCK_PROGRESS_STATS.weeklyGoal) * 100} className="h-2" />
         </div>
       </div>
-      <div>
-        <div className="mb-1 flex justify-between text-sm">
-          <span>Treningi w tym tygodniu</span>
-          <span className="font-medium">{MOCK_PROGRESS_STATS.workoutsThisWeek} / {MOCK_PROGRESS_STATS.weeklyGoal}</span>
-        </div>
-        <Progress value={(MOCK_PROGRESS_STATS.workoutsThisWeek / MOCK_PROGRESS_STATS.weeklyGoal) * 100} className="h-2" />
+      <div className="pt-4 flex items-center text-sm text-primary"> {/* Footer-like structure */}
+        Pełne statystyki
+        <ChevronRight className="ml-auto h-4 w-4" />
       </div>
-    </CardContent>
-    <CardFooter>
-      <Button variant="outline" size="sm" asChild className="w-full">
-        <Link href="/dashboard/statistics">Pełne statystyki</Link>
-      </Button>
-    </CardFooter>
-  </Card>
+    </div>
+  </Link>
 );
+
 const ProgressStatsWidgetSkeleton: React.FC = () => (
   <Card>
     <CardHeader>
@@ -377,7 +393,7 @@ const INITIAL_DASHBOARD_LAYOUT: DashboardWidgetConfig[] = [
   { id: 'fitness-tip', title: 'Porada Dnia', component: <FitnessTipWidget />, skeletonComponent: <FitnessTipWidgetSkeleton />, area: 'sidebar', defaultOrder: 4, defaultVisible: true },
 ];
 
-const DASHBOARD_LAYOUT_STORAGE_KEY = "dashboardLayoutConfigV3"; // V3 to ensure fresh state with new widget
+const DASHBOARD_LAYOUT_STORAGE_KEY = "dashboardLayoutConfigV3"; 
 
 export default function DashboardPage() {
   const { toast } = useToast();
@@ -433,7 +449,7 @@ export default function DashboardPage() {
   }, []);
 
   const handleEnterEditMode = () => {
-    setWidgetsBeforeEdit(JSON.parse(JSON.stringify(dashboardWidgets))); // Deep copy for cancel
+    setWidgetsBeforeEdit(JSON.parse(JSON.stringify(dashboardWidgets))); 
     setIsEditMode(true);
   };
   
@@ -447,7 +463,7 @@ export default function DashboardPage() {
 
   const handleMoveWidget = (widgetId: string, direction: 'up' | 'down') => {
     setDashboardWidgets(prevWidgets => {
-      const newWidgets = prevWidgets.map(w => ({...w})); // Deep copy
+      const newWidgets = prevWidgets.map(w => ({...w})); 
       const widgetIndex = newWidgets.findIndex(w => w.id === widgetId);
       if (widgetIndex === -1) return prevWidgets;
 
@@ -630,3 +646,5 @@ export default function DashboardPage() {
     </>
   );
 }
+
+    
