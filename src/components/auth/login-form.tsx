@@ -31,6 +31,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { GoogleIcon } from "@/components/icons/google-icon";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 
 const loginSchema = z.object({
@@ -43,7 +44,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const pathname = usePathname(); 
+  const pathname = usePathname();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
@@ -57,55 +58,6 @@ export function LoginForm() {
       password: "password",
     },
   });
-
-
-  React.useEffect(() => {
-    if (pathname !== "/login" || !searchParams) return;
-
-    const currentSearchParams = new URLSearchParams(searchParams.toString());
-    let paramsModified = false;
-    
-    if (currentSearchParams.get("registered") === "true") {
-      setSuccessMessage("Rejestracja zakończona sukcesem! Możesz się teraz zalogować.");
-      toast({
-        title: "Rejestracja Zakończona Sukcesem!",
-        description: "Możesz teraz zalogować się na swoje nowe konto.",
-        variant: "default",
-        duration: 6000,
-      });
-      currentSearchParams.delete("registered");
-      paramsModified = true;
-    }
-    if (currentSearchParams.get("verified") === "true") {
-      if (!successMessage) { // Only show verified toast if registered toast wasn't already shown
-          toast({
-            title: "Email Zweryfikowany!",
-            description: "Twój email został pomyślnie zweryfikowany. Proszę się zalogować.",
-            variant: "default",
-            duration: 6000,
-        });
-      }
-      currentSearchParams.delete("verified");
-      paramsModified = true;
-    }
-    if (currentSearchParams.get("status") === "logged_out") {
-      toast({
-        title: "Wylogowano",
-        description: "Zostałeś pomyślnie wylogowany.",
-        variant: "default",
-        duration: 5000,
-      });
-      currentSearchParams.delete("status");
-      paramsModified = true;
-    }
-
-
-    if (paramsModified) {
-      const newQueryString = currentSearchParams.toString();
-      const newPath = newQueryString ? `/login?${newQueryString}` : "/login";
-      router.replace(newPath, { scroll: false }); 
-    }
-  }, [searchParams, router, toast, pathname, successMessage]);
 
 
   const handleLoginSubmit = React.useCallback(async (values: LoginFormValues) => {
@@ -137,24 +89,77 @@ export function LoginForm() {
     }
 
     if (!navigated) {
-      setIsLoading(false); 
+      setIsLoading(false);
     }
-  }, [router, setIsLoading, setErrorMessage, setSuccessMessage]);
+  }, [router]);
 
   React.useEffect(() => {
-    // Only attempt auto-login if not coming from a specific status like logout or registration
+    if (pathname !== "/login" || !searchParams) return;
+
+    const currentSearchParams = new URLSearchParams(searchParams.toString());
+    let paramsModified = false;
+    let shouldShowToast = false;
+    let toastTitle = "";
+    let toastDescription = "";
+
+    if (currentSearchParams.get("registered") === "true") {
+      shouldShowToast = true;
+      toastTitle = "Rejestracja Zakończona Sukcesem!";
+      toastDescription = "Możesz teraz zalogować się na swoje nowe konto.";
+      currentSearchParams.delete("registered");
+      paramsModified = true;
+    }
+    if (currentSearchParams.get("verified") === "true") {
+      // Only show verified toast if registered toast wasn't the primary one
+      if (!shouldShowToast) {
+        shouldShowToast = true;
+        toastTitle = "Email Zweryfikowany!";
+        toastDescription = "Twój email został pomyślnie zweryfikowany. Proszę się zalogować.";
+      }
+      currentSearchParams.delete("verified");
+      paramsModified = true;
+    }
+    if (currentSearchParams.get("status") === "logged_out") {
+      if (!shouldShowToast) {
+        shouldShowToast = true;
+        toastTitle = "Wylogowano";
+        toastDescription = "Zostałeś pomyślnie wylogowany.";
+      }
+      currentSearchParams.delete("status");
+      paramsModified = true;
+    }
+
+    if (shouldShowToast) {
+      toast({
+        title: toastTitle,
+        description: toastDescription,
+        variant: "default",
+        duration: 6000,
+      });
+    }
+
+    if (paramsModified) {
+      const newQueryString = currentSearchParams.toString();
+      const newPath = newQueryString ? `/login?${newQueryString}` : "/login";
+      router.replace(newPath, { scroll: false });
+    }
+  }, [searchParams, router, toast, pathname]);
+
+
+  React.useEffect(() => {
     const statusParam = searchParams?.get("status");
     const registeredParam = searchParams?.get("registered");
+    const verifiedParam = searchParams?.get("verified");
 
     if (!autoLoginAttempted &&
-        !statusParam && !registeredParam && // Don't auto-login if there's a status message to show
+        !statusParam && !registeredParam && !verifiedParam &&
         form.getValues("email") === "test@example.com" &&
         form.getValues("password") === "password"
     ) {
       setAutoLoginAttempted(true);
       const timer = setTimeout(() => {
         handleLoginSubmit(form.getValues());
-      }, 100); 
+      }, 100);
       return () => clearTimeout(timer);
     }
   }, [autoLoginAttempted, form, handleLoginSubmit, searchParams]);
@@ -165,30 +170,28 @@ export function LoginForm() {
     setErrorMessage(null);
     setSuccessMessage(null);
     console.log(`Attempting ${provider} login...`);
-    // Simulate API call or redirect to OAuth provider
     setTimeout(() => {
-      // Example: router.push(`/api/auth/${provider}`);
       setErrorMessage(`${provider.charAt(0).toUpperCase() + provider.slice(1)} login is not implemented yet.`);
       setIsLoading(false);
     }, 1000);
   };
 
   return (
-    <Card className="w-full max-w-md shadow-2xl">
-      <CardHeader className="space-y-1 text-center">
-        <CardTitle className="text-3xl font-bold">WorkoutWise Login</CardTitle>
-        <CardDescription>Wprowadź swoje dane, aby uzyskać dostęp do konta</CardDescription>
+    <Card className={cn("w-full max-w-md shadow-2xl", "login-form-card")}>
+      <CardHeader className={cn("space-y-1 text-center", "login-form-header")}>
+        <CardTitle className={cn("text-3xl font-bold", "login-form-title")}>WorkoutWise Login</CardTitle>
+        <CardDescription className="login-form-description">Wprowadź swoje dane, aby uzyskać dostęp do konta</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className={cn("space-y-6", "login-form-content")}>
         {errorMessage && (
-          <Alert variant="destructive">
+          <Alert variant="destructive" className="login-form-error-alert">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Logowanie Nieudane</AlertTitle>
             <AlertDescription>{errorMessage}</AlertDescription>
           </Alert>
         )}
         {successMessage && !errorMessage && (
-          <Alert variant="default" className="border-green-500 dark:border-green-400">
+          <Alert variant="default" className={cn("border-green-500 dark:border-green-400", "login-form-success-alert")}>
             <CheckCircle2 className="h-4 w-4 text-green-500 dark:text-green-400" />
             <AlertTitle className="text-green-700 dark:text-green-300">Sukces</AlertTitle>
             <AlertDescription className="text-green-700 dark:text-green-300">
@@ -197,20 +200,21 @@ export function LoginForm() {
           </Alert>
         )}
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleLoginSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(handleLoginSubmit)} className={cn("space-y-4", "login-form-main")}>
             <FormField
               control={form.control}
               name="email"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
+                <FormItem className="login-form-email-item">
+                  <FormLabel className="login-form-email-label">Email</FormLabel>
                   <FormControl>
-                    <Input 
-                      type="email" 
-                      placeholder="twojemail@example.com" 
-                      {...field} 
+                    <Input
+                      type="email"
+                      placeholder="twojemail@example.com"
+                      {...field}
                       disabled={isLoading}
                       aria-describedby="email-error"
+                      className="login-form-email-input"
                     />
                   </FormControl>
                   <FormMessage id="email-error" />
@@ -221,22 +225,23 @@ export function LoginForm() {
               control={form.control}
               name="password"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Hasło</FormLabel>
+                <FormItem className="login-form-password-item">
+                  <FormLabel className="login-form-password-label">Hasło</FormLabel>
                   <FormControl>
-                    <Input 
-                      type="password" 
-                      placeholder="••••••••" 
-                      {...field} 
+                    <Input
+                      type="password"
+                      placeholder="••••••••"
+                      {...field}
                       disabled={isLoading}
                       aria-describedby="password-error"
+                      className="login-form-password-input"
                     />
                   </FormControl>
                   <FormMessage id="password-error" />
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button type="submit" className={cn("w-full", "login-form-submit-button")} disabled={isLoading}>
               {isLoading ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
@@ -245,8 +250,8 @@ export function LoginForm() {
             </Button>
           </form>
         </Form>
-        
-        <div className="relative my-6">
+
+        <div className={cn("relative my-6", "login-form-social-separator")}>
           <div className="absolute inset-0 flex items-center">
             <Separator />
           </div>
@@ -257,24 +262,24 @@ export function LoginForm() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <Button variant="outline" onClick={() => handleSocialLogin("google")} disabled={isLoading}>
+        <div className={cn("grid grid-cols-2 gap-4", "login-form-social-buttons")}>
+          <Button variant="outline" onClick={() => handleSocialLogin("google")} disabled={isLoading} className="login-form-google-button">
             <GoogleIcon className="mr-2 h-5 w-5" />
             Google
           </Button>
-          <Button variant="outline" onClick={() => handleSocialLogin("facebook")} disabled={isLoading}>
+          <Button variant="outline" onClick={() => handleSocialLogin("facebook")} disabled={isLoading} className="login-form-facebook-button">
             <Facebook className="mr-2 h-5 w-5" />
             Facebook
           </Button>
         </div>
       </CardContent>
-      <CardFooter className="flex flex-col items-center space-y-2 text-sm">
-        <Link href="/forgot-password" className="font-medium text-primary hover:underline">
+      <CardFooter className={cn("flex flex-col items-center space-y-2 text-sm", "login-form-footer")}>
+        <Link href="/forgot-password" className={cn("font-medium text-primary hover:underline", "login-form-forgot-password-link")}>
           Zapomniałeś hasła?
         </Link>
-        <p className="text-muted-foreground">
+        <p className={cn("text-muted-foreground", "login-form-register-prompt")}>
           Nie masz konta?{" "}
-          <Link href="/register" className="font-medium text-primary hover:underline">
+          <Link href="/register" className={cn("font-medium text-primary hover:underline", "login-form-register-link")}>
             Zarejestruj się
           </Link>
         </p>
@@ -282,3 +287,5 @@ export function LoginForm() {
     </Card>
   );
 }
+
+    
