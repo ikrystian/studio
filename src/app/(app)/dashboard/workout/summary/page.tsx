@@ -57,7 +57,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import type { Workout, ExerciseInWorkout, RecordedSet } from "../active/[workoutId]/page";
+import type { Workout, ExerciseInWorkout, RecordedSet } from "./../active/[workoutId]/page";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -75,7 +75,6 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-// Removed Firebase imports: db, collection, addDoc, Timestamp
 
 interface WorkoutSummaryData {
   workoutId: string;
@@ -114,7 +113,15 @@ interface PBSuggestion {
   status: 'suggested' | 'accepted' | 'rejected';
 }
 
-// const LOGGED_IN_USER_ID = "testUser123"; // Mock logged-in user ID - Not needed for mock server
+const MOCK_MOTIVATIONAL_MESSAGES = [
+  "Świetna robota! Każdy trening to krok bliżej celu.",
+  "Dobra robota! Pamiętaj, że konsekwencja jest kluczem.",
+  "Niesamowity wysiłek! Odpocznij i zregeneruj siły.",
+  "Trening zaliczony! Jesteś maszyną!",
+  "Tak trzymać! Twoja determinacja jest inspirująca.",
+  "Cel osiągnięty na dziś! Brawo Ty!",
+  "Pamiętaj, progres to nie zawsze ciężar - technika i samopoczucie też są ważne."
+];
 
 export default function WorkoutSummaryPage() {
   const router = useRouter();
@@ -245,6 +252,7 @@ export default function WorkoutSummaryPage() {
       acceptedPbs,
       sharedToCommunity: shareToCommunity,
       communityPostComment: shareToCommunity ? communityPostComment : undefined,
+      userId: "testUser123", // Mock user ID for saving
     };
     console.log("Saving workout summary (mock):", fullSummaryToSave);
 
@@ -258,15 +266,17 @@ export default function WorkoutSummaryPage() {
       console.error("Failed to save last workout date to localStorage", e);
     }
 
-    let toastMessage = "Twój trening został pomyślnie zapisany (symulacja).";
+    const randomMotivationalMessage = MOCK_MOTIVATIONAL_MESSAGES[Math.floor(Math.random() * MOCK_MOTIVATIONAL_MESSAGES.length)];
+    let toastDescription = `${randomMotivationalMessage}`;
     if (shareToCommunity) {
-        toastMessage += " Został również udostępniony w Społeczności (symulacja)!";
+        toastDescription += " Został również udostępniony w Społeczności (symulacja)!";
     }
 
     toast({
       title: "Trening Zapisany!",
-      description: toastMessage,
-      variant: "default"
+      description: toastDescription,
+      variant: "default",
+      duration: 7000,
     });
     localStorage.removeItem('workoutSummaryData'); // Remove temp data
     router.push("/dashboard/history"); 
@@ -368,11 +378,11 @@ export default function WorkoutSummaryPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
+      <header className="sticky top-16 z-30 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/50">
+        <div className="container mx-auto flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2">
-            <Dumbbell className="h-8 w-8 text-primary" />
-            <h1 className="text-2xl font-bold">Podsumowanie Treningu</h1>
+            <Dumbbell className="h-7 w-7 text-primary" />
+            <h1 className="text-xl font-bold">Podsumowanie Treningu</h1>
           </div>
         </div>
       </header>
@@ -651,5 +661,3 @@ export default function WorkoutSummaryPage() {
     </div>
   );
 }
-
-    

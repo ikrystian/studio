@@ -105,7 +105,7 @@ export function LoginForm() {
     let shouldShowToast = false;
     let toastTitle = "";
     let toastDescription = "";
-    lettoastVariant: "default" | "destructive" = "default";
+    let toastVariant: "default" | "destructive" = "default";
 
 
     if (currentSearchParams.get("registered") === "true") {

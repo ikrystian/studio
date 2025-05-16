@@ -37,38 +37,54 @@ import {
   User as UserIcon,
   Users,
   XCircle,
-  MessageSquare, // For Wellness Journal
+  MessageSquare,
+  Lightbulb, // Added for Tip of the Day
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Skeleton } from "@/components/ui/skeleton";
 
-const MOCK_USER_DATA = {
-  name: 'Alex', // This will be overridden by MOCK_HEADER_USER in AppHeader for display
-  avatarUrl: 'https://placehold.co/100x100.png?text=AV',
+const MOCK_HEADER_USER = { // This should ideally come from context/session
+  name: 'Jan Kowalski',
+  avatarUrl: 'https://placehold.co/100x100.png?text=JK',
   id: 'current_user_id'
 };
 
 const MOCK_LAST_WORKOUT = {
-  name: 'Full Body Strength',
-  date: '2024-07-28',
-  duration: '45 min',
-  calories: '350 kcal',
-  exercises: 5,
-  link: '/dashboard/history/hist1', // Ensure this path is correct
+  name: 'Full Body Strength - Wtorek',
+  date: '2024-07-30',
+  duration: '55 min',
+  calories: '410 kcal',
+  exercises: 6,
+  link: '/dashboard/history/hist1', 
 };
 
 const MOCK_PROGRESS_STATS = {
   weightTrend: 'stable',
   currentWeight: '70kg',
   workoutsThisWeek: 3,
-  weeklyGoal: 5,
+  weeklyGoal: 4, // Target 4 workouts
 };
 
 const MOCK_UPCOMING_REMINDERS = [
-  { id: 1, title: 'Leg Day', time: 'Tomorrow, 10:00 AM', link: '/dashboard/plans/plan1' }, // Ensure paths are correct
-  { id: 2, title: 'Cardio Session', time: 'Wednesday, 6:00 PM', link: '/dashboard/plans/plan2' },
+  { id: 1, title: 'Zaplanowany Trening: Nogi', time: 'Jutro, 18:00', link: '/dashboard/plans/plan1' },
+  { id: 2, title: 'Sprawdź Tygodniowe Postępy', time: 'Niedziela, 20:00', link: '/dashboard/statistics' },
+  { id: 3, title: 'Uzupełnij Dziennik Samopoczucia', time: 'Codziennie, 21:00', link: '/dashboard/wellness-journal'},
 ];
+
+const MOCK_FITNESS_TIPS = [
+  "Pamiętaj o prawidłowej technice – to klucz do unikania kontuzji i maksymalizacji efektów!",
+  "Nawodnienie jest kluczowe! Pij wodę regularnie przez cały dzień, nie tylko podczas treningu.",
+  "Nie zapominaj o rozgrzewce przed każdym treningiem i rozciąganiu po nim.",
+  "Progresywne przeciążenie to podstawa budowania siły i masy mięśniowej.",
+  "Odpoczynek i regeneracja są równie ważne jak sam trening. Daj swojemu ciału czas na odbudowę.",
+  "Słuchaj swojego ciała. Jeśli czujesz ból (inny niż typowe zmęczenie mięśni), daj sobie odpocząć.",
+  "Zbilansowana dieta to 70% sukcesu. Dbaj o to, co jesz!",
+  "Małe kroki prowadzą do wielkich zmian. Bądź konsekwentny!",
+  "Każdy trening się liczy, nawet ten krótki. Ważne, że działasz!",
+  "Nie porównuj swojego rozdziału 1 do czyjegoś rozdziału 20. Skup się na własnej drodze."
+];
+
 
 interface NavItem {
   id: string;
@@ -78,21 +94,23 @@ interface NavItem {
   description: string;
 }
 
+// Define all navigation items that can become quick action widgets
 const ALL_NAV_ITEMS: NavItem[] = [
-  { id: 'workout-start', href: '/dashboard/workout/start', label: 'Rozpocznij trening', icon: PlayCircle, description: 'Rozpocznij nową sesję lub kontynuuj.' },
-  { id: 'plans', href: '/dashboard/plans', label: 'Plany treningowe', icon: BookOpen, description: 'Przeglądaj i zarządzaj planami.' },
-  { id: 'history', href: '/dashboard/history', label: 'Historia', icon: History, description: 'Śledź ukończone treningi.' },
-  { id: 'personal-bests', href: '/dashboard/personal-bests', label: 'Rekordy Życiowe', icon: Award, description: 'Zobacz swoje najlepsze wyniki.' },
-  { id: 'community', href: '/dashboard/community', label: 'Społeczność', icon: Users, description: 'Połącz się z innymi.' },
-  { id: 'measurements', href: '/dashboard/measurements', label: 'Pomiary Ciała', icon: Scale, description: 'Rejestruj wagę i obwody.' },
-  { id: 'progress-photos', href: '/dashboard/progress-photos', label: 'Zdjęcia Postępu', icon: Camera, description: 'Dokumentuj zmiany wizualne.' },
-  { id: 'wellness-journal', href: '/dashboard/wellness-journal', label: 'Dziennik Samopoczucia', icon: MessageSquare, description: 'Monitoruj swoje samopoczucie.' },
-  { id: 'hydration', href: '/dashboard/hydration', label: 'Śledzenie Nawodnienia', icon: GlassWater, description: 'Monitoruj spożycie wody.' },
-  { id: 'statistics', href: '/dashboard/statistics', label: 'Statystyki', icon: BarChart3, description: 'Analizuj swoje postępy.'},
-  { id: 'my-account', href: '/dashboard/account', label: 'Moje Konto', icon: Settings2, description: 'Zarządzaj ustawieniami konta.' },
-  { id: 'app-settings', href: '/dashboard/settings', label: 'Ustawienia Aplikacji', icon: Settings, description: 'Dostosuj preferencje aplikacji.' },
-  { id: 'rest-timer', href: '/dashboard/tools/rest-timer', label: 'Timer Odpoczynku', icon: Timer, description: 'Niezależny stoper odpoczynku.' },
+  { id: 'workout-start', href: '/dashboard/workout/start', label: 'Rozpocznij trening', icon: PlayCircle, description: 'Rozpocznij nową sesję lub kontynuuj istniejącą.' },
+  { id: 'plans', href: '/dashboard/plans', label: 'Plany treningowe', icon: BookOpen, description: 'Przeglądaj, twórz i zarządzaj swoimi planami treningowymi.' },
+  { id: 'history', href: '/dashboard/history', label: 'Historia treningów', icon: History, description: 'Śledź i analizuj swoje ukończone treningi.' },
+  { id: 'personal-bests', href: '/dashboard/personal-bests', label: 'Rekordy Życiowe', icon: Award, description: 'Zobacz i zarządzaj swoimi najlepszymi wynikami w ćwiczeniach.' },
+  { id: 'community', href: '/dashboard/community', label: 'Społeczność', icon: Users, description: 'Połącz się z innymi, dziel się postępami i motywujcie się nawzajem.' },
+  { id: 'measurements', href: '/dashboard/measurements', label: 'Pomiary Ciała', icon: Scale, description: 'Rejestruj wagę, obwody i śledź zmiany w czasie.' },
+  { id: 'progress-photos', href: '/dashboard/progress-photos', label: 'Zdjęcia Postępu', icon: Camera, description: 'Dokumentuj wizualne zmiany swojej sylwetki.' },
+  { id: 'wellness-journal', href: '/dashboard/wellness-journal', label: 'Dziennik Samopoczucia', icon: MessageSquare, description: 'Monitoruj swoje samopoczucie, energię i jakość snu.' },
+  { id: 'hydration', href: '/dashboard/hydration', label: 'Śledzenie Nawodnienia', icon: GlassWater, description: 'Monitoruj swoje dzienne spożycie wody i dąż do celu.' },
+  { id: 'statistics', href: '/dashboard/statistics', label: 'Statystyki i Analiza', icon: BarChart3, description: 'Analizuj swoje postępy za pomocą szczegółowych wykresów.'},
+  { id: 'tools-rest-timer', href: '/dashboard/tools/rest-timer', label: 'Timer Odpoczynku', icon: Timer, description: 'Niezależny stoper do mierzenia czasu odpoczynku.' },
+  { id: 'my-account', href: '/dashboard/account', label: 'Moje Konto', icon: Settings2, description: 'Zarządzaj ustawieniami swojego konta i danymi osobowymi.' },
+  { id: 'app-settings', href: '/dashboard/settings', label: 'Ustawienia Aplikacji', icon: Settings, description: 'Dostosuj preferencje aplikacji i powiadomienia.' },
 ];
+
 
 const SingleQuickActionCard: React.FC<{ item: NavItem }> = ({ item }) => {
   const IconComponent = item.icon;
@@ -104,7 +122,7 @@ const SingleQuickActionCard: React.FC<{ item: NavItem }> = ({ item }) => {
           {item.label}
         </CardTitle>
       </CardHeader>
-      <CardContent className="pb-4">
+      <CardContent className="pb-4 min-h-[60px]">
         <p className="text-sm text-muted-foreground line-clamp-2">{item.description}</p>
       </CardContent>
       <CardFooter>
@@ -126,8 +144,8 @@ const SingleQuickActionCardSkeleton: React.FC = () => (
          <Skeleton className="h-6 w-3/4" />
        </div>
     </CardHeader>
-    <CardContent className="pb-4">
-      <Skeleton className="h-4 w-full" />
+    <CardContent className="pb-4 min-h-[60px]">
+      <Skeleton className="h-4 w-full mb-1" />
       <Skeleton className="h-4 w-5/6" />
     </CardContent>
     <CardFooter>
@@ -290,6 +308,43 @@ const UpcomingRemindersWidgetSkeleton: React.FC = () => (
   </Card>
 );
 
+const FitnessTipWidget: React.FC = () => {
+  const [tip, setTip] = React.useState("");
+
+  React.useEffect(() => {
+    setTip(MOCK_FITNESS_TIPS[Math.floor(Math.random() * MOCK_FITNESS_TIPS.length)]);
+  }, []);
+
+  return (
+    <Card className="dashboard-widget-fitness-tip">
+      <CardHeader>
+        <CardTitle className="flex items-center text-lg">
+          <Lightbulb className="mr-2 h-5 w-5 text-yellow-400" /> Porada Dnia
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {tip ? (
+          <p className="text-sm text-muted-foreground italic">"{tip}"</p>
+        ) : (
+          <Skeleton className="h-4 w-full" />
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
+const FitnessTipWidgetSkeleton: React.FC = () => (
+  <Card>
+    <CardHeader>
+      <Skeleton className="h-6 w-1/2" />
+    </CardHeader>
+    <CardContent>
+      <Skeleton className="h-4 w-full mb-1" />
+      <Skeleton className="h-4 w-5/6" />
+    </CardContent>
+  </Card>
+);
+
 export interface DashboardWidgetConfig {
   id: string;
   title: string;
@@ -308,7 +363,7 @@ const generateQuickActionWidgets = (): DashboardWidgetConfig[] => {
     title: item.label,
     component: <SingleQuickActionCard item={item} />,
     skeletonComponent: <SingleQuickActionCardSkeleton />,
-    area: 'main', // Quick actions are now main area widgets
+    area: 'main', 
     defaultOrder: index + 1, 
     defaultVisible: true,
   }));
@@ -319,13 +374,14 @@ const INITIAL_DASHBOARD_LAYOUT: DashboardWidgetConfig[] = [
   { id: 'last-workout', title: 'Ostatni Trening', component: <LastWorkoutWidget />, skeletonComponent: <LastWorkoutWidgetSkeleton />, area: 'sidebar', defaultOrder: 1, defaultVisible: true },
   { id: 'progress-stats', title: 'Statystyki Postępu', component: <ProgressStatsWidget />, skeletonComponent: <ProgressStatsWidgetSkeleton />, area: 'sidebar', defaultOrder: 2, defaultVisible: true },
   { id: 'upcoming-reminders', title: 'Nadchodzące Przypomnienia', component: <UpcomingRemindersWidget />, skeletonComponent: <UpcomingRemindersWidgetSkeleton />, area: 'sidebar', defaultOrder: 3, defaultVisible: true },
+  { id: 'fitness-tip', title: 'Porada Dnia', component: <FitnessTipWidget />, skeletonComponent: <FitnessTipWidgetSkeleton />, area: 'sidebar', defaultOrder: 4, defaultVisible: true },
 ];
 
-const DASHBOARD_LAYOUT_STORAGE_KEY = "dashboardLayoutConfigV3";
+const DASHBOARD_LAYOUT_STORAGE_KEY = "dashboardLayoutConfigV3"; // V3 to ensure fresh state with new widget
 
 export default function DashboardPage() {
   const { toast } = useToast();
-  const userName = MOCK_USER_DATA.name || 'Użytkowniku';
+  const userName = MOCK_HEADER_USER.name || 'Użytkowniku';
   const [isEditMode, setIsEditMode] = React.useState(false);
   const [pageIsLoading, setPageIsLoading] = React.useState(true);
 
@@ -376,6 +432,11 @@ export default function DashboardPage() {
     setTimeout(() => setPageIsLoading(false), 750);
   }, []);
 
+  const handleEnterEditMode = () => {
+    setWidgetsBeforeEdit(JSON.parse(JSON.stringify(dashboardWidgets))); // Deep copy for cancel
+    setIsEditMode(true);
+  };
+  
   const handleToggleWidgetVisibility = (widgetId: string) => {
     setDashboardWidgets(prevWidgets =>
       prevWidgets.map(widget =>
@@ -429,13 +490,8 @@ export default function DashboardPage() {
     setIsEditMode(false);
   };
 
-  const handleEnterEditMode = () => {
-    setWidgetsBeforeEdit(JSON.parse(JSON.stringify(dashboardWidgets))); // Deep copy for cancel
-    setIsEditMode(true);
-  };
-
   const handleCancelEdit = () => {
-    setDashboardWidgets(JSON.parse(JSON.stringify(widgetsBeforeEdit))); // Restore from copy
+    setDashboardWidgets(JSON.parse(JSON.stringify(widgetsBeforeEdit)));
     setIsEditMode(false);
     toast({ title: "Zmiany w układzie anulowane." });
   };
