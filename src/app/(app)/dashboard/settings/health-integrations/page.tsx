@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowLeft, Activity, Info, CheckCircle, XCircle, Link2, Unlink2 } from "lucide-react"; // Added Link2, Unlink2
+import { ArrowLeft, Activity, Info, CheckCircle, XCircle, Link2, Unlink2 } from "lucide-react"; 
 
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
+import { SettingsHealthIntegrationsPageSkeleton } from "@/components/settings/SettingsHealthIntegrationsPageSkeleton"; // Import skeleton
 
 interface IntegrationStatus {
   connected: boolean;
@@ -30,7 +31,7 @@ interface HealthIntegrationSettings {
   googleFit: IntegrationStatus;
   syncWorkouts: boolean;
   syncWeight: boolean;
-  syncSleep: boolean; // Example additional data type
+  syncSleep: boolean; 
 }
 
 const LOCAL_STORAGE_KEY = "workoutWiseHealthIntegrationSettings";
@@ -44,29 +45,33 @@ export default function HealthIntegrationsPage() {
     syncWeight: true,
     syncSleep: false,
   });
-  const [isLoading, setIsLoading] = React.useState(true);
+  const [pageIsLoading, setPageIsLoading] = React.useState(true); // isLoading renamed to pageIsLoading
 
   React.useEffect(() => {
-    try {
-      const storedSettings = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (storedSettings) {
-        setSettings(JSON.parse(storedSettings));
+    setPageIsLoading(true);
+    const timer = setTimeout(() => { // Simulate loading delay
+      try {
+        const storedSettings = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (storedSettings) {
+          setSettings(JSON.parse(storedSettings));
+        }
+      } catch (error) {
+        console.error("Error loading health integration settings:", error);
+        toast({
+          title: "Błąd ładowania ustawień",
+          description: "Nie udało się wczytać zapisanych ustawień integracji.",
+          variant: "destructive",
+        });
       }
-    } catch (error) {
-      console.error("Error loading health integration settings:", error);
-      toast({
-        title: "Błąd ładowania ustawień",
-        description: "Nie udało się wczytać zapisanych ustawień integracji.",
-        variant: "destructive",
-      });
-    }
-    setIsLoading(false);
+      setPageIsLoading(false);
+    }, 500); 
+     return () => clearTimeout(timer);
   }, [toast]);
 
   const saveSettings = (newSettings: HealthIntegrationSettings) => {
     try {
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newSettings));
-      setSettings(newSettings); // Update state after successful save
+      setSettings(newSettings); 
       toast({
         title: "Ustawienia Zapisane",
         description: "Twoje preferencje integracji zostały zaktualizowane.",
@@ -87,7 +92,7 @@ export default function HealthIntegrationsPage() {
       ...settings,
       [service]: {
         connected: !currentStatus,
-        lastSync: !currentStatus ? new Date() : null, // Simulate sync on connect
+        lastSync: !currentStatus ? new Date() : null, 
       },
     };
     saveSettings(newSettings);
@@ -107,18 +112,12 @@ export default function HealthIntegrationsPage() {
     saveSettings(newSettings);
   };
   
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
-        <Activity className="h-12 w-12 animate-ping text-primary mb-4" />
-        <p className="text-muted-foreground">Ładowanie ustawień integracji...</p>
-      </div>
-    );
+  if (pageIsLoading) {
+    return <SettingsHealthIntegrationsPageSkeleton />;
   }
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      {/* Header part of AppLayout */}
       {/* <header className="sticky top-16 z-30 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/50">
         <div className="container mx-auto flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2">

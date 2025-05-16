@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, ListChecks } from "lucide-react";
+import { ArrowLeft, ListChecks, Loader2 } from "lucide-react"; // Added Loader2
 import { useToast } from "@/hooks/use-toast";
+import { SettingsQuickActionsPageSkeleton } from "@/components/settings/SettingsQuickActionsPageSkeleton"; // Import skeleton
 
 // This should ideally be imported from a shared constants file
 // For now, duplicate its structure if not ALL_NAV_ITEMS itself
@@ -23,7 +24,7 @@ interface NavItem {
 const ALL_QUICK_ACTION_DEFINITIONS: NavItem[] = [
   { id: 'workout-start', href: '/dashboard/workout/start', label: 'Rozpocznij trening', icon: PlayCircle, description: 'Rozpocznij nową sesję lub kontynuuj.' },
   { id: 'plans', href: '/dashboard/plans', label: 'Plany treningowe', icon: BookOpen, description: 'Przeglądaj i zarządzaj planami.' },
-  { id: 'history', href: '/dashboard/history', label: 'Historia', icon: History, description: 'Śledź ukończone treningi.' },
+  { id: 'history', href: '/dashboard/history', label: 'Historia', icon: HistoryIcon, description: 'Śledź ukończone treningi.' },
   { id: 'personal-bests', href: '/dashboard/personal-bests', label: 'Rekordy Życiowe', icon: Award, description: 'Zobacz swoje najlepsze wyniki.' },
   { id: 'community', href: '/dashboard/community', label: 'Społeczność', icon: Users, description: 'Połącz się z innymi.' },
   { id: 'measurements', href: '/dashboard/measurements', label: 'Pomiary Ciała', icon: Scale, description: 'Rejestruj wagę i obwody.' },
@@ -32,8 +33,8 @@ const ALL_QUICK_ACTION_DEFINITIONS: NavItem[] = [
   { id: 'hydration', href: '/dashboard/hydration', label: 'Śledzenie Nawodnienia', icon: GlassWater, description: 'Monitoruj spożycie wody.' },
   { id: 'statistics', href: '/dashboard/statistics', label: 'Statystyki', icon: BarChart3, description: 'Analizuj swoje postępy.'},
   { id: 'my-account', href: '/dashboard/account', label: 'Moje Konto', icon: Settings2, description: 'Zarządzaj ustawieniami konta.' },
-  { id: 'app-settings', href: '/dashboard/settings', label: 'Ustawienia Aplikacji', icon: Settings, description: 'Dostosuj preferencje aplikacji.' },
-  { id: 'rest-timer', href: '/dashboard/tools/rest-timer', label: 'Timer Odpoczynku', icon: Timer, description: 'Niezależny stoper odpoczynku.' },
+  { id: 'app-settings', href: '/dashboard/settings', label: 'Ustawienia Aplikacji', icon: SettingsIcon, description: 'Dostosuj preferencje aplikacji.' },
+  { id: 'rest-timer', href: '/dashboard/tools/rest-timer', label: 'Timer Odpoczynku', icon: TimerIcon, description: 'Niezależny stoper odpoczynku.' },
 ];
 // Re-import icons if they are not globally available or directly use lucide-react here
 import {
@@ -45,30 +46,33 @@ const QUICK_ACTIONS_VISIBILITY_KEY = "dashboardQuickActionItemVisibility";
 export default function QuickActionsSettingsPage() {
   const { toast } = useToast();
   const [visibilityPreferences, setVisibilityPreferences] = React.useState<Record<string, boolean>>({});
-  const [isLoading, setIsLoading] = React.useState(true);
+  const [pageIsLoading, setPageIsLoading] = React.useState(true); // Renamed isLoading to pageIsLoading
 
   React.useEffect(() => {
-    const storedPrefs = localStorage.getItem(QUICK_ACTIONS_VISIBILITY_KEY);
-    const initialPrefs: Record<string, boolean> = {};
-    ALL_QUICK_ACTION_DEFINITIONS.forEach(item => {
-      initialPrefs[item.id] = true; // Default to visible
-    });
+    setPageIsLoading(true);
+    const timer = setTimeout(() => { // Simulate loading delay
+      const storedPrefs = localStorage.getItem(QUICK_ACTIONS_VISIBILITY_KEY);
+      const initialPrefs: Record<string, boolean> = {};
+      ALL_QUICK_ACTION_DEFINITIONS.forEach(item => {
+        initialPrefs[item.id] = true; 
+      });
 
-    if (storedPrefs) {
-      try {
-        const parsedPrefs = JSON.parse(storedPrefs);
-        // Merge with defaults to ensure all items are present
-        for (const key in initialPrefs) {
-            if (parsedPrefs.hasOwnProperty(key)) {
-                initialPrefs[key] = parsedPrefs[key];
-            }
+      if (storedPrefs) {
+        try {
+          const parsedPrefs = JSON.parse(storedPrefs);
+          for (const key in initialPrefs) {
+              if (parsedPrefs.hasOwnProperty(key)) {
+                  initialPrefs[key] = parsedPrefs[key];
+              }
+          }
+        } catch (e) {
+          console.error("Error parsing quick actions visibility from localStorage", e);
         }
-      } catch (e) {
-        console.error("Error parsing quick actions visibility from localStorage", e);
       }
-    }
-    setVisibilityPreferences(initialPrefs);
-    setIsLoading(false);
+      setVisibilityPreferences(initialPrefs);
+      setPageIsLoading(false);
+    }, 500);
+    return () => clearTimeout(timer);
   }, []);
 
   const handleVisibilityChange = (itemId: string, isVisible: boolean) => {
@@ -90,7 +94,6 @@ export default function QuickActionsSettingsPage() {
     }
   };
   
-  // Helper mapping for icons, as direct component passing in ALL_QUICK_ACTION_DEFINITIONS might be tricky if defined elsewhere
   const iconMap: Record<string, React.ElementType> = {
     'workout-start': PlayCircle,
     'plans': BookOpen,
@@ -108,18 +111,13 @@ export default function QuickActionsSettingsPage() {
   };
 
 
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="ml-4 text-muted-foreground">Ładowanie ustawień...</p>
-      </div>
-    );
+  if (pageIsLoading) {
+    return <SettingsQuickActionsPageSkeleton />;
   }
 
   return (
     <>
-      <header className="sticky top-16 z-30 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/50">
+      {/* <header className="sticky top-16 z-30 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/50">
         <div className="container mx-auto flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2">
             <Button variant="outline" size="icon" asChild>
@@ -132,7 +130,7 @@ export default function QuickActionsSettingsPage() {
             <h1 className="text-xl font-bold">Dostosuj Szybkie Akcje</h1>
           </div>
         </div>
-      </header>
+      </header> */}
 
       <main className="flex-1 py-6 px-4 sm:px-6 lg:px-8">
         <div className="container mx-auto max-w-2xl">
@@ -145,7 +143,7 @@ export default function QuickActionsSettingsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               {ALL_QUICK_ACTION_DEFINITIONS.map((item) => {
-                const IconComponent = iconMap[item.id] || ListChecks; // Default icon
+                const IconComponent = iconMap[item.id] || ListChecks; 
                 return (
                   <div
                     key={item.id}
@@ -159,7 +157,7 @@ export default function QuickActionsSettingsPage() {
                     </div>
                     <Switch
                       id={`switch-${item.id}`}
-                      checked={visibilityPreferences[item.id] !== undefined ? visibilityPreferences[item.id] : true} // Default to true if undefined
+                      checked={visibilityPreferences[item.id] !== undefined ? visibilityPreferences[item.id] : true} 
                       onCheckedChange={(checked) => handleVisibilityChange(item.id, checked)}
                     />
                   </div>
@@ -175,5 +173,3 @@ export default function QuickActionsSettingsPage() {
     </>
   );
 }
-
-    

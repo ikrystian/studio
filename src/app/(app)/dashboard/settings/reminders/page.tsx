@@ -33,7 +33,8 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Input } from "@/components/ui/input"; // Added for inactivity days
+import { Input } from "@/components/ui/input"; 
+import { SettingsRemindersPageSkeleton } from "@/components/settings/SettingsRemindersPageSkeleton";
 
 const DAYS_OF_WEEK = [
   { id: "monday", label: "Poniedziałek" },
@@ -157,8 +158,11 @@ export default function ReminderSettingsPage() {
   React.useEffect(() => {
     async function fetchSettings() {
       setIsFetchingSettings(true);
-      let loadedSettings = { ...defaultReminderValues }; // Start with defaults
+      let loadedSettings = { ...defaultReminderValues }; 
       try {
+        // Simulate fetching delay
+        await new Promise(resolve => setTimeout(resolve, 500));
+
         const storedSettings = localStorage.getItem(REMINDER_SETTINGS_LOCAL_STORAGE_KEY);
         if (storedSettings) {
           loadedSettings = { ...loadedSettings, ...JSON.parse(storedSettings) };
@@ -172,7 +176,6 @@ export default function ReminderSettingsPage() {
         const storedLastWorkoutDate = localStorage.getItem('workoutWiseLastWorkoutDate');
         setLastWorkoutDateString(storedLastWorkoutDate);
         
-        // Initial check for inactivity reminder after loading everything
         if (storedLastWorkoutDate) {
             checkAndSimulateInactivityReminder(loadedSettings, storedLastWorkoutDate);
         }
@@ -204,7 +207,6 @@ export default function ReminderSettingsPage() {
         description: "Twoje preferencje dotyczące przypomnień zostały zaktualizowane.",
         variant: "default",
       });
-      // Perform inactivity check again with new settings
       checkAndSimulateInactivityReminder(values, lastWorkoutDateString);
 
     } catch (error) {
@@ -245,17 +247,11 @@ export default function ReminderSettingsPage() {
   const watchReminderType = form.watch("reminderType");
 
   if (isFetchingSettings) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-muted-foreground">Ładowanie ustawień przypomnień...</p>
-      </div>
-    );
+    return <SettingsRemindersPageSkeleton />;
   }
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      {/* Header part of AppLayout */}
       {/* <header className="sticky top-16 z-30 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/50">
         <div className="container mx-auto flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2">
@@ -364,7 +360,7 @@ export default function ReminderSettingsPage() {
                         render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Typ przypomnienia</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading || !watchEnableReminders}>
+                                <Select onValueChange={field.onChange} value={field.value} disabled={isLoading || !watchEnableReminders}>
                                     <FormControl>
                                         <SelectTrigger>
                                             <SelectValue placeholder="Wybierz typ przypomnienia" />
@@ -441,7 +437,7 @@ export default function ReminderSettingsPage() {
                               render={({ field }) => (
                                 <FormItem>
                                   <FormLabel>Godzina przypomnienia</FormLabel>
-                                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading || !watchEnableReminders}>
+                                  <Select onValueChange={field.onChange} value={field.value} disabled={isLoading || !watchEnableReminders}>
                                     <FormControl>
                                       <SelectTrigger>
                                         <SelectValue placeholder="Wybierz godzinę" />
@@ -463,7 +459,7 @@ export default function ReminderSettingsPage() {
                               render={({ field }) => (
                                 <FormItem>
                                   <FormLabel>Minuta przypomnienia</FormLabel>
-                                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading || !watchEnableReminders}>
+                                  <Select onValueChange={field.onChange} value={field.value} disabled={isLoading || !watchEnableReminders}>
                                     <FormControl>
                                       <SelectTrigger>
                                         <SelectValue placeholder="Wybierz minutę" />
@@ -491,7 +487,7 @@ export default function ReminderSettingsPage() {
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Wybierz aktywny plan treningowy</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading || !watchEnableReminders}>
+                                        <Select onValueChange={field.onChange} value={field.value} disabled={isLoading || !watchEnableReminders}>
                                             <FormControl><SelectTrigger><SelectValue placeholder="Wybierz plan..." /></SelectTrigger></FormControl>
                                             <SelectContent>
                                                 {MOCK_PLANS_FOR_REMINDERS.map(plan => (
@@ -505,8 +501,8 @@ export default function ReminderSettingsPage() {
                                 )}
                             />
                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                                <FormField control={form.control} name="reminderHour" render={({ field }) => ( <FormItem><FormLabel>Godzina przypomnienia</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading || !watchEnableReminders}><FormControl><SelectTrigger><SelectValue placeholder="Godzina" /></SelectTrigger></FormControl><SelectContent>{Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')).map(hour => (<SelectItem key={hour} value={hour}>{hour}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
-                                <FormField control={form.control} name="reminderMinute" render={({ field }) => ( <FormItem><FormLabel>Minuta przypomnienia</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading || !watchEnableReminders}><FormControl><SelectTrigger><SelectValue placeholder="Minuta" /></SelectTrigger></FormControl><SelectContent>{['00', '15', '30', '45'].map(minute => (<SelectItem key={minute} value={minute}>{minute}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
+                                <FormField control={form.control} name="reminderHour" render={({ field }) => ( <FormItem><FormLabel>Godzina przypomnienia</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={isLoading || !watchEnableReminders}><FormControl><SelectTrigger><SelectValue placeholder="Godzina" /></SelectTrigger></FormControl><SelectContent>{Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')).map(hour => (<SelectItem key={hour} value={hour}>{hour}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
+                                <FormField control={form.control} name="reminderMinute" render={({ field }) => ( <FormItem><FormLabel>Minuta przypomnienia</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={isLoading || !watchEnableReminders}><FormControl><SelectTrigger><SelectValue placeholder="Minuta" /></SelectTrigger></FormControl><SelectContent>{['00', '15', '30', '45'].map(minute => (<SelectItem key={minute} value={minute}>{minute}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
                             </div>
                         </>
                       )}
@@ -572,13 +568,6 @@ export default function ReminderSettingsPage() {
                   )}
                 </CardContent>
               </Card>
-              {/* Save button moved to header for consistency */}
-              {/* <div className="flex justify-end">
-                <Button type="submit" disabled={isLoading}>
-                  {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
-                  Zapisz Ustawienia
-                </Button>
-              </div> */}
             </form>
           </Form>
         </div>

@@ -1,15 +1,12 @@
 
-import type { Metadata } from 'next';
+"use client";
+
+import * as React from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowLeft, ChevronRight, Bell, Activity, Settings, ListChecks } from 'lucide-react';
-
-// Metadata would typically be in a server component or higher up
-// export const metadata: Metadata = {
-//   title: 'Ustawienia | WorkoutWise',
-//   description: 'Zarządzaj ustawieniami aplikacji WorkoutWise.',
-// };
+import { ArrowLeft, ChevronRight, Bell, Activity, Settings as SettingsIcon, ListChecks } from 'lucide-react';
+import { SettingsPageSkeleton } from '@/components/settings/SettingsPageSkeleton'; // Import skeleton
 
 const settingsOptions = [
   {
@@ -28,7 +25,7 @@ const settingsOptions = [
     title: 'Modelowanie Progresji Obciążenia',
     description: 'Dostosuj, jak aplikacja sugeruje progresję w Twoich treningach.',
     href: '/dashboard/settings/progression-model',
-    icon: Settings, // Using generic settings icon
+    icon: SettingsIcon, 
   },
   {
     title: 'Dostosuj Szybkie Akcje Dashboardu',
@@ -36,14 +33,26 @@ const settingsOptions = [
     href: '/dashboard/settings/quick-actions',
     icon: ListChecks, 
   },
-  // Future settings can be added here
 ];
 
 export default function SettingsPage() {
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 500); // Simulate loading delay
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (isLoading) {
+    return <SettingsPageSkeleton />;
+  }
+
   return (
     <>
-      <header className="sticky top-16 z-30 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/50">
-         {/* Adjust top based on AppHeader height */}
+      {/* Header part of AppLayout - page specific */}
+      {/* <header className="sticky top-16 z-30 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/50">
         <div className="container mx-auto flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2">
             <Button variant="outline" size="icon" asChild>
@@ -52,10 +61,11 @@ export default function SettingsPage() {
                 <span className="sr-only">Powrót do Panelu</span>
               </Link>
             </Button>
+             <SettingsIcon className="h-7 w-7 text-primary" /> 
             <h1 className="text-xl font-bold">Ustawienia Aplikacji</h1>
           </div>
         </div>
-      </header>
+      </header> */}
 
       <main className="flex-1 py-6 px-4 sm:px-6 lg:px-8">
         <div className="container mx-auto max-w-2xl space-y-6">
@@ -86,5 +96,3 @@ export default function SettingsPage() {
     </>
   );
 }
-
-    
