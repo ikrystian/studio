@@ -754,7 +754,7 @@ export default function StatisticsPage() {
                              <Label className="flex items-center">
                                 <Checkbox
                                     checked={selectedExerciseIds.length === ALL_UNIQUE_EXERCISES.length && ALL_UNIQUE_EXERCISES.length > 0}
-                                    indeterminate={selectedExerciseIds.length > 0 && selectedExerciseIds.length < ALL_UNIQUE_EXERCISES.length}
+                                    indeterminate={(selectedExerciseIds.length > 0 && selectedExerciseIds.length < ALL_UNIQUE_EXERCISES.length) ? true : undefined}
                                     onCheckedChange={() => handleSelectAll(ALL_UNIQUE_EXERCISES, selectedExerciseIds, setSelectedExerciseIds)}
                                     className="mr-2"
                                     disabled={ALL_UNIQUE_EXERCISES.length === 0}
@@ -789,7 +789,7 @@ export default function StatisticsPage() {
                              <Label className="flex items-center">
                                 <Checkbox
                                     checked={selectedMuscleGroups.length === ALL_UNIQUE_MUSCLE_GROUPS.length && ALL_UNIQUE_MUSCLE_GROUPS.length > 0}
-                                    indeterminate={selectedMuscleGroups.length > 0 && selectedMuscleGroups.length < ALL_UNIQUE_MUSCLE_GROUPS.length}
+                                    indeterminate={(selectedMuscleGroups.length > 0 && selectedMuscleGroups.length < ALL_UNIQUE_MUSCLE_GROUPS.length) ? true : undefined}
                                     onCheckedChange={() => handleSelectAll(ALL_UNIQUE_MUSCLE_GROUPS, selectedMuscleGroups, setSelectedMuscleGroups)}
                                     className="mr-2"
                                     disabled={ALL_UNIQUE_MUSCLE_GROUPS.length === 0}
