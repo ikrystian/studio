@@ -245,7 +245,7 @@ export default function StartWorkoutPage() {
           <Separator className="my-6" />
 
           {filteredWorkouts.length > 0 ? (
-            <ScrollArea className="h-[calc(100vh-30rem)] pr-4"> {/* Adjust height if header is taller */}
+            <ScrollArea className=" pr-4"> {/* Adjust height if header is taller */}
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {filteredWorkouts.map((workout) => (
                   <Card key={workout.id} className="flex flex-col hover:shadow-lg transition-shadow duration-200">

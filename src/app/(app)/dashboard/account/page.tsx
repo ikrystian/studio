@@ -81,7 +81,7 @@ import { ViewBackupCodesDialog } from "@/components/account/view-backup-codes-di
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import type { UserPrivacySettings } from "@/components/profile/profile-privacy-settings-dialog";
-import { AccountSettingsPageSkeleton } from "@/components/account/AccountSettingsPageSkeleton"; // Added import
+import { AccountSettingsPageSkeleton } from "@/components/account/AccountSettingsPageSkeleton";
 
 // Default user data structure - in a real app, this would come from context or API
 const DEFAULT_USER_ACCOUNT_DATA = {
@@ -219,48 +219,52 @@ export default function AccountSettingsPage() {
   });
 
   React.useEffect(() => {
-    setIsLoading(true);
+    setIsLoading(true); // Set loading to true at the start of the effect
+
+    let loadedProfileData = DEFAULT_USER_ACCOUNT_DATA;
+    let loaded2FAStatus = false;
+    let loadedPrivacySettings = DEFAULT_PRIVACY_SETTINGS;
+
     if (typeof window !== 'undefined') {
       try {
         const storedProfileStr = localStorage.getItem(CURRENT_USER_PROFILE_DATA_KEY);
-        let loadedProfileData = DEFAULT_USER_ACCOUNT_DATA;
         if (storedProfileStr) {
           const parsedProfile = JSON.parse(storedProfileStr);
-          // Merge with defaults to ensure all fields are present
           loadedProfileData = { ...DEFAULT_USER_ACCOUNT_DATA, ...parsedProfile };
         }
-        setCurrentUserAccountData(loadedProfileData);
-        personalDataForm.reset({
-          fullName: loadedProfileData.fullName,
-          dateOfBirth: loadedProfileData.dateOfBirth ? parseISO(loadedProfileData.dateOfBirth) : new Date(),
-          gender: loadedProfileData.gender as "male" | "female",
-          weight: loadedProfileData.weight ?? "",
-          height: loadedProfileData.height ?? "",
-          fitnessLevel: loadedProfileData.fitnessLevel,
-        });
-
-        const stored2FAStatus = localStorage.getItem("workoutWise2FAStatus");
-        setIsTwoFactorEnabled(stored2FAStatus === "true");
+        
+        const stored2FAStatusStr = localStorage.getItem("workoutWise2FAStatus");
+        loaded2FAStatus = stored2FAStatusStr === "true";
         
         const storedPrivacyStr = localStorage.getItem(PROFILE_PRIVACY_SETTINGS_KEY);
         if (storedPrivacyStr) {
-          setPrivacySettings(JSON.parse(storedPrivacyStr));
-        } else {
-          setPrivacySettings(DEFAULT_PRIVACY_SETTINGS);
+          loadedPrivacySettings = JSON.parse(storedPrivacyStr);
         }
-
       } catch (error) {
         console.error("Error loading account data from localStorage:", error);
-        // Fallback to defaults if localStorage fails
-        setCurrentUserAccountData(DEFAULT_USER_ACCOUNT_DATA);
-        personalDataForm.reset(DEFAULT_USER_ACCOUNT_DATA);
-        setIsTwoFactorEnabled(false);
-        setPrivacySettings(DEFAULT_PRIVACY_SETTINGS);
+        // Fallback to defaults if localStorage fails, already handled by initial values
       }
     }
-    // Simulate a bit of delay for skeleton visibility if needed for testing
-    // setTimeout(() => setIsLoading(false), 500); 
-    setIsLoading(false);
+
+    // Update states after potential localStorage reads
+    setCurrentUserAccountData(loadedProfileData);
+    personalDataForm.reset({
+      fullName: loadedProfileData.fullName,
+      dateOfBirth: loadedProfileData.dateOfBirth ? parseISO(loadedProfileData.dateOfBirth) : new Date(),
+      gender: loadedProfileData.gender as "male" | "female",
+      weight: loadedProfileData.weight ?? "",
+      height: loadedProfileData.height ?? "",
+      fitnessLevel: loadedProfileData.fitnessLevel,
+    });
+    setIsTwoFactorEnabled(loaded2FAStatus);
+    setPrivacySettings(loadedPrivacySettings);
+
+    // Simulate a delay to ensure skeleton is visible
+    const timer = setTimeout(() => {
+        setIsLoading(false);
+    }, 500); // 500ms delay, adjust as needed
+
+    return () => clearTimeout(timer); // Cleanup timer on unmount
   }, [personalDataForm]);
 
 
