@@ -81,6 +81,7 @@ import { ViewBackupCodesDialog } from "@/components/account/view-backup-codes-di
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import type { UserPrivacySettings } from "@/components/profile/profile-privacy-settings-dialog";
+import { AccountSettingsPageSkeleton } from "@/components/account/AccountSettingsPageSkeleton"; // Added import
 
 // Default user data structure - in a real app, this would come from context or API
 const DEFAULT_USER_ACCOUNT_DATA = {
@@ -257,6 +258,8 @@ export default function AccountSettingsPage() {
         setPrivacySettings(DEFAULT_PRIVACY_SETTINGS);
       }
     }
+    // Simulate a bit of delay for skeleton visibility if needed for testing
+    // setTimeout(() => setIsLoading(false), 500); 
     setIsLoading(false);
   }, [personalDataForm]);
 
@@ -291,6 +294,17 @@ export default function AccountSettingsPage() {
     if (values.currentPasswordForEmail === "password") { 
       setCurrentUserAccountData(prev => ({...prev, email: values.newEmail}));
       // In a real app, update localStorage for currentUserProfileData.email as well
+      // Also, update the main profile data if it exists (currentUserProfileData)
+      if (typeof window !== 'undefined') {
+        const profileDataStr = localStorage.getItem(CURRENT_USER_PROFILE_DATA_KEY);
+        if (profileDataStr) {
+            try {
+                const profileData = JSON.parse(profileDataStr);
+                profileData.email = values.newEmail;
+                localStorage.setItem(CURRENT_USER_PROFILE_DATA_KEY, JSON.stringify(profileData));
+            } catch (e) { console.error("Error updating email in profile data:", e); }
+        }
+      }
       toast({ title: "Email zmieniony (Symulacja)", description: `Link weryfikacyjny został wysłany na ${values.newEmail}. Zmiana zostanie zastosowana po potwierdzeniu.`});
       emailForm.reset();
     } else {
@@ -317,6 +331,16 @@ export default function AccountSettingsPage() {
     if (values.passwordConfirmation === "password") { 
         toast({ title: "Konto usunięte (Symulacja)", description: "Twoje konto zostało usunięte. Zostaniesz wylogowany.", variant: "destructive" });
         // Simulate logout: router.push("/login?status=account_deleted"); 
+        if (typeof window !== 'undefined') {
+            localStorage.clear(); // Clears all localStorage for this domain
+            // Or more specifically:
+            // localStorage.removeItem(CURRENT_USER_PROFILE_DATA_KEY);
+            // localStorage.removeItem(PROFILE_PRIVACY_SETTINGS_KEY);
+            // localStorage.removeItem("workoutWise2FAStatus");
+            // localStorage.removeItem("isUserLoggedIn");
+            // localStorage.removeItem("loggedInUserEmail");
+            window.location.href = "/login?status=account_deleted"; // Force redirect
+        }
     } else {
         deleteAccountForm.setError("passwordConfirmation", { type: "manual", message: "Nieprawidłowe hasło."});
     }
@@ -356,6 +380,17 @@ export default function AccountSettingsPage() {
     await new Promise(resolve => setTimeout(resolve, 1000));
     try {
         localStorage.setItem(PROFILE_PRIVACY_SETTINGS_KEY, JSON.stringify(privacySettings));
+         // Also update the main profile data if it exists
+        if (typeof window !== 'undefined') {
+            const profileDataStr = localStorage.getItem(CURRENT_USER_PROFILE_DATA_KEY);
+            if (profileDataStr) {
+                try {
+                    const profileData = JSON.parse(profileDataStr);
+                    profileData.privacySettings = privacySettings;
+                    localStorage.setItem(CURRENT_USER_PROFILE_DATA_KEY, JSON.stringify(profileData));
+                } catch (e) { console.error("Error updating privacy settings in profile data:", e); }
+            }
+        }
         toast({
             title: "Ustawienia prywatności zapisane!",
             description: "Twoje preferencje prywatności profilu zostały zaktualizowane."
@@ -377,12 +412,7 @@ export default function AccountSettingsPage() {
   }
 
   if (isLoading) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
-        <Loader2 className="h-12 w-12 animate-spin text-primary"/>
-        <p className="mt-4 text-muted-foreground">Ładowanie ustawień konta...</p>
-      </div>
-    );
+    return <AccountSettingsPageSkeleton />;
   }
 
   return (
