@@ -12,7 +12,7 @@ import {
   Plus,
   Minus,
   BellRing,
-  Loader2, // Added Loader2
+  Loader2, 
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -29,7 +29,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import { RestTimerPageSkeleton } from "@/components/tools/RestTimerPageSkeleton"; // Import skeleton
+import { RestTimerPageSkeleton } from "@/components/tools/RestTimerPageSkeleton";
 
 const MIN_DURATION_SECONDS = 1;
 const MAX_DURATION_SECONDS = 3600; // 1 hour
@@ -37,7 +37,7 @@ const DEFAULT_TIME_SECONDS = 60;
 
 export default function StandaloneRestTimerPage() {
   const { toast } = useToast();
-  const [pageIsLoading, setPageIsLoading] = React.useState(true); // For skeleton
+  const [pageIsLoading, setPageIsLoading] = React.useState(true);
   const [inputMinutes, setInputMinutes] = React.useState(Math.floor(DEFAULT_TIME_SECONDS / 60).toString());
   const [inputSeconds, setInputSeconds] = React.useState((DEFAULT_TIME_SECONDS % 60).toString());
   
@@ -46,26 +46,44 @@ export default function StandaloneRestTimerPage() {
   const [isRunning, setIsRunning] = React.useState(false);
   
   const intervalRef = React.useRef<NodeJS.Timeout | null>(null);
+  const prevTotalSetDurationRef = React.useRef<number>(totalSetDuration);
 
   React.useEffect(() => {
-    // Simulate initial loading
     const timer = setTimeout(() => {
       setPageIsLoading(false);
-    }, 750); // Adjust delay as needed
+    }, 750); 
     return () => clearTimeout(timer);
   }, []);
 
+  // Update ref whenever totalSetDuration changes
+  React.useEffect(() => {
+    prevTotalSetDurationRef.current = totalSetDuration;
+  });
+
+  // Effect to handle input changes from minute/second fields
   React.useEffect(() => {
     const newTotalSeconds = (parseInt(inputMinutes, 10) || 0) * 60 + (parseInt(inputSeconds, 10) || 0);
+
     if (newTotalSeconds >= MIN_DURATION_SECONDS && newTotalSeconds <= MAX_DURATION_SECONDS) {
-        setTotalSetDuration(newTotalSeconds);
+        setTotalSetDuration(newTotalSeconds); // Always update the target duration
+
         if (!isRunning) {
-            setCurrentTimeInSeconds(newTotalSeconds);
+            // Only update currentTimeInSeconds if the timer is NOT running AND
+            // it was at a "reset" state (i.e., equal to the PREVIOUS total, or 0)
+            if (currentTimeInSeconds === 0 || currentTimeInSeconds === prevTotalSetDurationRef.current) {
+                setCurrentTimeInSeconds(newTotalSeconds);
+            }
+            // If paused mid-way, currentTimeInSeconds remains, and totalSetDuration is updated.
+            // Example: Paused at 30s of 60s. Inputs change to 90s.
+            // totalSetDuration becomes 90. currentTimeInSeconds STAYS 30.
         }
+        // If isRunning is true, changing inputs only changes totalSetDuration.
+        // currentTimeInSeconds continues its countdown unaffected by these input changes.
     }
-  }, [inputMinutes, inputSeconds, isRunning]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps 
+  }, [inputMinutes, inputSeconds, isRunning, currentTimeInSeconds]); // prevTotalSetDurationRef is managed by its own effect
 
-
+  // Timer countdown effect
   React.useEffect(() => {
     if (isRunning && currentTimeInSeconds > 0) {
       intervalRef.current = setInterval(() => {
@@ -103,24 +121,21 @@ export default function StandaloneRestTimerPage() {
     
     setInputMinutes(Math.floor(newTotal / 60).toString());
     setInputSeconds((newTotal % 60).toString());
-    setTotalSetDuration(newTotal);
-    if (!isRunning) {
-      setCurrentTimeInSeconds(newTotal);
-    }
+    // setTotalSetDuration and setCurrentTimeInSeconds will be handled by the useEffect for inputs
   };
 
   const handlePresetTime = (seconds: number) => {
     setInputMinutes(Math.floor(seconds / 60).toString());
     setInputSeconds((seconds % 60).toString());
-    setTotalSetDuration(seconds);
-    if (!isRunning) {
-      setCurrentTimeInSeconds(seconds);
-    }
-     setIsRunning(false); 
+    // setTotalSetDuration and setCurrentTimeInSeconds will be handled by the useEffect for inputs
+    setIsRunning(false); 
+    if (intervalRef.current) clearInterval(intervalRef.current); // Ensure any running interval is stopped
   };
 
   const handleStartPause = () => {
     if (currentTimeInSeconds === 0 && totalSetDuration > 0 && !isRunning) {
+      // This condition is for "Starting" a timer that has reached 0 or is newly set.
+      // It ensures currentTimeInSeconds is set to the full duration before starting.
       setCurrentTimeInSeconds(totalSetDuration); 
     }
     setIsRunning(!isRunning);
@@ -129,18 +144,26 @@ export default function StandaloneRestTimerPage() {
   const handleReset = () => {
     setIsRunning(false);
     setCurrentTimeInSeconds(totalSetDuration);
+    if (intervalRef.current) clearInterval(intervalRef.current);
   };
 
   const handleAdjustTime = (amount: number) => {
     setCurrentTimeInSeconds((prevTime) => {
-      const newTime = prevTime + amount;
-      if (newTime < 0) return 0;
-      if (newTime > MAX_DURATION_SECONDS) return MAX_DURATION_SECONDS; 
+      let newTime = prevTime + amount;
+      if (newTime < 0) newTime = 0;
+      if (newTime > MAX_DURATION_SECONDS) newTime = MAX_DURATION_SECONDS; 
+      
+      // If not running and adjusting time makes it exceed current total, update total
+      // This makes "+10s" buttons extend the current timer if it's not running
+      if (!isRunning && newTime > totalSetDuration) {
+        setTotalSetDuration(newTime);
+      } else if (!isRunning && newTime < totalSetDuration && newTime === 0 && amount <0) {
+        // If adjusting down to 0, and not running, ensure total is also 0 or matches current time.
+        // This case might need refinement if we want totalSetDuration to be sticky.
+        // For now, if we are just adjusting current time, totalSetDuration is mainly a reference.
+      }
       return newTime;
     });
-     if (!isRunning && currentTimeInSeconds + amount > totalSetDuration) {
-        setTotalSetDuration(currentTimeInSeconds + amount > MAX_DURATION_SECONDS ? MAX_DURATION_SECONDS : currentTimeInSeconds + amount);
-    }
   };
   
   const progressValue = totalSetDuration > 0 ? (currentTimeInSeconds / totalSetDuration) * 100 : 0;
