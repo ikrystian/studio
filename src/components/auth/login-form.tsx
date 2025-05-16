@@ -77,7 +77,7 @@ export function LoginForm() {
       paramsModified = true;
     }
     if (currentSearchParams.get("verified") === "true") {
-      if (!successMessage) { 
+      if (!successMessage) { // Only show verified toast if registered toast wasn't already shown
           toast({
             title: "Email Zweryfikowany!",
             description: "Twój email został pomyślnie zweryfikowany. Proszę się zalogować.",
@@ -88,6 +88,17 @@ export function LoginForm() {
       currentSearchParams.delete("verified");
       paramsModified = true;
     }
+    if (currentSearchParams.get("status") === "logged_out") {
+      toast({
+        title: "Wylogowano",
+        description: "Zostałeś pomyślnie wylogowany.",
+        variant: "default",
+        duration: 5000,
+      });
+      currentSearchParams.delete("status");
+      paramsModified = true;
+    }
+
 
     if (paramsModified) {
       const newQueryString = currentSearchParams.toString();
@@ -131,17 +142,22 @@ export function LoginForm() {
   }, [router, setIsLoading, setErrorMessage, setSuccessMessage]);
 
   React.useEffect(() => {
+    // Only attempt auto-login if not coming from a specific status like logout or registration
+    const statusParam = searchParams?.get("status");
+    const registeredParam = searchParams?.get("registered");
+
     if (!autoLoginAttempted &&
+        !statusParam && !registeredParam && // Don't auto-login if there's a status message to show
         form.getValues("email") === "test@example.com" &&
         form.getValues("password") === "password"
     ) {
       setAutoLoginAttempted(true);
       const timer = setTimeout(() => {
         handleLoginSubmit(form.getValues());
-      }, 100); // Short delay to ensure component is fully ready
+      }, 100); 
       return () => clearTimeout(timer);
     }
-  }, [autoLoginAttempted, form, handleLoginSubmit]);
+  }, [autoLoginAttempted, form, handleLoginSubmit, searchParams]);
 
 
   const handleSocialLogin = (provider: "google" | "facebook") => {
@@ -149,7 +165,9 @@ export function LoginForm() {
     setErrorMessage(null);
     setSuccessMessage(null);
     console.log(`Attempting ${provider} login...`);
+    // Simulate API call or redirect to OAuth provider
     setTimeout(() => {
+      // Example: router.push(`/api/auth/${provider}`);
       setErrorMessage(`${provider.charAt(0).toUpperCase() + provider.slice(1)} login is not implemented yet.`);
       setIsLoading(false);
     }, 1000);

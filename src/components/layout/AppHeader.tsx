@@ -15,7 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useToast } from '@/hooks/use-toast';
+// Removed useToast import as it's no longer used here directly
 
 // Mock user data for the header
 const MOCK_HEADER_USER = {
@@ -28,17 +28,15 @@ const MOCK_HEADER_USER = {
 
 export function AppHeader() {
   const router = useRouter();
-  const { toast } = useToast();
+  // const { toast } = useToast(); // No longer needed here
 
   const handleLogout = () => {
     // Simulate logout
     console.log("User logging out...");
-    toast({
-      title: "Wylogowano",
-      description: "Zostałeś pomyślnie wylogowany.",
-    });
-    // In a real app, clear session/token and redirect
-    router.push('/login');
+    // In a real app, clear session/token here
+    
+    // Redirect to login page with a query parameter
+    router.push('/login?status=logged_out'); 
   };
 
   return (
