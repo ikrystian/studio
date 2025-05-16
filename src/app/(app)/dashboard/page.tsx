@@ -39,16 +39,22 @@ import {
   XCircle,
   MessageSquare,
   Lightbulb,
-  Info, // Added Info icon
-  Loader2 // Added Loader2 for loading state
+  Info, 
+  Loader2 
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Skeleton } from "@/components/ui/skeleton";
-// MOCK BACKEND LOGIC:
-// - Widget data (Last Workout, Progress Stats, Reminders, Fitness Tip) is sourced from MOCK_... constants imported from `src/lib/mockData.ts`.
+// MOCK BACKEND LOGIC (Dashboard Widgets):
+// - LastWorkoutWidget: Fetches data from '/api/history/last-workout', which queries SQLite.
+// - ProgressStatsWidget: Uses MOCK_PROGRESS_STATS_DASHBOARD from mockData.ts.
+// - UpcomingRemindersWidget: Uses MOCK_UPCOMING_REMINDERS_DASHBOARD from mockData.ts.
+// - FitnessTipWidget: Uses MOCK_FITNESS_TIPS_DASHBOARD from mockData.ts.
+// - QuickActionCards: Data (labels, links) is defined locally in ALL_NAV_ITEMS.
+// MOCK BACKEND LOGIC (User Name):
 // - User name is fetched from localStorage ('currentUserProfileData').
-// - Dashboard layout (widget visibility and order) is loaded from and saved to localStorage (DASHBOARD_LAYOUT_STORAGE_KEY).
+// MOCK BACKEND LOGIC (Dashboard Layout):
+// - Widget visibility and order are loaded from and saved to localStorage (DASHBOARD_LAYOUT_STORAGE_KEY).
 //   This simulates user-specific dashboard customization typically stored on a backend.
 import {
   MOCK_PROGRESS_STATS_DASHBOARD,
@@ -58,8 +64,8 @@ import {
   type DashboardProgressStats,
   type DashboardUpcomingReminder
 } from '@/lib/mockData';
-import { format, parseISO } from 'date-fns'; // For formatting date
-import { pl } from 'date-fns/locale';     // For Polish locale
+import { format, parseISO } from 'date-fns';
+import { pl } from 'date-fns/locale';
 
 interface NavItem {
   id: string;
@@ -122,7 +128,6 @@ const SingleQuickActionCardSkeleton: React.FC = () => (
   </div>
 );
 
-// New interface for the data fetched from the API
 interface LastWorkoutApiData {
   id: string;
   name: string;
@@ -137,8 +142,10 @@ const LastWorkoutWidget: React.FC = () => {
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    // MOCK BACKEND LOGIC: Fetches the last workout session for the current user from the API.
-    // In a real app, user ID would be derived from an authenticated session.
+    // MOCK BACKEND LOGIC (LastWorkoutWidget):
+    // This widget fetches data from the '/api/history/last-workout' endpoint.
+    // That API endpoint, in turn, queries the SQLite database for the last workout
+    // of the MOCK_CURRENT_USER_PROFILE.id. So, the data displayed here originates from the database.
     const fetchLastWorkout = async () => {
       setIsLoading(true);
       setError(null);
@@ -150,25 +157,25 @@ const LastWorkoutWidget: React.FC = () => {
         }
         const result = await response.json();
         if (result.success && result.data) {
-          const apiData = result.data as LastWorkoutApiData;
-          const durationMinutes = Math.floor(apiData.durationSeconds / 60);
-          const durationFormatted = `${durationMinutes} min`;
-
+          const apiData = result.data as LastWorkoutApiData; // Type from API definition
+          
           setLastWorkout({
             id: apiData.id,
             name: apiData.name,
             date: apiData.date, // Keep as ISO string for potential further processing or display
             durationSeconds: apiData.durationSeconds, // Store raw seconds
             exerciseCount: apiData.exerciseCount,
-            // calories: 'N/A', // Calories are not in DB
+            calories: 'N/A', // Calories are not in DB schema for workout_sessions
             link: `/dashboard/history/${apiData.id}`,
           });
+        } else if (result.success && result.data === null) {
+          setLastWorkout(null); // No workout found in DB for the user
         } else {
-          setLastWorkout(null); // No workout found
+           throw new Error(result.message || "Nie udało się załadować danych ostatniego treningu z API.");
         }
       } catch (err) {
         console.error("Failed to fetch last workout:", err);
-        setError(err instanceof Error ? err.message : "Nie udało się załadować ostatniego treningu.");
+        setError(err instanceof Error ? err.message : "Nieznany błąd podczas ładowania ostatniego treningu.");
         setLastWorkout(null);
       } finally {
         setIsLoading(false);
@@ -223,7 +230,7 @@ const LastWorkoutWidget: React.FC = () => {
         <CardContent>
           <div className="flex flex-col items-center justify-center text-center h-full py-4">
             <Dumbbell className="h-10 w-10 text-muted-foreground mb-2" />
-            <p className="text-sm text-muted-foreground">Brak zarejestrowanych treningów.</p>
+            <p className="text-sm text-muted-foreground">Brak zarejestrowanych treningów w bazie danych.</p>
             <p className="text-xs text-muted-foreground">Tutaj pojawi się Twój ostatni trening, gdy tylko ukończysz pierwszą sesję!</p>
             <Button variant="link" size="sm" asChild className="mt-2">
               <Link href="/dashboard/workout/start">Rozpocznij pierwszy trening</Link>
@@ -531,7 +538,7 @@ export default function DashboardPage() {
       }));
     }
     setDashboardWidgets(loadedLayout.sort((a,b) => (a.currentOrder ?? 0) - (b.currentOrder ?? 0)));
-    setTimeout(() => setPageIsLoading(false), 0); // Set to 0 for faster actual load.
+    setTimeout(() => setPageIsLoading(false), 0); 
   }, []);
 
   const handleEnterEditMode = () => {
@@ -629,11 +636,11 @@ export default function DashboardPage() {
   }
 
   const mainAreaWidgets = dashboardWidgets
-    .filter(w => w.area === 'main' && (isEditMode || w.isVisible)) // Show all in edit mode
+    .filter(w => w.area === 'main' && (isEditMode || w.isVisible)) 
     .sort((a, b) => (a.currentOrder ?? 0) - (b.currentOrder ?? 0));
 
   const sidebarAreaWidgets = dashboardWidgets
-    .filter(w => w.area === 'sidebar' && (isEditMode || w.isVisible)) // Show all in edit mode
+    .filter(w => w.area === 'sidebar' && (isEditMode || w.isVisible)) 
     .sort((a, b) => (a.currentOrder ?? 0) - (b.currentOrder ?? 0));
 
   return (
