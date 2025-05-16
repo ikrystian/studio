@@ -7,7 +7,7 @@ import { useRouter, useParams } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useFieldArray } from "react-hook-form";
 import * as z from "zod";
-import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isSameMonth, isSameDay, differenceInCalendarDays, isBefore } from "date-fns";
+import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isSameMonth, isSameDay, differenceInCalendarDays, isBefore, startOfDay } from "date-fns";
 import { pl } from "date-fns/locale";
 import { v4 as uuidv4 } from "uuid";
 import {
