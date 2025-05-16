@@ -461,7 +461,7 @@ export default function CommunityDiscoverPage() {
                   </div>
                 </CardContent>
               </Card>
-              <ScrollArea className="h-[calc(100vh-35rem)]">
+              <ScrollArea>
                 {filteredContent.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pr-4">
                     {filteredContent.map(content => (
@@ -526,7 +526,7 @@ export default function CommunityDiscoverPage() {
                   </Select>
                 </CardContent>
               </Card>
-              <ScrollArea className="h-[calc(100vh-35rem)]">
+              <ScrollArea>
                 {usersByRegion.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pr-4">
                     {usersByRegion.map(user => (

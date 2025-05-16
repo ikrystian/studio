@@ -6,9 +6,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import Link from "next/link";
-import { useRouter, useSearchParams, usePathname } from "next/navigation"; // Import usePathname
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Facebook, AlertCircle, Loader2, CheckCircle2, Mail, Lock, Eye, EyeOff } from "lucide-react";
-import { getAuth, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { GoogleAuthProvider, signInWithPopup } from "firebase/auth"; // Keep these
 
 import { Button } from "@/components/ui/button";
 import {
@@ -33,11 +33,11 @@ import { GoogleIcon } from "@/components/icons/google-icon";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { app as firebaseApp } from "@/lib/firebase"; // Ensure app is exported
+import { auth } from "@/lib/firebase"; // Directly import the initialized auth instance
 
 const loginSchema = z.object({
   email: z.string().email("Nieprawidłowy adres email.").min(1, "Email jest wymagany."),
-  password: z.string().min(1, "Hasło jest wymagane."), // Min 1 for basic check, API might enforce more
+  password: z.string().min(1, "Hasło jest wymagane."),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -50,7 +50,7 @@ export function LoginForm() {
   const [isLoading, setIsLoading] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = React.useState<string | null>(null); // For general success messages if needed
+  const [successMessage, setSuccessMessage] = React.useState<string | null>(null);
   const [autoLoginAttempted, setAutoLoginAttempted] = React.useState(false);
 
 
@@ -62,16 +62,11 @@ export function LoginForm() {
     },
   });
   
-  // Pre-fill email from registration redirect or test user
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
       const tempEmail = localStorage.getItem('tempRegisteredUserEmail');
       if (tempEmail) {
         form.setValue('email', tempEmail);
-        // localStorage.removeItem('tempRegisteredUserEmail'); // Keep for potential auto-login with test user
-      } else if (!form.getValues('email')) { // Only set test user if email is not already set
-         form.setValue('email', 'test@example.com');
-         form.setValue('password', 'password');
       }
     }
   }, [form]);
@@ -96,9 +91,9 @@ export function LoginForm() {
       if (response.ok && data.success && data.userData) {
         if (typeof window !== 'undefined') {
           localStorage.setItem('isUserLoggedIn', 'true');
-          localStorage.setItem('loggedInUserEmail', data.userData.email); // Use email from API response
-          localStorage.setItem('currentUserProfileData', JSON.stringify(data.userData)); // Store full profile
-          localStorage.removeItem('tempRegisteredUserEmail'); // Clean up after successful login
+          localStorage.setItem('loggedInUserEmail', data.userData.email); 
+          localStorage.setItem('currentUserProfileData', JSON.stringify(data.userData));
+          localStorage.removeItem('tempRegisteredUserEmail');
         }
         toast({
           title: "Logowanie Pomyślne!",
@@ -109,15 +104,21 @@ export function LoginForm() {
         navigated = true;
       } else {
         let errorMsg = data.message || "Logowanie nieudane. Sprawdź email i hasło.";
-        if (localStorage.getItem('WORKOUTWISE_REGISTRATION_DEBUG') === 'true') {
-          errorMsg += `\nDebug (Serwer): Status ${response.status} - ${response.statusText}. Response: ${JSON.stringify(data, null, 2)}`;
+         if (typeof window !== 'undefined' && localStorage.getItem('WORKOUTWISE_REGISTRATION_DEBUG') === 'true') {
+           let debugInfo = `Debug (API Login Response): Status ${response.status} - ${response.statusText}.`;
+           try {
+            debugInfo += `\nResponse Body: ${JSON.stringify(data, null, 2)}`;
+           } catch (e) {
+            debugInfo += `\nResponse Body (not JSON): ${await response.text()}`;
+           }
+           errorMsg += `\n${debugInfo}`;
         }
         setErrorMessage(errorMsg);
       }
     } catch (error: any) {
       console.error("Login API call failed:", error);
       let errorMsg = "Wystąpił nieoczekiwany błąd podczas logowania. Spróbuj ponownie.";
-      if (localStorage.getItem('WORKOUTWISE_REGISTRATION_DEBUG') === 'true') {
+      if (typeof window !== 'undefined' && localStorage.getItem('WORKOUTWISE_REGISTRATION_DEBUG') === 'true') {
           errorMsg += `\nDebug (Klient): ${error.message ? error.message : JSON.stringify(error, null, 2)}`;
       }
       setErrorMessage(errorMsg);
@@ -128,7 +129,6 @@ export function LoginForm() {
     }
   }, [router, toast]);
 
-  // Handle query params for toast messages (e.g., after registration)
   React.useEffect(() => {
     if (pathname !== "/login" || !searchParams || typeof window === 'undefined') return;
 
@@ -174,7 +174,7 @@ export function LoginForm() {
       currentSearchParams.delete("status");
       paramsModified = true;
     }
-    if (currentSearchParams.get("session_expired") === "true") {
+     if (currentSearchParams.get("session_expired") === "true") {
       if (!shouldShowToast) {
         shouldShowToast = true;
         toastTitle = "Sesja wygasła";
@@ -201,22 +201,25 @@ export function LoginForm() {
     }
   }, [searchParams, router, toast, pathname]);
 
-  // Auto-login attempt for test user if fields are pre-filled and no query params indicating a redirect
   React.useEffect(() => {
     const statusParam = searchParams?.get("status");
     const registeredParam = searchParams?.get("registered");
     const verifiedParam = searchParams?.get("verified");
     const sessionExpiredParam = searchParams?.get("session_expired");
-
-    if (!autoLoginAttempted &&
-        !statusParam && !registeredParam && !verifiedParam && !sessionExpiredParam &&
-        form.getValues("email") === "test@example.com" &&
-        form.getValues("password") === "password"
+    
+    if (
+      !autoLoginAttempted &&
+      !statusParam &&
+      !registeredParam &&
+      !verifiedParam &&
+      !sessionExpiredParam &&
+      form.getValues("email") === "test@example.com" &&
+      form.getValues("password") === "password"
     ) {
-      setAutoLoginAttempted(true); // Prevent multiple auto-login attempts
+      setAutoLoginAttempted(true);
       const timer = setTimeout(() => {
         handleLoginSubmit(form.getValues());
-      }, 100); // Small delay to allow UI to settle
+      }, 100);
       return () => clearTimeout(timer);
     }
   }, [autoLoginAttempted, form, handleLoginSubmit, searchParams]);
@@ -229,13 +232,12 @@ export function LoginForm() {
     let navigated = false;
 
     if (providerName === "google") {
-      const auth = getAuth(firebaseApp);
       const provider = new GoogleAuthProvider();
       try {
+        // Use the imported 'auth' instance directly from '@/lib/firebase'
         const result = await signInWithPopup(auth, provider);
         const user = result.user;
 
-        // Call your backend to ensure profile exists / create if not
         const profileResponse = await fetch('/api/auth/ensure-profile', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -260,7 +262,7 @@ export function LoginForm() {
           navigated = true;
         } else {
           let errorMsg = profileData.message || "Nie udało się przetworzyć logowania przez Google.";
-          if (localStorage.getItem('WORKOUTWISE_REGISTRATION_DEBUG') === 'true') {
+          if (typeof window !== 'undefined' && localStorage.getItem('WORKOUTWISE_REGISTRATION_DEBUG') === 'true') {
               errorMsg += `\nDebug (API Profile): Status ${profileResponse.status} - ${profileResponse.statusText}. Response: ${JSON.stringify(profileData, null, 2)}`;
           }
           setErrorMessage(errorMsg);
@@ -273,8 +275,8 @@ export function LoginForm() {
         } else if (error.code === 'auth/account-exists-with-different-credential') {
             errorMsg = "Konto z tym adresem email już istnieje, ale zostało utworzone inną metodą logowania.";
         }
-        if (localStorage.getItem('WORKOUTWISE_REGISTRATION_DEBUG') === 'true') {
-            errorMsg += `\nDebug (Klient): ${error.message ? error.message : JSON.stringify(error, null, 2)}. Szczegóły: ${JSON.stringify(error, Object.getOwnPropertyNames(error))}`;
+        if (typeof window !== 'undefined' && localStorage.getItem('WORKOUTWISE_REGISTRATION_DEBUG') === 'true') {
+            errorMsg += `\nDebug (Klient Google Sign-In): ${error.message ? error.message : JSON.stringify(error, null, 2)}. Szczegóły: ${JSON.stringify(error, Object.getOwnPropertyNames(error))}`;
         }
         setErrorMessage(errorMsg);
       }
@@ -284,7 +286,6 @@ export function LoginForm() {
             description: "Ta funkcja jest w trakcie implementacji.",
             variant: "default",
         });
-        // Placeholder for Facebook login logic
     }
 
     if (!navigated) {
@@ -301,7 +302,7 @@ export function LoginForm() {
       </CardHeader>
       <CardContent className={cn("space-y-6", "login-form-content")}>
         {errorMessage && (
-          <Alert variant="destructive" className="login-form-error-alert">
+          <Alert variant="destructive" className="login-form-error-alert whitespace-pre-wrap">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Błąd Logowania</AlertTitle>
             <AlertDescription>{errorMessage}</AlertDescription>
