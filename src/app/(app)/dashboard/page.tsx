@@ -9,7 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
 import {
   Activity,
-  Award, 
+  Award,
   BarChart3,
   BookOpen,
   CalendarDays,
@@ -21,8 +21,9 @@ import {
   EyeOff,
   Flame,
   GlassWater,
-  HeartPulse, 
+  HeartPulse,
   History,
+  ListChecks,
   Maximize2,
   MoveDown,
   MoveUp,
@@ -32,11 +33,10 @@ import {
   Scale,
   Settings,
   Settings2,
-  Timer, 
-  User as UserIcon, 
+  Timer,
+  User as UserIcon,
   Users,
   XCircle,
-  ListChecks,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -45,7 +45,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 const MOCK_USER_DATA = {
   name: 'Alex',
   avatarUrl: 'https://placehold.co/100x100.png?text=AV',
-  id: 'current_user_id' 
+  id: 'current_user_id'
 };
 
 const MOCK_LAST_WORKOUT = {
@@ -54,7 +54,7 @@ const MOCK_LAST_WORKOUT = {
   duration: '45 min',
   calories: '350 kcal',
   exercises: 5,
-  link: '/dashboard/history/hist1', 
+  link: '/dashboard/history/hist1',
 };
 
 const MOCK_PROGRESS_STATS = {
@@ -70,7 +70,7 @@ const MOCK_UPCOMING_REMINDERS = [
 ];
 
 interface NavItem {
-  id: string; 
+  id: string;
   href: string;
   label: string;
   icon: React.ElementType;
@@ -92,90 +92,42 @@ const ALL_NAV_ITEMS: NavItem[] = [
   { id: 'app-settings', href: '/dashboard/settings', label: 'Ustawienia Aplikacji', icon: Settings, description: 'Dostosuj preferencje aplikacji.' },
   { id: 'rest-timer', href: '/dashboard/tools/rest-timer', label: 'Timer Odpoczynku', icon: Timer, description: 'Niezależny stoper odpoczynku.' },
 ];
-const QUICK_ACTIONS_VISIBILITY_KEY = "dashboardQuickActionItemVisibility";
 
-
-const QuickActionsWidget: React.FC = () => {
-  const [visibleItems, setVisibleItems] = React.useState<NavItem[]>([]);
-  const [isLoading, setIsLoading] = React.useState(true);
-
-  React.useEffect(() => {
-    const storedVisibility = localStorage.getItem(QUICK_ACTIONS_VISIBILITY_KEY);
-    let visibilityMap: Record<string, boolean> = {};
-    if (storedVisibility) {
-      try {
-        visibilityMap = JSON.parse(storedVisibility);
-      } catch (e) {
-        console.error("Error parsing quick actions visibility from localStorage", e);
-      }
-    }
-
-    const itemsToDisplay = ALL_NAV_ITEMS.filter(item => {
-      // Use item.id for checking visibility
-      return visibilityMap[item.id] === undefined ? true : visibilityMap[item.id];
-    });
-    setVisibleItems(itemsToDisplay);
-    setIsLoading(false);
-  }, []);
-
-  if (isLoading) {
-    return <QuickActionsWidgetSkeleton />;
-  }
-
-  if (visibleItems.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center text-lg">
-            <ListChecks className="mr-2 h-5 w-5 text-primary"/>
-            Szybkie Akcje
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">Brak wybranych szybkich akcji. Możesz je skonfigurować w Ustawieniach Aplikacji &gt; Dostosuj Szybkie Akcje.</p>
-        </CardContent>
-      </Card>
-    )
-  }
-
+// New component for a single quick action item
+const SingleQuickActionCard: React.FC<{ item: NavItem }> = ({ item }) => {
+  const IconComponent = item.icon;
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
-      {visibleItems.map((item) => (
-        <Card key={item.id} className="hover:shadow-lg transition-shadow duration-200">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center text-lg">
-              <item.icon className="mr-2 h-5 w-5 text-primary" />
-              {item.label}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pb-4">
-            <p className="text-sm text-muted-foreground line-clamp-2">{item.description}</p>
-          </CardContent>
-          <CardFooter>
-            <Button variant="ghost" size="sm" asChild className="w-full justify-start">
-              <Link href={item.href}>
-                Przejdź <ChevronRight className="ml-auto h-4 w-4" />
-              </Link>
-            </Button>
-          </CardFooter>
-        </Card>
-      ))}
-    </div>
+    <Card className="hover:shadow-lg transition-shadow duration-200">
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center text-lg">
+          <IconComponent className="mr-2 h-5 w-5 text-primary" />
+          {item.label}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pb-4">
+        <p className="text-sm text-muted-foreground line-clamp-2">{item.description}</p>
+      </CardContent>
+      <CardFooter>
+        <Button variant="ghost" size="sm" asChild className="w-full justify-start">
+          <Link href={item.href}>
+            Przejdź <ChevronRight className="ml-auto h-4 w-4" />
+          </Link>
+        </Button>
+      </CardFooter>
+    </Card>
   );
 };
 
-const QuickActionsWidgetSkeleton: React.FC = () => (
+const SingleQuickActionCardSkeleton: React.FC = () => (
   <Card>
     <CardHeader className="pb-2">
        <div className="flex items-center text-lg">
-         <Skeleton className="mr-2 h-5 w-5" />
+         <Skeleton className="mr-2 h-5 w-5 rounded-full" />
          <Skeleton className="h-6 w-3/4" />
        </div>
     </CardHeader>
-    <CardContent className="pb-4 space-y-2">
+    <CardContent className="pb-4">
       <Skeleton className="h-4 w-full" />
-      <Skeleton className="h-4 w-5/6" />
-       <Skeleton className="h-4 w-full" />
       <Skeleton className="h-4 w-5/6" />
     </CardContent>
     <CardFooter>
@@ -227,7 +179,6 @@ const LastWorkoutWidgetSkeleton: React.FC = () => (
     </CardFooter>
   </Card>
 );
-
 
 const ProgressStatsWidget: React.FC = () => (
   <Card>
@@ -286,7 +237,6 @@ const ProgressStatsWidgetSkeleton: React.FC = () => (
   </Card>
 );
 
-
 const UpcomingRemindersWidget: React.FC = () => (
   <Card>
     <CardHeader>
@@ -340,7 +290,6 @@ const UpcomingRemindersWidgetSkeleton: React.FC = () => (
   </Card>
 );
 
-
 export interface DashboardWidgetConfig {
   id: string;
   title: string;
@@ -349,62 +298,73 @@ export interface DashboardWidgetConfig {
   area: 'main' | 'sidebar';
   defaultOrder: number;
   defaultVisible: boolean;
-  currentOrder?: number; 
-  isVisible?: boolean;   
+  currentOrder?: number;
+  isVisible?: boolean;
 }
 
+const generateQuickActionWidgets = (): DashboardWidgetConfig[] => {
+  return ALL_NAV_ITEMS.map((item, index) => ({
+    id: item.id,
+    title: item.label,
+    component: <SingleQuickActionCard item={item} />,
+    skeletonComponent: <SingleQuickActionCardSkeleton />,
+    area: 'main',
+    defaultOrder: index + 1, // Simple sequential order for quick actions
+    defaultVisible: true,
+  }));
+};
+
 const INITIAL_DASHBOARD_LAYOUT: DashboardWidgetConfig[] = [
-  { id: 'quick-actions', title: 'Szybkie Akcje', component: <QuickActionsWidget />, skeletonComponent: <QuickActionsWidgetSkeleton />, area: 'main', defaultOrder: 1, defaultVisible: true },
+  ...generateQuickActionWidgets(),
+  // Sidebar widgets will have higher order numbers in 'sidebar' area
   { id: 'last-workout', title: 'Ostatni Trening', component: <LastWorkoutWidget />, skeletonComponent: <LastWorkoutWidgetSkeleton />, area: 'sidebar', defaultOrder: 1, defaultVisible: true },
   { id: 'progress-stats', title: 'Statystyki Postępu', component: <ProgressStatsWidget />, skeletonComponent: <ProgressStatsWidgetSkeleton />, area: 'sidebar', defaultOrder: 2, defaultVisible: true },
   { id: 'upcoming-reminders', title: 'Nadchodzące Przypomnienia', component: <UpcomingRemindersWidget />, skeletonComponent: <UpcomingRemindersWidgetSkeleton />, area: 'sidebar', defaultOrder: 3, defaultVisible: true },
 ];
 
-const DASHBOARD_LAYOUT_STORAGE_KEY = "dashboardLayoutConfigV2"; 
+const DASHBOARD_LAYOUT_STORAGE_KEY = "dashboardLayoutConfigV3"; // Incremented version to avoid conflicts
 
 export default function DashboardPage() {
   const { toast } = useToast();
   const userName = MOCK_USER_DATA.name || 'Użytkowniku';
   const [isEditMode, setIsEditMode] = React.useState(false);
-  const [pageIsLoading, setPageIsLoading] = React.useState(true); 
-  
+  const [pageIsLoading, setPageIsLoading] = React.useState(true);
+
   const [dashboardWidgets, setDashboardWidgets] = React.useState<DashboardWidgetConfig[]>([]);
   const [widgetsBeforeEdit, setWidgetsBeforeEdit] = React.useState<DashboardWidgetConfig[]>([]);
-
 
   React.useEffect(() => {
     let loadedLayout: DashboardWidgetConfig[] = [];
     try {
       const savedLayoutJson = localStorage.getItem(DASHBOARD_LAYOUT_STORAGE_KEY);
+      const baseLayout = INITIAL_DASHBOARD_LAYOUT.map(w => ({
+        ...w,
+        isVisible: w.defaultVisible,
+        currentOrder: w.defaultOrder,
+      }));
+
       if (savedLayoutJson) {
-        const parsedLayout = JSON.parse(savedLayoutJson) as Pick<DashboardWidgetConfig, 'id' | 'isVisible' | 'currentOrder' | 'area'>[];
+        const parsedSavedWidgets = JSON.parse(savedLayoutJson) as Pick<DashboardWidgetConfig, 'id' | 'isVisible' | 'currentOrder' | 'area'>[];
         
-        loadedLayout = INITIAL_DASHBOARD_LAYOUT.map(defaultWidget => {
-          const savedWidgetSettings = parsedLayout.find(w => w.id === defaultWidget.id);
+        loadedLayout = baseLayout.map(defaultWidget => {
+          const savedWidgetSettings = parsedSavedWidgets.find(w => w.id === defaultWidget.id);
           return {
             ...defaultWidget,
             isVisible: savedWidgetSettings?.isVisible !== undefined ? savedWidgetSettings.isVisible : defaultWidget.defaultVisible,
             currentOrder: savedWidgetSettings?.currentOrder !== undefined ? savedWidgetSettings.currentOrder : defaultWidget.defaultOrder,
-            area: savedWidgetSettings?.area !== undefined ? savedWidgetSettings.area : defaultWidget.area, 
+            area: savedWidgetSettings?.area !== undefined ? savedWidgetSettings.area : defaultWidget.area,
           };
         });
-
-        INITIAL_DASHBOARD_LAYOUT.forEach(initialWidget => {
+        
+        // Ensure all widgets from INITIAL_DASHBOARD_LAYOUT are present, add if missing from saved
+        baseLayout.forEach(initialWidget => {
           if (!loadedLayout.find(w => w.id === initialWidget.id)) {
-            loadedLayout.push({
-              ...initialWidget,
-              isVisible: initialWidget.defaultVisible,
-              currentOrder: initialWidget.defaultOrder,
-            });
+            loadedLayout.push({ ...initialWidget }); // Add with its default settings
           }
         });
 
       } else {
-        loadedLayout = INITIAL_DASHBOARD_LAYOUT.map(w => ({
-          ...w,
-          isVisible: w.defaultVisible,
-          currentOrder: w.defaultOrder,
-        }));
+        loadedLayout = baseLayout;
       }
     } catch (error) {
       console.error("Error loading dashboard layout from localStorage:", error);
@@ -415,7 +375,7 @@ export default function DashboardPage() {
       }));
     }
     setDashboardWidgets(loadedLayout.sort((a,b) => (a.currentOrder ?? 0) - (b.currentOrder ?? 0)));
-    setTimeout(() => setPageIsLoading(false), 750); 
+    setTimeout(() => setPageIsLoading(false), 750);
   }, []);
 
   const handleToggleWidgetVisibility = (widgetId: string) => {
@@ -428,7 +388,7 @@ export default function DashboardPage() {
 
   const handleMoveWidget = (widgetId: string, direction: 'up' | 'down') => {
     setDashboardWidgets(prevWidgets => {
-      const newWidgets = prevWidgets.map(w => ({...w})); // Create a new array with new objects
+      const newWidgets = prevWidgets.map(w => ({...w}));
       const widgetIndex = newWidgets.findIndex(w => w.id === widgetId);
       if (widgetIndex === -1) return prevWidgets;
 
@@ -436,13 +396,13 @@ export default function DashboardPage() {
       const areaWidgets = newWidgets
         .filter(w => w.area === widget.area)
         .sort((a, b) => (a.currentOrder ?? 0) - (b.currentOrder ?? 0));
-      
+
       const widgetIndexInArea = areaWidgets.findIndex(w => w.id === widgetId);
 
       if (direction === 'up' && widgetIndexInArea > 0) {
         const prevWidgetInArea = areaWidgets[widgetIndexInArea - 1];
         const originalPrevWidgetIndex = newWidgets.findIndex(w => w.id === prevWidgetInArea.id);
-        
+
         const tempOrder = newWidgets[originalPrevWidgetIndex].currentOrder;
         newWidgets[originalPrevWidgetIndex].currentOrder = newWidgets[widgetIndex].currentOrder;
         newWidgets[widgetIndex].currentOrder = tempOrder;
@@ -458,7 +418,7 @@ export default function DashboardPage() {
       return newWidgets.sort((a,b) => (a.currentOrder ?? 0) - (b.currentOrder ?? 0));
     });
   };
-  
+
   const handleSaveLayout = () => {
     try {
       const layoutToSave = dashboardWidgets.map(({ id, isVisible, currentOrder, area }) => ({ id, isVisible, currentOrder, area }));
@@ -471,8 +431,13 @@ export default function DashboardPage() {
     setIsEditMode(false);
   };
 
+  const handleEnterEditMode = () => {
+    setWidgetsBeforeEdit(dashboardWidgets.map(w => ({...w})));
+    setIsEditMode(true);
+  };
+
   const handleCancelEdit = () => {
-    setDashboardWidgets(widgetsBeforeEdit.map(w => ({...w}))); // Restore from state before edit started
+    setDashboardWidgets(widgetsBeforeEdit.map(w => ({...w})));
     setIsEditMode(false);
     toast({ title: "Zmiany w układzie anulowane." });
   };
@@ -483,8 +448,7 @@ export default function DashboardPage() {
       isVisible: w.defaultVisible,
       currentOrder: w.defaultOrder,
     }));
-    setDashboardWidgets(defaultLayout);
-    // Immediately save defaults and exit edit mode
+    setDashboardWidgets(defaultLayout.sort((a,b) => (a.currentOrder ?? 0) - (b.currentOrder ?? 0)));
     try {
       const layoutToSave = defaultLayout.map(({ id, isVisible, currentOrder, area }) => ({ id, isVisible, currentOrder, area }));
       localStorage.setItem(DASHBOARD_LAYOUT_STORAGE_KEY, JSON.stringify(layoutToSave));
@@ -494,11 +458,6 @@ export default function DashboardPage() {
       toast({ title: "Błąd zapisu domyślnego układu", description: "Nie udało się zapisać domyślnego układu.", variant: "destructive" });
     }
     setIsEditMode(false);
-  };
-
-  const handleEnterEditMode = () => {
-    setWidgetsBeforeEdit(dashboardWidgets.map(w => ({...w}))); // Store a deep copy
-    setIsEditMode(true);
   };
 
   const renderWidgetContent = (widget: DashboardWidgetConfig) => {
@@ -514,11 +473,9 @@ export default function DashboardPage() {
     .filter(w => w.area === 'sidebar' && w.isVisible)
     .sort((a, b) => (a.currentOrder ?? 0) - (b.currentOrder ?? 0));
 
-  
   return (
     <>
-      {/* Sub-header specific to dashboard page */}
-      <div className="sticky top-16 z-30 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/50"> 
+      <div className="sticky top-16 z-30 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/50">
         <div className="container mx-auto flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-4">
             <h2 className="text-2xl font-semibold tracking-tight">
@@ -549,6 +506,7 @@ export default function DashboardPage() {
 
       <div className="container mx-auto py-6 px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
+            {/* Main content area - now renders individual quick actions and other main widgets */}
             <div className="lg:col-span-2 space-y-6">
               {mainAreaWidgets.map(widget => (
                  <div key={widget.id} className={cn(isEditMode && "border-2 border-dashed border-primary/50 p-2 rounded-lg bg-primary/5 mb-4 relative")}>
@@ -568,7 +526,7 @@ export default function DashboardPage() {
                       </Button>
                     </div>
                   )}
-                  <div className={cn(isEditMode && "pt-6")}> 
+                  <div className={cn(isEditMode && "pt-6")}>
                     {isEditMode && (
                         <p className="text-xs font-semibold text-primary/70 mb-1 ml-1">{widget.title}</p>
                     )}
@@ -576,6 +534,12 @@ export default function DashboardPage() {
                   </div>
                 </div>
               ))}
+              {mainAreaWidgets.length === 0 && !pageIsLoading && (
+                <Card>
+                    <CardHeader><CardTitle>Brak widgetów</CardTitle></CardHeader>
+                    <CardContent><p className="text-muted-foreground">Wszystkie widgety w tej sekcji są ukryte. Włącz tryb edycji, aby je pokazać.</p></CardContent>
+                </Card>
+              )}
             </div>
             <aside className="space-y-6 lg:col-span-1">
               {sidebarAreaWidgets.map(widget => (
@@ -601,9 +565,17 @@ export default function DashboardPage() {
                   </div>
                 </div>
               ))}
+              {sidebarAreaWidgets.length === 0 && !pageIsLoading && (
+                <Card>
+                    <CardHeader><CardTitle>Brak widgetów</CardTitle></CardHeader>
+                    <CardContent><p className="text-muted-foreground">Wszystkie widgety w tej sekcji są ukryte. Włącz tryb edycji, aby je pokazać.</p></CardContent>
+                </Card>
+              )}
             </aside>
           </div>
         </div>
     </>
   );
 }
+
+    
