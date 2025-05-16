@@ -1,6 +1,8 @@
 
 import type { Exercise as SelectableExerciseType } from "@/components/workout/exercise-selection-dialog";
 import type { RecordedSet as WorkoutRecordedSet, ExerciseInWorkout as PlanExerciseInWorkout } from "@/app/(app)/dashboard/workout/active/[workoutId]/page";
+import type { SelectableWorkout as PlanSelectableWorkout } from "@/components/plans/select-workout-dialog";
+import type { RichDayTemplate as PlanRichDayTemplate } from "@/app/(app)/dashboard/plans/create/page";
 
 
 // This was previously in src/app/(app)/dashboard/workout/create/page.tsx
@@ -257,6 +259,8 @@ export interface PlanDayDetail {
   assignedWorkoutName?: string;
   isRestDay: boolean;
   notes?: string; 
+  templateId?: string | null; // Added for edit page compatibility
+  templateName?: string | null; // Added for edit page compatibility
 }
 
 export interface DetailedTrainingPlan {
@@ -268,6 +272,8 @@ export interface DetailedTrainingPlan {
   schedule: PlanDayDetail[]; 
   author?: string; 
   isPublic?: boolean;
+  startDate?: string; // ISO string, optional
+  endDate?: string; // ISO string, optional
   // Potentially other fields like creationDate, lastUpdated, etc.
 }
 
@@ -276,10 +282,12 @@ export const MOCK_DETAILED_TRAINING_PLANS: DetailedTrainingPlan[] = [
     id: 'plan1', 
     name: 'Siła Początkującego Herkulesa (Detale)',
     description: 'Kompleksowy plan dla osób rozpoczynających przygodę z treningiem siłowym, skupiony na podstawowych ćwiczeniach wielostawowych. Ten plan zakłada 3 dni treningowe w tygodniu i 4 dni odpoczynku.',
-    goal: 'Budowa podstawowej siły i masy mięśniowej',
+    goal: 'Budowa siły',
     duration: '8 tygodni',
     author: 'Krzysztof Trener',
     isPublic: true,
+    startDate: new Date(2024, 6, 1).toISOString(), // July 1st, 2024
+    endDate: new Date(2024, 8, 23).toISOString(),   // Sept 23rd, 2024
     schedule: [
       { dayName: "Poniedziałek", assignedWorkoutId: "wk1", assignedWorkoutName: "Trening A - Full Body (Wyciskanie, Przysiady, Podciąganie)", isRestDay: false, notes: "Skup się na technice, nie na ciężarze." },
       { dayName: "Wtorek", isRestDay: true, notes: "Aktywny odpoczynek: spacer lub lekkie rozciąganie." },
@@ -294,7 +302,7 @@ export const MOCK_DETAILED_TRAINING_PLANS: DetailedTrainingPlan[] = [
     id: 'plan2',
     name: 'Kardio Spalacz Kalorii (Detale)',
     description: 'Intensywny plan kardio interwałowego i aerobowego, mający na celu maksymalizację spalania kalorii i poprawę wydolności. Zaplanowane 5 sesji kardio w tygodniu.',
-    goal: 'Redukcja tkanki tłuszczowej i poprawa kondycji',
+    goal: 'Redukcja tkanki tłuszczowej',
     duration: '6 tygodni',
     author: 'Aleksandra Fit',
     isPublic: true,
@@ -312,7 +320,7 @@ export const MOCK_DETAILED_TRAINING_PLANS: DetailedTrainingPlan[] = [
     id: 'plan3',
     name: 'Elastyczność i Mobilność Zen (Detale)',
     description: 'Plan skupiony na ćwiczeniach rozciągających, jodze i mobilizacji stawów, idealny dla poprawy zakresu ruchu i relaksu.',
-    goal: 'Poprawa elastyczności i mobilności',
+    goal: 'Poprawa elastyczności',
     duration: '4 tygodnie',
     author: 'Zofia Wójcik',
     isPublic: false,
@@ -326,8 +334,7 @@ export const MOCK_DETAILED_TRAINING_PLANS: DetailedTrainingPlan[] = [
       { dayName: "Niedziela", assignedWorkoutId: "custom_relax_stretch", assignedWorkoutName: "Wieczorne Rozciąganie Relaksacyjne", isRestDay: false },
     ],
   },
-  // Default plan for unmatched IDs
-   {
+  {
     id: 'default_plan_details',
     name: 'Przykładowy Plan Treningowy (Detale)',
     description: 'To jest ogólny plan treningowy. Dostosuj go do swoich potrzeb lub wybierz inny z listy.',
@@ -343,4 +350,27 @@ export const MOCK_DETAILED_TRAINING_PLANS: DetailedTrainingPlan[] = [
       { dayName: "Niedziela", isRestDay: true, notes: "Pełna regeneracja" },
     ],
   },
+];
+
+// --- Data for Create/Edit Plan Page ---
+export const MOCK_AVAILABLE_WORKOUTS_FOR_PLAN_EDITOR: PlanSelectableWorkout[] = [
+  { id: "wk1", name: "Poranny Trening Siłowy", type: "Siłowy" },
+  { id: "wk2", name: "Szybkie Cardio HIIT", type: "Cardio" },
+  { id: "wk3", name: "Wieczorne Rozciąganie", type: "Rozciąganie" },
+  { id: "wk4", name: "Trening Brzucha Express", type: "Siłowy" },
+  { id: "wk5", name: "Długie Wybieganie", type: "Cardio" },
+  { id: "template_full_body_a", name: "Szablon Full Body A", type: "Siłowy"},
+  { id: "template_push", name: "Szablon Push (Początkujący)", type: "Siłowy"},
+  { id: "template_pull", name: "Szablon Pull (Początkujący)", type: "Siłowy"},
+  { id: "template_legs", name: "Szablon Nogi (Początkujący)", type: "Siłowy"},
+  // Add any newly created "quick workouts" here if we want them persisted across sessions in mock
+];
+
+export const MOCK_DAY_TEMPLATES_FOR_PLAN_EDITOR: PlanRichDayTemplate[] = [
+  { id: "tpl_push_day", name: "Szablon: Dzień Push", assignedWorkoutId: "template_push", assignedWorkoutName: "Szablon Push (Początkujący)", isRestDay: false },
+  { id: "tpl_pull_day", name: "Szablon: Dzień Pull", assignedWorkoutId: "template_pull", assignedWorkoutName: "Szablon Pull (Początkujący)", isRestDay: false },
+  { id: "tpl_legs_day", name: "Szablon: Dzień Nóg", assignedWorkoutId: "template_legs", assignedWorkoutName: "Szablon Nogi (Początkujący)", isRestDay: false },
+  { id: "tpl_full_body_day", name: "Szablon: Full Body", assignedWorkoutId: "template_full_body_a", assignedWorkoutName: "Szablon Full Body A", isRestDay: false },
+  { id: "tpl_active_rest_day", name: "Szablon: Odpoczynek Aktywny", assignedWorkoutId: "wk3", assignedWorkoutName: "Wieczorne Rozciąganie", isRestDay: false },
+  { id: "tpl_pure_rest_day", name: "Szablon: Całkowity Odpoczynek", isRestDay: true },
 ];
