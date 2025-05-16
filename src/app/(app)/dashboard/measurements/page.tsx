@@ -92,6 +92,9 @@ import {
 } from "@/components/ui/tooltip";
 import { MeasurementsPageSkeleton } from "@/components/measurements/MeasurementsPageSkeleton";
 
+// MOCK BACKEND LOGIC: Component uses an in-memory array (INITIAL_MOCK_MEASUREMENTS) for data.
+// Adding, editing, or deleting measurements modifies this array.
+// Data is not persisted beyond the current session/page refresh.
 const AddMeasurementDialog = dynamic(() =>
   import("@/components/measurements/add-measurement-dialog").then((mod) => mod.AddMeasurementDialog), {
   loading: () => <div className="fixed inset-0 bg-background/50 flex items-center justify-center z-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>,
@@ -189,11 +192,11 @@ export default function MeasurementsPage() {
 
   React.useEffect(() => {
     setPageIsLoading(true);
-    // Simulate data fetching
+    // MOCK BACKEND LOGIC: Simulate fetching data. In this case, uses predefined INITIAL_MOCK_MEASUREMENTS.
     const timer = setTimeout(() => {
       setMeasurements(INITIAL_MOCK_MEASUREMENTS);
       setPageIsLoading(false);
-    }, 750); // Adjust delay as needed
+    }, 750); 
     return () => clearTimeout(timer);
   }, []);
 
@@ -252,7 +255,7 @@ export default function MeasurementsPage() {
               metricValue !== undefined &&
               metricValue !== null &&
               typeof metricValue === 'number' && 
-              !isNaN(metricValue) &&
+              !isNaN(metricValue) && // Ensure metricValue is not NaN
               dp.date !== "Invalid Date"
             );
           }
@@ -288,6 +291,8 @@ export default function MeasurementsPage() {
     return config;
   }, [availableMetricsForChart]);
 
+  // MOCK BACKEND LOGIC: Simulates saving or updating a measurement.
+  // Modifies the in-memory 'measurements' array. No actual backend call.
   const handleSaveMeasurement = (data: MeasurementFormData) => {
     if (editingMeasurement) {
       setMeasurements((prev) =>
@@ -326,10 +331,12 @@ export default function MeasurementsPage() {
     setMeasurementToDelete(measurement);
   };
 
+  // MOCK BACKEND LOGIC: Simulates deleting a measurement.
+  // Filters the in-memory 'measurements' array. No actual backend call.
   const handleDeleteMeasurement = async () => {
     if (!measurementToDelete) return;
     setIsDeleting(true);
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate API delay
     setMeasurements((prev) =>
       prev.filter((m) => m.id !== measurementToDelete.id)
     );
@@ -349,6 +356,7 @@ export default function MeasurementsPage() {
     return part && part.value !== null ? part.value.toString() : "-";
   };
 
+  // MOCK BACKEND LOGIC: CSV export is entirely client-side based on current 'measurements' state.
   const handleExportToCSV = () => {
     if (measurements.length === 0) {
       toast({
@@ -657,7 +665,7 @@ export default function MeasurementsPage() {
                         allowDecimals={true}
                       />
                       <ChartTooltip
-                        cursor={false}
+                        cursor={true}
                         content={<ChartTooltipContent hideLabel />}
                       />
                       <RechartsLine
@@ -771,3 +779,4 @@ export default function MeasurementsPage() {
     </div>
   );
 }
+

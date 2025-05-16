@@ -67,10 +67,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Alert } from "@/components/ui/alert";
+// MOCK BACKEND LOGIC: Exercise database is an in-memory constant.
 import { MOCK_EXERCISES_DATABASE } from "@/lib/mockData"; // Corrected import path
 // import { PbProgressionChartDialog } from "@/components/personal-bests/pb-progression-chart-dialog";
 import { PersonalBestsPageSkeleton } from "@/components/personal-bests/PersonalBestsPageSkeleton"; // Added import
 
+// MOCK BACKEND LOGIC: Dialogs are dynamically imported for lazy loading.
 const ManagePbDialog = dynamic(() =>
   import("@/components/personal-bests/manage-pb-dialog").then((mod) => mod.ManagePbDialog), {
   loading: () => <div className="fixed inset-0 bg-background/50 flex items-center justify-center z-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>,
@@ -99,6 +101,8 @@ export interface PersonalBest {
   notes?: string;
 }
 
+// MOCK BACKEND LOGIC: Personal Bests are stored in an in-memory array (INITIAL_MOCK_PBS).
+// Adding, editing, or deleting PBs modifies this array. Data is not persisted.
 const INITIAL_MOCK_PBS: PersonalBest[] = [
   {
     id: uuidv4(),
@@ -163,11 +167,11 @@ export default function PersonalBestsPage() {
 
   React.useEffect(() => {
     setPageIsLoading(true);
-    // Simulate data fetching
+    // MOCK BACKEND LOGIC: Simulate fetching data.
     const timer = setTimeout(() => {
       setPersonalBests(INITIAL_MOCK_PBS);
       setPageIsLoading(false);
-    }, 750); // Adjust delay as needed
+    }, 750); 
     return () => clearTimeout(timer);
   }, []);
 
@@ -186,6 +190,8 @@ export default function PersonalBestsPage() {
       .sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
   }, [personalBests, searchTerm, selectedExerciseFilter]);
 
+  // MOCK BACKEND LOGIC: Simulates saving or updating a Personal Best.
+  // Modifies the in-memory 'personalBests' array. No actual backend call.
   const handleSavePb = (data: PersonalBestFormData) => {
     const exercise = MOCK_EXERCISES_DATABASE.find(
       (ex) => ex.id === data.exerciseId
@@ -248,10 +254,12 @@ export default function PersonalBestsPage() {
     setPbToDelete(pb);
   };
 
+  // MOCK BACKEND LOGIC: Simulates deleting a Personal Best.
+  // Filters the in-memory 'personalBests' array. No actual backend call.
   const handleDeletePb = async () => {
     if (!pbToDelete) return;
     setIsDeleting(true);
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate API delay
     setPersonalBests((prev) => prev.filter((p) => p.id !== pbToDelete.id));
     toast({
       title: "Rekord usunięty",
@@ -307,31 +315,6 @@ export default function PersonalBestsPage() {
 
   return (
     <>
-      {/* Header part of AppLayout */}
-      {/* <header className="sticky top-16 z-30 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/50">
-        <div className="container mx-auto flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" asChild>
-              <Link href="/dashboard">
-                <ArrowLeft className="h-5 w-5" />
-                <span className="sr-only">Powrót do Panelu</span>
-              </Link>
-            </Button>
-            <Trophy className="h-7 w-7 text-primary" />
-            <h1 className="text-xl font-bold">Rekordy Życiowe</h1>
-          </div>
-          <Button
-            onClick={() => {
-              setEditingPb(null);
-              setIsManageDialogOpen(true);
-            }}
-          >
-            <PlusCircle className="mr-2 h-5 w-5" />
-            Dodaj Rekord
-          </Button>
-        </div>
-      </header> */}
-
       <main className="flex-1 py-6 px-4 sm:px-6 lg:px-8">
         <div className="container mx-auto space-y-8">
           <div className="flex justify-end">
@@ -578,3 +561,4 @@ export default function PersonalBestsPage() {
     </>
   );
 }
+

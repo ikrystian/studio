@@ -38,6 +38,10 @@ import {
 } from "@/components/ui/select";
 import { CommunityFeedPageSkeleton } from "@/components/community/CommunityFeedPageSkeleton"; // Added import
 
+// MOCK BACKEND LOGIC: The entire feed, including users, posts, comments, and notifications,
+// is managed using in-memory arrays (MOCK_USERS, ALL_MOCK_POSTS, INITIAL_MOCK_NOTIFICATIONS).
+// All operations like creating posts, liking, commenting, and fetching "notifications"
+// manipulate these in-memory arrays. Data is not persisted beyond the session.
 
 // Mock Data Structures
 interface MockUser {
@@ -192,6 +196,7 @@ export default function CommunityFeedPage() {
   const observer = React.useRef<IntersectionObserver | null>(null);
 
   const getFilteredMockPosts = React.useCallback(() => {
+    // MOCK BACKEND LOGIC: Filters the global ALL_MOCK_POSTS array based on the active filter.
     return ALL_MOCK_POSTS.filter(post => {
       if (activeFilter === 'workouts') return post.postType === 'workout_summary';
       if (activeFilter === 'text_only') return !post.imageUrl && post.postType !== 'workout_summary';
@@ -199,6 +204,8 @@ export default function CommunityFeedPage() {
     }).sort((a, b) => parseISO(b.timestamp).getTime() - parseISO(a.timestamp).getTime());
   }, [activeFilter]);
 
+  // MOCK BACKEND LOGIC: Simulates fetching more posts for infinite scroll.
+  // Slices the getFilteredMockPosts array based on pagination.
   const loadMorePosts = React.useCallback(async () => {
     if (isLoadingMore || !hasMorePosts) return;
 
@@ -225,13 +232,13 @@ export default function CommunityFeedPage() {
     setPageIsLoading(true);
     const filteredAll = getFilteredMockPosts();
     
+    // MOCK BACKEND LOGIC: Simulates initial posts load.
     const timer = setTimeout(() => {
       setPosts(filteredAll.slice(0, POSTS_PER_PAGE));
       setCurrentPage(1); 
       setHasMorePosts(filteredAll.length > POSTS_PER_PAGE);
       setPageIsLoading(false);
-    }, 750); // Simulate initial load delay
-
+    }, 750); 
     return () => clearTimeout(timer);
   }, [getFilteredMockPosts]); 
 
@@ -252,6 +259,7 @@ export default function CommunityFeedPage() {
 
   const getUserById = (userId: string): MockUser | undefined => MOCK_USERS.find(u => u.id === userId);
 
+  // MOCK BACKEND LOGIC: Simulates liking/unliking a post. Updates the in-memory 'posts' state.
   const handleLikePost = (postId: string) => {
     setPosts(prevPosts =>
       prevPosts.map(post =>
@@ -270,6 +278,7 @@ export default function CommunityFeedPage() {
     setCommentInputs(prev => ({ ...prev, [postId]: text }));
   };
 
+  // MOCK BACKEND LOGIC: Simulates adding a comment. Updates the in-memory 'posts' state.
   const handleAddComment = (postId: string) => {
     const commentText = commentInputs[postId];
     if (!commentText || commentText.trim() === "") {
@@ -299,6 +308,8 @@ export default function CommunityFeedPage() {
     toast({ title: "Komentarz dodany!", variant: "default" });
   };
 
+  // MOCK BACKEND LOGIC: Simulates creating a new post.
+  // Adds the new post to the global ALL_MOCK_POSTS array and updates the local 'posts' state.
   const handleCreatePost = () => {
     if (newPostContent.trim() === "") {
       toast({ title: "Treść posta nie może być pusta", variant: "destructive" });
@@ -318,8 +329,9 @@ export default function CommunityFeedPage() {
       timestamp: new Date().toISOString(),
     };
     
-    ALL_MOCK_POSTS.unshift(newPost); 
+    ALL_MOCK_POSTS.unshift(newPost); // Add to the "master" list
 
+    // Refresh the displayed posts based on the current filter and pagination
     const filteredAll = getFilteredMockPosts();
     setPosts(filteredAll.slice(0, (currentPage * POSTS_PER_PAGE))); 
     setHasMorePosts(filteredAll.length > (currentPage * POSTS_PER_PAGE));
@@ -328,6 +340,7 @@ export default function CommunityFeedPage() {
     toast({ title: "Post opublikowany!", variant: "default" });
   };
 
+  // MOCK BACKEND LOGIC: Simulates sharing a post.
   const handleShare = (postId: string, option: 'now' | 'comment' | 'copy') => {
     const postToShare = ALL_MOCK_POSTS.find(p => p.id === postId); 
     if (!postToShare) return;
@@ -347,6 +360,7 @@ export default function CommunityFeedPage() {
     }
   };
 
+  // MOCK BACKEND LOGIC: Simulates marking a notification as read and navigating to its source.
   const handleNotificationClick = (notificationId: string) => {
     setNotifications(prevNotifications =>
       prevNotifications.map(n =>
@@ -378,6 +392,11 @@ export default function CommunityFeedPage() {
           <div className="flex items-center gap-3">
             <Select value={activeFilter} onValueChange={(value) => {
               setActiveFilter(value as any);
+              // MOCK BACKEND LOGIC: Reset pagination and posts when filter changes
+              setCurrentPage(1); // Reset to first page
+              setPosts([]); // Clear current posts, useEffect will reload them
+              setIsLoadingMore(false); // Stop any ongoing loading
+              setHasMorePosts(true); // Assume there are posts for the new filter
             }}>
               <SelectTrigger className="w-[180px] h-9 text-xs">
                 <SelectValue placeholder="Filtruj feed" />
@@ -469,7 +488,7 @@ export default function CommunityFeedPage() {
           </Card>
 
           {/* Posts Feed */}
-          {posts.length === 0 && !isLoadingMore ? (
+          {posts.length === 0 && !isLoadingMore && !pageIsLoading ? ( // Added !pageIsLoading check
              <p className="text-center text-muted-foreground py-10">
                 {activeFilter !== 'all' ? "Brak postów pasujących do filtra." : "Brak postów do wyświetlenia. Bądź pierwszy!"}
              </p>

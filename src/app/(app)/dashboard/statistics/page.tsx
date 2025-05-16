@@ -73,6 +73,7 @@ import {
 import { cn } from "@/lib/utils";
 import { StatisticsPageSkeleton } from "@/components/statistics/StatisticsPageSkeleton"; // Added import
 
+// MOCK BACKEND LOGIC: Dialog is dynamically imported for lazy loading.
 const AddGoalDialog = dynamic(() =>
   import("@/components/statistics/add-goal-dialog").then((mod) => mod.AddGoalDialog), {
   loading: () => <div className="fixed inset-0 bg-background/50 flex items-center justify-center z-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>,
@@ -80,7 +81,11 @@ const AddGoalDialog = dynamic(() =>
 });
 
 
-// Mock data (ideally imported from a shared location or fetched)
+// MOCK BACKEND LOGIC: The component uses several in-memory mock data arrays below (MOCK_HISTORY_SESSIONS_STATS,
+// MOCK_MEASUREMENTS_STATS, MOCK_WELLNESS_ENTRIES_FOR_STATS, INITIAL_USER_GOALS).
+// All data processing for charts and comparisons happens client-side based on these arrays.
+// Adding/deleting goals modifies the in-memory 'userGoals' array. Data is not persisted.
+
 interface SimpleHistoricalWorkoutSession {
   id: string;
   workoutName: string;
@@ -310,6 +315,7 @@ export default function StatisticsPage() {
   }, [exerciseIdFromQuery, exerciseNameFromQuery, toast, selectedExerciseIdForVolume, pageIsLoading]);
 
   const handleApplyGlobalFilters = React.useCallback(() => {
+    // MOCK BACKEND LOGIC: All filtering is done client-side on the full MOCK_... arrays.
     let filteredSessions = MOCK_HISTORY_SESSIONS_STATS;
     let filteredMeasurementsData = MOCK_MEASUREMENTS_STATS;
     let filteredWellness = MOCK_WELLNESS_ENTRIES_FOR_STATS;
@@ -363,6 +369,7 @@ export default function StatisticsPage() {
     setProcessedMeasurements(filteredMeasurementsData);
     setProcessedWellnessEntries(filteredWellness);
 
+    // Update selected exercise for volume chart if it's no longer in the filtered list
     const currentVolumeExercises = new Set(filteredSessions.flatMap(s => s.exercises.map(e => e.id)));
     if (selectedExerciseIdForVolume && !currentVolumeExercises.has(selectedExerciseIdForVolume)) {
         const firstAvailable = Array.from(currentVolumeExercises)[0];
@@ -379,10 +386,11 @@ export default function StatisticsPage() {
   
   React.useEffect(() => {
     setPageIsLoading(true);
+    // MOCK BACKEND LOGIC: Simulates initial data load and filter application.
     const timer = setTimeout(() => {
-      handleApplyGlobalFilters(); // Apply initial filters or load all data
+      handleApplyGlobalFilters(); 
       setPageIsLoading(false);
-    }, 750); // Simulate initial data load
+    }, 750); 
     return () => clearTimeout(timer);
   }, [handleApplyGlobalFilters]); // Rerun if filter logic changes
 
@@ -475,6 +483,7 @@ export default function StatisticsPage() {
           if (selectedWellnessMetrics.includes('energyLevel') && wellnessEntry.energyLevel !== undefined) dataPoint.energyLevel = wellnessEntry.energyLevel;
           if (selectedWellnessMetrics.includes('sleepQuality') && wellnessEntry.sleepQuality !== undefined) dataPoint.sleepQuality = wellnessEntry.sleepQuality;
         }
+        // Only add data point if it has Volume or any selected wellness metric
         if (dataPoint.Volume !== undefined || 
             (selectedWellnessMetrics.includes('wellBeing') && dataPoint.wellBeing !== undefined) ||
             (selectedWellnessMetrics.includes('energyLevel') && dataPoint.energyLevel !== undefined) ||
@@ -499,6 +508,7 @@ export default function StatisticsPage() {
     return Object.entries(categoryCounts).map(([name, value]) => ({ name, value }));
   }, [processedHistorySessions]);
 
+  // MOCK BACKEND LOGIC: Calculates metrics for periods based on the full MOCK_HISTORY_SESSIONS_STATS.
   const calculateMetricsForPeriod = (startDate?: Date, endDate?: Date): ComparisonMetrics => {
     let workoutCount = 0;
     let totalVolume = 0;
@@ -564,6 +574,7 @@ export default function StatisticsPage() {
     });
   };
 
+  // MOCK BACKEND LOGIC: Simulates adding a new goal. Modifies the in-memory 'userGoals' array.
   const handleAddGoal = (data: AddGoalFormData) => {
     const newGoal: UserGoal = {
       id: uuidv4(),
@@ -587,6 +598,7 @@ export default function StatisticsPage() {
     setIsAddGoalDialogOpen(false);
   };
 
+  // MOCK BACKEND LOGIC: Simulates deleting a goal. Filters the in-memory 'userGoals' array.
   const handleDeleteGoal = async () => {
     if (!goalToDelete) return;
     setIsDeletingGoal(true);
@@ -600,6 +612,7 @@ export default function StatisticsPage() {
     setIsDeletingGoal(false);
   };
 
+  // Client-side print simulation
   const handlePrintChart = (chartCardId: string) => {
     setPrintingChartId(chartCardId);
   };
@@ -615,6 +628,7 @@ export default function StatisticsPage() {
   }, [printingChartId]);
 
 
+  // MOCK BACKEND LOGIC: CSV export is entirely client-side based on current chart data.
   const arrayToCSV = (data: any[], headers?: string[]): string => {
     if (!data || data.length === 0) {
         return "";
@@ -762,7 +776,7 @@ export default function StatisticsPage() {
                              <Label className="flex items-center">
                                 <Checkbox
                                     checked={selectedExerciseIds.length === ALL_UNIQUE_EXERCISES.length && ALL_UNIQUE_EXERCISES.length > 0}
-                                    indeterminate={(selectedExerciseIds.length > 0 && selectedExerciseIds.length < ALL_UNIQUE_EXERCISES.length) ? true : undefined}
+                                    indeterminate={ (selectedExerciseIds.length > 0 && selectedExerciseIds.length < ALL_UNIQUE_EXERCISES.length) ? true : undefined }
                                     onCheckedChange={() => handleSelectAll(ALL_UNIQUE_EXERCISES, selectedExerciseIds, setSelectedExerciseIds)}
                                     className="mr-2"
                                     disabled={ALL_UNIQUE_EXERCISES.length === 0}
@@ -1199,3 +1213,4 @@ export default function StatisticsPage() {
     </div>
   );
 }
+

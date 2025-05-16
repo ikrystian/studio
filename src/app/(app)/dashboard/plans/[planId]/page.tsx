@@ -15,6 +15,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, CalendarDays, Target, Dumbbell, Coffee, Edit3, PlayCircle, Info, BookOpen, User, Users2, ExternalLink, ListChecks, FileText } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
+// MOCK BACKEND LOGIC: Plan details are fetched from an in-memory array MOCK_DETAILED_TRAINING_PLANS.
+// Starting a workout involves storing its structure in localStorage for the active workout page.
 import { MOCK_DETAILED_TRAINING_PLANS, type DetailedTrainingPlan, MOCK_EXERCISES_DATABASE, type ExerciseInWorkout } from "@/lib/mockData";
 import { TrainingPlanDetailPageSkeleton } from "@/components/plans/TrainingPlanDetailPageSkeleton";
 import {
@@ -35,6 +37,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 
+// MOCK BACKEND LOGIC: Key used to pass workout data to the active workout page via localStorage.
 const PENDING_CUSTOM_WORKOUT_KEY = 'pendingCustomWorkoutToStart';
 
 
@@ -51,6 +54,7 @@ export default function TrainingPlanDetailPage() {
     setIsLoading(true);
     // Simulate data fetching
     const timer = setTimeout(() => {
+      // MOCK BACKEND LOGIC: Fetches plan details from the MOCK_DETAILED_TRAINING_PLANS array.
       const foundPlan = MOCK_DETAILED_TRAINING_PLANS.find(p => p.id === planId);
       if (foundPlan) {
         setPlanData(foundPlan);
@@ -70,6 +74,9 @@ export default function TrainingPlanDetailPage() {
     return () => clearTimeout(timer);
   }, [planId, toast]);
 
+  // MOCK BACKEND LOGIC: Simulates initiating a workout.
+  // It prepares workout data (potentially from mock templates) and stores it in localStorage
+  // for the '/dashboard/workout/active/[workoutId]' page to pick up.
   const handleStartWorkout = (dayName: string, workoutId?: string, workoutName?: string) => {
     if (!planData || !workoutId || !workoutName) {
       toast({ title: "Błąd", description: "Nie można rozpocząć tego treningu.", variant: "destructive" });
@@ -78,6 +85,8 @@ export default function TrainingPlanDetailPage() {
     
     let exercisesToStart: ExerciseInWorkout[] = [];
 
+    // MOCK BACKEND LOGIC: Simple exercise generation based on workout ID or name.
+    // In a real app, these exercises would come from the workout definition in a database.
     if (workoutId === "wk1") { 
         exercisesToStart = [
             { id: "ex1", name: "Wyciskanie sztangi na ławce płaskiej", defaultSets: 3, defaultReps: "8-10", defaultRest: 90 },
@@ -93,6 +102,7 @@ export default function TrainingPlanDetailPage() {
              exercisesToStart.push({id: MOCK_EXERCISES_DATABASE[0].id, name: MOCK_EXERCISES_DATABASE[0].name, defaultSets: 3, defaultReps: "10", defaultRest: 60});
         }
     } else { 
+        // Fallback for other workout IDs - uses a default exercise.
         exercisesToStart = [{id: MOCK_EXERCISES_DATABASE[0].id, name: MOCK_EXERCISES_DATABASE[0].name, defaultSets: 3, defaultReps: "10", defaultRest: 60}];
     }
 
@@ -101,6 +111,7 @@ export default function TrainingPlanDetailPage() {
         name: `${workoutName} (z planu: ${planData.name})`,
         exercises: exercisesToStart,
     };
+    // MOCK BACKEND LOGIC: Uses localStorage to pass the workout data to the active workout page.
     localStorage.setItem(PENDING_CUSTOM_WORKOUT_KEY, JSON.stringify(customWorkoutToStart));
     router.push(`/dashboard/workout/active/${customWorkoutToStart.id}`);
   };

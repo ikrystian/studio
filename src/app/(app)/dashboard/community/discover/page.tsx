@@ -29,6 +29,9 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { CommunityDiscoverPageSkeleton } from "@/components/community/CommunityDiscoverPageSkeleton";
+// MOCK BACKEND LOGIC: User profiles (MOCK_USER_PROFILES_DB) and discoverable content (MOCK_DISCOVERABLE_CONTENT)
+// are in-memory arrays. Filtering and recommendations are simulated client-side.
+// Following a user updates a local state, not a backend.
 import { UserProfile, MOCK_USER_PROFILES_DB } from "@/lib/mockData"; // Import centralized data
 import { Badge } from "@/components/ui/badge";
 
@@ -83,15 +86,17 @@ export default function CommunityDiscoverPage() {
 
   React.useEffect(() => {
     setIsLoading(true);
+    // MOCK BACKEND LOGIC: Simulate fetching initial recommended users and content.
     const timer = setTimeout(() => {
       setRecommendedUsers(getRandomItems(MOCK_USER_PROFILES_DB, 3));
       setRecommendedContent(getRandomItems(MOCK_DISCOVERABLE_CONTENT, 3));
       setIsLoading(false);
-    }, 750); // Simulate data fetching
+    }, 750); 
     return () => clearTimeout(timer);
   }, []);
 
   const filteredUsers = React.useMemo(() => {
+    // MOCK BACKEND LOGIC: Filters users from the in-memory MOCK_USER_PROFILES_DB.
     return MOCK_USER_PROFILES_DB.filter(user =>
       user.fullName.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
       user.username.toLowerCase().includes(userSearchTerm.toLowerCase())
@@ -99,6 +104,7 @@ export default function CommunityDiscoverPage() {
   }, [userSearchTerm]);
 
   const filteredContent = React.useMemo(() => {
+    // MOCK BACKEND LOGIC: Filters content from the in-memory MOCK_DISCOVERABLE_CONTENT.
     return MOCK_DISCOVERABLE_CONTENT.filter(content => {
       const matchesSearch = content.title.toLowerCase().includes(contentSearchTerm.toLowerCase()) ||
                             content.description.toLowerCase().includes(contentSearchTerm.toLowerCase());
@@ -109,6 +115,7 @@ export default function CommunityDiscoverPage() {
   }, [contentSearchTerm, selectedContentCategory, selectedContentType]);
 
   const usersByRegion = React.useMemo(() => {
+    // MOCK BACKEND LOGIC: Filters users by region from in-memory MOCK_USER_PROFILES_DB.
     if (selectedRegion === "Wszystkie") {
       return MOCK_USER_PROFILES_DB;
     }
@@ -116,6 +123,7 @@ export default function CommunityDiscoverPage() {
   }, [selectedRegion]);
 
   const trainersByRegion = React.useMemo(() => {
+    // MOCK BACKEND LOGIC: Filters trainers by region from in-memory MOCK_USER_PROFILES_DB.
     return MOCK_USER_PROFILES_DB.filter(user => {
       const isTrainer = user.role === 'trener';
       const matchesRegion = selectedRegionForTrainers === "Wszystkie" || user.region === selectedRegionForTrainers;
@@ -123,6 +131,7 @@ export default function CommunityDiscoverPage() {
     });
   }, [selectedRegionForTrainers]);
 
+  // MOCK BACKEND LOGIC: Simulates following/unfollowing a user. Updates local state only.
   const handleFollowUser = (userId: string) => {
     setFollowedUsers(prev => {
       const newSet = new Set(prev);
@@ -137,6 +146,7 @@ export default function CommunityDiscoverPage() {
     });
   };
 
+  // MOCK BACKEND LOGIC: Simulates hiding a recommendation. Updates local state only.
   const handleHideRecommendation = (id: string, type: 'user' | 'content') => {
     toast({
       title: "Rekomendacja ukryta (Symulacja)",

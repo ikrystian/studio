@@ -128,7 +128,8 @@ const CONTEXT_OPTIONS = [
     { value: "other", label: "Inny (opisz w notatkach)"},
 ];
 
-
+// MOCK BACKEND LOGIC: Wellness entries are stored in an in-memory array (INITIAL_MOCK_ENTRIES).
+// Adding or deleting entries modifies this array. Data is not persisted beyond the current session/page refresh.
 const INITIAL_MOCK_ENTRIES: WellnessEntry[] = [
   {
     id: uuidv4(),
@@ -177,13 +178,15 @@ export default function WellnessJournalPage() {
 
   React.useEffect(() => {
     setIsLoading(true);
-    // Simulate fetching data
+    // MOCK BACKEND LOGIC: Simulate fetching initial data.
     setTimeout(() => {
       setEntries(INITIAL_MOCK_ENTRIES);
       setIsLoading(false);
-    }, 750); // Simulate network delay
+    }, 750); 
   }, []);
 
+  // MOCK BACKEND LOGIC: Simulates saving a new wellness entry.
+  // Appends to the in-memory 'entries' array.
   async function onSubmit(values: WellnessEntryFormValues) {
     setIsSaving(true);
     const newEntry: WellnessEntry = {
@@ -198,11 +201,11 @@ export default function WellnessJournalPage() {
       notes: values.notes,
     };
 
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API delay
 
     setEntries(prev => [newEntry, ...prev].sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime()));
     toast({ title: "Wpis zapisany", description: "Twój wpis do dziennika samopoczucia został dodany." });
-    form.reset({
+    form.reset({ // Reset form to default values
       date: new Date(),
       wellBeing: 3,
       energyLevel: 3,
@@ -215,10 +218,12 @@ export default function WellnessJournalPage() {
     setIsSaving(false);
   }
 
+  // MOCK BACKEND LOGIC: Simulates deleting a wellness entry.
+  // Filters the in-memory 'entries' array.
   const handleDeleteEntry = async () => {
     if (!entryToDelete) return;
     setIsSaving(true); 
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API delay
     setEntries(prev => prev.filter(e => e.id !== entryToDelete.id));
     toast({ title: "Wpis usunięty", description: "Wpis został pomyślnie usunięty z dziennika." });
     setEntryToDelete(null);
@@ -524,3 +529,4 @@ export default function WellnessJournalPage() {
     </div>
   );
 }
+

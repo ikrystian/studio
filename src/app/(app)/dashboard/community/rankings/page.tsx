@@ -32,6 +32,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
+// MOCK BACKEND LOGIC: User data for rankings (MOCK_RANKING_USERS) is an in-memory array.
+// All sorting and filtering for rankings happen client-side based on this array.
+// Data is not persisted.
+
 interface RankingUser {
   id: string;
   name: string;
@@ -46,14 +50,14 @@ interface RankingUser {
 const MOCK_RANKING_USERS: RankingUser[] = [
   { id: "user1", name: "Aleksandra Mistrzyni", avatarUrl: "https://placehold.co/100x100.png?text=AM", score: 0, completedWorkouts: 150, totalVolumeLifted: 250000, weeklyActivityScore: 950 },
   { id: "user2", name: "Krzysztof Siłacz", avatarUrl: "https://placehold.co/100x100.png?text=KS", score: 0, completedWorkouts: 120, totalVolumeLifted: 300000, weeklyActivityScore: 800 },
-  { id: "user3", name: "Fitness Maniak", username: "fitmaniak", avatarUrl: "https://placehold.co/100x100.png?text=FM", score: 0, completedWorkouts: 200, totalVolumeLifted: 180000, weeklyActivityScore: 920 },
-  { id: "user4", name: "Maria Biegaczka", username: "runmaria", avatarUrl: "https://placehold.co/100x100.png?text=MB", score: 0, completedWorkouts: 90, totalVolumeLifted: 50000, weeklyActivityScore: 700 },
-  { id: "user5", name: "Piotr Wytrwały", username: "piotrstrong", avatarUrl: "https://placehold.co/100x100.png?text=PW", score: 0, completedWorkouts: 180, totalVolumeLifted: 220000, weeklyActivityScore: 880 },
-  { id: "user6", name: "Jan Niezłomny", username: "janniezlomny", avatarUrl: "https://placehold.co/100x100.png?text=JN", score: 0, completedWorkouts: 50, totalVolumeLifted: 100000, weeklyActivityScore: 500 },
-  { id: "user7", name: "Ewa Aktywna", username: "ewaactive", avatarUrl: "https://placehold.co/100x100.png?text=EA", score: 0, completedWorkouts: 110, totalVolumeLifted: 150000, weeklyActivityScore: 750 },
-  { id: "user8", name: "Tomasz Cel", username: "tomaszgoal", avatarUrl: "https://placehold.co/100x100.png?text=TC", score: 0, completedWorkouts: 130, totalVolumeLifted: 190000, weeklyActivityScore: 820 },
-  { id: "user9", name: "Zofia Zdrowa", username: "zofiafit", avatarUrl: "https://placehold.co/100x100.png?text=ZZ", score: 0, completedWorkouts: 70, totalVolumeLifted: 80000, weeklyActivityScore: 600 },
-  { id: "user10", name: "Adam Workout", username: "adamw", avatarUrl: "https://placehold.co/100x100.png?text=AW", score: 0, completedWorkouts: 160, totalVolumeLifted: 270000, weeklyActivityScore: 900 },
+  { id: "user3", name: "Fitness Maniak", avatarUrl: "https://placehold.co/100x100.png?text=FM", score: 0, completedWorkouts: 200, totalVolumeLifted: 180000, weeklyActivityScore: 920 },
+  { id: "user4", name: "Maria Biegaczka", avatarUrl: "https://placehold.co/100x100.png?text=MB", score: 0, completedWorkouts: 90, totalVolumeLifted: 50000, weeklyActivityScore: 700 },
+  { id: "user5", name: "Piotr Wytrwały", avatarUrl: "https://placehold.co/100x100.png?text=PW", score: 0, completedWorkouts: 180, totalVolumeLifted: 220000, weeklyActivityScore: 880 },
+  { id: "user6", name: "Jan Niezłomny", avatarUrl: "https://placehold.co/100x100.png?text=JN", score: 0, completedWorkouts: 50, totalVolumeLifted: 100000, weeklyActivityScore: 500 },
+  { id: "user7", name: "Ewa Aktywna", avatarUrl: "https://placehold.co/100x100.png?text=EA", score: 0, completedWorkouts: 110, totalVolumeLifted: 150000, weeklyActivityScore: 750 },
+  { id: "user8", name: "Tomasz Cel", avatarUrl: "https://placehold.co/100x100.png?text=TC", score: 0, completedWorkouts: 130, totalVolumeLifted: 190000, weeklyActivityScore: 820 },
+  { id: "user9", name: "Zofia Zdrowa", avatarUrl: "https://placehold.co/100x100.png?text=ZZ", score: 0, completedWorkouts: 70, totalVolumeLifted: 80000, weeklyActivityScore: 600 },
+  { id: "user10", name: "Adam Workout", avatarUrl: "https://placehold.co/100x100.png?text=AW", score: 0, completedWorkouts: 160, totalVolumeLifted: 270000, weeklyActivityScore: 900 },
 ];
 
 type RankingCategoryKey = "completedWorkouts" | "totalVolumeLifted" | "weeklyActivityScore";
@@ -77,6 +81,7 @@ export default function CommunityRankingsPage() {
   const [selectedCategory, setSelectedCategory] = React.useState<RankingCategoryKey>(RANKING_CATEGORIES[0].value);
 
   const rankedUsers = React.useMemo(() => {
+    // MOCK BACKEND LOGIC: Sorts users from MOCK_RANKING_USERS based on the selected category.
     return [...MOCK_RANKING_USERS]
       .map(user => ({
         ...user,
@@ -195,3 +200,4 @@ export default function CommunityRankingsPage() {
     </div>
   );
 }
+

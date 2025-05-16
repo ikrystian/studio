@@ -5,7 +5,7 @@ import * as React from "react";
 import Link from "next/link";
 import { ArrowLeft, GlassWater, PlusCircle, Edit3, Settings, Trash2, History, Info, Loader2, BotIcon, Droplet, CupSoda, PartyPopper } from "lucide-react"; // Added PartyPopper
 import { v4 as uuidv4 } from "uuid";
-import { format, isToday, parseISO } from "date-fns";
+import { format, isToday, parseISO, startOfDay } from "date-fns"; // Added startOfDay
 import { pl } from "date-fns/locale";
 
 import { Button } from "@/components/ui/button";
@@ -44,11 +44,13 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+// MOCK BACKEND LOGIC: Dialog is dynamically imported for lazy loading.
 import { AddEditPortionDialog, type Portion } from "@/components/hydration/add-edit-portion-dialog";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"; // Added AlertDescription
 import { HydrationTrackingPageSkeleton } from "@/components/hydration/HydrationTrackingPageSkeleton"; // Import skeleton
 
-
+// MOCK BACKEND LOGIC: All hydration data is stored in localStorage under this key.
+// This simulates fetching and persisting user-specific hydration settings and logs.
 const LOCAL_STORAGE_KEY = "workoutWiseHydrationData";
 const DEFAULT_DAILY_GOAL_ML = 2500;
 const DEFAULT_PORTIONS: Portion[] = [
@@ -104,6 +106,10 @@ export default function HydrationTrackingPage() {
   const [portionToDelete, setPortionToDelete] = React.useState<Portion | null>(null);
 
   const [notificationPermission, setNotificationPermission] = React.useState<NotificationPermission | "loading">("loading");
+  const confettiContainerRef = React.useRef<HTMLDivElement>(null);
+  const [confettiKey, setConfettiKey] = React.useState(0); // Used to re-trigger confetti
+  const [goalMetTodayState, setGoalMetTodayState] = React.useState(false);
+  const [lastGoalCheckDate, setLastGoalCheckDate] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     setPageIsLoading(true);
@@ -114,6 +120,7 @@ export default function HydrationTrackingPage() {
           customPortions: [],
           reminderSettings: DEFAULT_REMINDER_SETTINGS,
       };
+      // MOCK BACKEND LOGIC: Load hydration data from localStorage.
       try {
         const storedData = localStorage.getItem(LOCAL_STORAGE_KEY);
         if (storedData) {
@@ -146,6 +153,7 @@ export default function HydrationTrackingPage() {
      return () => clearTimeout(timer);
   }, [toast]);
 
+  // MOCK BACKEND LOGIC: Save hydration data to localStorage on change.
   React.useEffect(() => {
     if (!pageIsLoading) { 
       try {
@@ -169,6 +177,60 @@ export default function HydrationTrackingPage() {
 
   const progressPercent = hydrationData.dailyGoal > 0 ? (todaysIntake / hydrationData.dailyGoal) * 100 : 0;
 
+  // Function to launch confetti - adapted from CodePen example
+  const launchConfettiEffect = () => {
+    const container = confettiContainerRef.current;
+    if (!container) return;
+
+    const confettiCount = 100;
+    const colors = ['#f94144', '#f3722c', '#f8961e', '#f9c74f', '#90be6d', '#43aa8b', '#577590'];
+
+    for (let i = 0; i < confettiCount; i++) {
+      const confettiEl = document.createElement('div');
+      confettiEl.classList.add('confetti-piece');
+      confettiEl.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+      confettiEl.style.left = `${Math.random() * 100}vw`;
+      confettiEl.style.top = `${-10 - Math.random() * 20}vh`; // Start above the screen
+      confettiEl.style.animationDuration = `${2 + Math.random() * 3}s`; // 2-5 seconds fall
+      confettiEl.style.animationDelay = `${Math.random() * 1}s`; // Stagger start times
+
+      const swayType = Math.random() > 0.5 ? 'sway-left-to-right' : 'sway-right-to-left';
+      confettiEl.style.animationName = `fall, ${swayType}`;
+      
+      container.appendChild(confettiEl);
+
+      // Remove confetti after animation
+      setTimeout(() => {
+        if (container.contains(confettiEl)) {
+          container.removeChild(confettiEl);
+        }
+      }, 5000 + Math.random() * 1000); // Max animation duration + buffer
+    }
+  };
+  
+  // Effect to trigger confetti when goal is met
+  React.useEffect(() => {
+    const todayStr = format(new Date(), "yyyy-MM-dd");
+    const goalAchieved = todaysIntake >= hydrationData.dailyGoal && hydrationData.dailyGoal > 0;
+
+    if (goalAchieved && !goalMetTodayState && lastGoalCheckDate !== todayStr) {
+      // Goal met for the first time today
+      launchConfettiEffect();
+      setGoalMetTodayState(true);
+      setLastGoalCheckDate(todayStr);
+      setConfettiKey(prev => prev + 1); // Force re-render if needed, though effect should run
+    } else if (!goalAchieved && goalMetTodayState) {
+      // Goal no longer met (e.g., intake reset), allow confetti again if re-achieved
+      setGoalMetTodayState(false);
+    } else if (lastGoalCheckDate !== todayStr) {
+      // New day, reset goalMetTodayState
+      setGoalMetTodayState(false);
+      setLastGoalCheckDate(todayStr);
+    }
+  }, [todaysIntake, hydrationData.dailyGoal, goalMetTodayState, lastGoalCheckDate, confettiKey]);
+
+
+  // MOCK BACKEND LOGIC: Simulates adding a water log entry. Modifies in-memory state, which is then persisted to localStorage by another effect.
   const handleAddWater = (amount: number) => {
     if (amount <= 0) {
       toast({ title: "Nieprawidłowa ilość", description: "Ilość wody musi być dodatnia.", variant: "destructive" });
@@ -189,7 +251,7 @@ export default function HydrationTrackingPage() {
 
   const handleCustomAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    if (/^\d*$/.test(value)) {
+    if (/^\d*$/.test(value)) { // Allow only digits
       setCustomAmount(value);
     }
   };
@@ -203,9 +265,10 @@ export default function HydrationTrackingPage() {
     }
   };
   
+  // MOCK BACKEND LOGIC: Updates daily goal in-memory, persisted by localStorage effect.
   const handleSetNewGoal = () => {
     const goal = parseInt(newGoalInput, 10);
-    if (!isNaN(goal) && goal > 0 && goal <= 20000) { 
+    if (!isNaN(goal) && goal > 0 && goal <= 20000) { // Max 20L goal
       setHydrationData(prev => ({ ...prev, dailyGoal: goal }));
       toast({ title: "Cel zaktualizowany", description: `Nowy dzienny cel to ${goal}ml.` });
       setIsGoalDialogOpen(false);
@@ -214,6 +277,7 @@ export default function HydrationTrackingPage() {
     }
   };
 
+  // MOCK BACKEND LOGIC: Resets today's intake by filtering in-memory log, persisted by localStorage effect.
   const handleResetTodaysIntake = () => {
      setHydrationData(prev => ({
       ...prev,
@@ -228,12 +292,15 @@ export default function HydrationTrackingPage() {
       .sort((a, b) => parseISO(b.timestamp).getTime() - parseISO(a.timestamp).getTime());
   }, [hydrationData.log]);
 
+  // MOCK BACKEND LOGIC: Saves or updates custom portions in-memory, persisted by localStorage effect.
   const handleSavePortion = (portion: Portion) => {
     setHydrationData(prev => {
         const existing = prev.customPortions.find(p => p.id === portion.id);
         if (existing) {
+            // Update existing portion
             return { ...prev, customPortions: prev.customPortions.map(p => p.id === portion.id ? portion : p) };
         }
+        // Add new portion
         return { ...prev, customPortions: [...prev.customPortions, portion] };
     });
     setIsPortionDialogOpen(false);
@@ -245,6 +312,7 @@ export default function HydrationTrackingPage() {
     setIsPortionDialogOpen(true);
   };
 
+  // MOCK BACKEND LOGIC: Deletes a custom portion in-memory, persisted by localStorage effect.
   const handleDeletePortion = () => {
     if (!portionToDelete) return;
     setHydrationData(prev => ({
@@ -255,6 +323,8 @@ export default function HydrationTrackingPage() {
     toast({ title: "Porcja usunięta" });
   };
 
+  // MOCK BACKEND LOGIC: Updates reminder settings in-memory, persisted by localStorage effect.
+  // Actual reminder triggering would require a service worker or native capabilities.
   const handleReminderSettingChange = (key: keyof ReminderSettings, value: any) => {
     setHydrationData(prev => ({
         ...prev,
@@ -264,11 +334,14 @@ export default function HydrationTrackingPage() {
   
   const handleSaveReminderSettings = () => {
     toast({ title: "Ustawienia przypomnień zapisane (symulacja)" });
+    // MOCK BACKEND LOGIC: If notifications are enabled and permission not granted, request it.
+    // This is client-side browser behavior, not true backend.
     if (hydrationData.reminderSettings.enabled && notificationPermission !== 'granted') {
         handleRequestNotificationPermission();
     }
   };
 
+  // MOCK BACKEND LOGIC: Requests browser notification permission (client-side).
   const handleRequestNotificationPermission = async () => {
     if (typeof window !== "undefined" && "Notification" in window) {
       if (Notification.permission === 'granted') {
@@ -312,6 +385,7 @@ export default function HydrationTrackingPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
+       <div ref={confettiContainerRef} className="confetti-container-fixed" />
       <main className="flex-1 py-6 px-4 sm:px-6 lg:px-8">
         <div className="container mx-auto max-w-2xl space-y-8">
           <Card>
@@ -330,7 +404,7 @@ export default function HydrationTrackingPage() {
                 {todaysIntake.toLocaleString('pl-PL')}ml / {hydrationData.dailyGoal.toLocaleString('pl-PL')}ml
               </div>
               <Progress value={progressPercent} className="h-4 mb-4" />
-              {todaysIntake >= hydrationData.dailyGoal && (
+              {todaysIntake >= hydrationData.dailyGoal && hydrationData.dailyGoal > 0 && (
                 <p className="text-green-600 font-semibold flex items-center justify-center gap-2">
                   <PartyPopper className="h-5 w-5 text-green-600" />
                   Gratulacje! Osiągnąłeś/aś dzienny cel!
@@ -631,3 +705,4 @@ export default function HydrationTrackingPage() {
     </div>
   );
 }
+

@@ -54,6 +54,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import type { Metadata } from 'next';
 
+// MOCK BACKEND LOGIC: Dialog is dynamically imported for lazy loading.
 const AddPhotoDialog = dynamic(() =>
   import("@/components/progress-photos/add-photo-dialog").then((mod) => mod.AddPhotoDialog), {
   loading: () => <div className="fixed inset-0 bg-background/50 flex items-center justify-center z-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>,
@@ -62,7 +63,7 @@ const AddPhotoDialog = dynamic(() =>
 
 // Metadata should be handled by parent server component or layout if dynamic title needed
 // export const metadata: Metadata = {
-//   title: 'Zdjęcia Postępu | WorkoutWise',
+//   title: 'Zdjęcia Postępu | LeniwaKluska',
 //   description: 'Dokumentuj swoje postępy wizualne.',
 // };
 
@@ -73,6 +74,9 @@ export interface ProgressPhoto {
   description?: string;
 }
 
+// MOCK BACKEND LOGIC: Photos are stored in an in-memory array (INITIAL_MOCK_PHOTOS).
+// Adding or deleting photos modifies this array. Image URLs are placeholders.
+// Data is not persisted beyond the current session/page refresh.
 const INITIAL_MOCK_PHOTOS: ProgressPhoto[] = [
   {
     id: uuidv4(),
@@ -103,6 +107,8 @@ export default function ProgressPhotosPage() {
   const [photoToView, setPhotoToView] = React.useState<ProgressPhoto | null>(null);
   const [photoToDelete, setPhotoToDelete] = React.useState<ProgressPhoto | null>(null);
 
+  // MOCK BACKEND LOGIC: Simulates adding a new photo.
+  // Appends to the in-memory 'photos' array. Generates a placeholder image URL.
   const handleAddPhoto = (newPhotoData: Omit<ProgressPhoto, "id" | "imageUrl">) => {
     const newPhoto: ProgressPhoto = {
       id: uuidv4(),
@@ -114,6 +120,8 @@ export default function ProgressPhotosPage() {
     toast({ title: "Zdjęcie dodane", description: "Nowe zdjęcie postępu zostało zapisane." });
   };
 
+  // MOCK BACKEND LOGIC: Simulates deleting a photo.
+  // Filters the in-memory 'photos' array.
   const handleDeletePhoto = () => {
     if (!photoToDelete) return;
     setPhotos((prevPhotos) => prevPhotos.filter((p) => p.id !== photoToDelete.id));
@@ -145,26 +153,6 @@ export default function ProgressPhotosPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      {/* Header part of AppLayout */}
-      {/* <header className="sticky top-16 z-30 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/50">
-        <div className="container mx-auto flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" asChild>
-              <Link href="/dashboard">
-                <ArrowLeft className="h-5 w-5" />
-                <span className="sr-only">Powrót do Panelu</span>
-              </Link>
-            </Button>
-            <Camera className="h-7 w-7 text-primary" />
-            <h1 className="text-xl font-bold">Zdjęcia Postępu</h1>
-          </div>
-          <Button onClick={() => setIsAddPhotoDialogOpen(true)}>
-            <PlusCircle className="mr-2 h-5 w-5" />
-            Dodaj Zdjęcie
-          </Button>
-        </div>
-      </header> */}
-
       <main className="flex-1 py-6 px-4 sm:px-6 lg:px-8">
         <div className="container mx-auto space-y-8">
           <div className="flex justify-end">
@@ -317,3 +305,4 @@ export default function ProgressPhotosPage() {
     </div>
   );
 }
+
