@@ -67,6 +67,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger, // Added missing import
 } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -661,3 +662,5 @@ export default function WorkoutSummaryPage() {
     </div>
   );
 }
+
+    
