@@ -12,6 +12,7 @@ import {
   Plus,
   Minus,
   BellRing,
+  Loader2, // Added Loader2
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import { RestTimerPageSkeleton } from "@/components/tools/RestTimerPageSkeleton"; // Import skeleton
 
 const MIN_DURATION_SECONDS = 1;
 const MAX_DURATION_SECONDS = 3600; // 1 hour
@@ -35,6 +37,7 @@ const DEFAULT_TIME_SECONDS = 60;
 
 export default function StandaloneRestTimerPage() {
   const { toast } = useToast();
+  const [pageIsLoading, setPageIsLoading] = React.useState(true); // For skeleton
   const [inputMinutes, setInputMinutes] = React.useState(Math.floor(DEFAULT_TIME_SECONDS / 60).toString());
   const [inputSeconds, setInputSeconds] = React.useState((DEFAULT_TIME_SECONDS % 60).toString());
   
@@ -43,6 +46,14 @@ export default function StandaloneRestTimerPage() {
   const [isRunning, setIsRunning] = React.useState(false);
   
   const intervalRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  React.useEffect(() => {
+    // Simulate initial loading
+    const timer = setTimeout(() => {
+      setPageIsLoading(false);
+    }, 750); // Adjust delay as needed
+    return () => clearTimeout(timer);
+  }, []);
 
   React.useEffect(() => {
     const newTotalSeconds = (parseInt(inputMinutes, 10) || 0) * 60 + (parseInt(inputSeconds, 10) || 0);
@@ -68,9 +79,6 @@ export default function StandaloneRestTimerPage() {
         variant: "default",
         duration: 5000,
       });
-      // Play a sound or vibrate if possible and desired
-      // For web, this might involve the Web Audio API
-      // Example: new Audio('/sounds/timer-finished.mp3').play();
     }
     return () => {
       if (intervalRef.current) {
@@ -108,12 +116,12 @@ export default function StandaloneRestTimerPage() {
     if (!isRunning) {
       setCurrentTimeInSeconds(seconds);
     }
-     setIsRunning(false); // Stop timer when preset is clicked
+     setIsRunning(false); 
   };
 
   const handleStartPause = () => {
     if (currentTimeInSeconds === 0 && totalSetDuration > 0 && !isRunning) {
-      setCurrentTimeInSeconds(totalSetDuration); // Start from full duration if at 0
+      setCurrentTimeInSeconds(totalSetDuration); 
     }
     setIsRunning(!isRunning);
   };
@@ -127,7 +135,7 @@ export default function StandaloneRestTimerPage() {
     setCurrentTimeInSeconds((prevTime) => {
       const newTime = prevTime + amount;
       if (newTime < 0) return 0;
-      if (newTime > MAX_DURATION_SECONDS) return MAX_DURATION_SECONDS; // Cap adjustment
+      if (newTime > MAX_DURATION_SECONDS) return MAX_DURATION_SECONDS; 
       return newTime;
     });
      if (!isRunning && currentTimeInSeconds + amount > totalSetDuration) {
@@ -137,25 +145,12 @@ export default function StandaloneRestTimerPage() {
   
   const progressValue = totalSetDuration > 0 ? (currentTimeInSeconds / totalSetDuration) * 100 : 0;
 
+  if (pageIsLoading) {
+    return <RestTimerPageSkeleton />;
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      {/* Header part of AppLayout */}
-      {/* <header className="sticky top-16 z-30 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/50">
-        <div className="container mx-auto flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" asChild>
-              <Link href="/dashboard">
-                <ArrowLeft className="h-5 w-5" />
-                <span className="sr-only">Powrót do Panelu</span>
-              </Link>
-            </Button>
-            <TimerIcon className="h-7 w-7 text-primary" />
-            <h1 className="text-xl font-bold">Niezależny Timer Odpoczynku</h1>
-          </div>
-        </div>
-      </header> */}
-
       <main className="flex-1 p-4 sm:p-6 lg:p-8">
         <div className="container mx-auto max-w-md space-y-8">
           <Card>
