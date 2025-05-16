@@ -13,9 +13,9 @@ import {
   Eye,
   ClipboardList,
   Users,
-  BookOpen,
+  BookOpen, // Imported
   MessageSquare,
-  Dumbbell,
+  Dumbbell, // Imported
   Award,
   Trash2,
   Loader2,
@@ -46,9 +46,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger, // Ensure this is imported
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import type { UserPrivacySettings } from "@/components/profile/profile-privacy-settings-dialog";
+import type { UserPrivacySettings } from "@/components/profile/profile-privacy-settings-dialog"; // Import UserPrivacySettings
 
 // Mock data structures
 interface MockActivityItem {
@@ -93,9 +93,10 @@ interface MockUserProfile {
   activities?: MockActivityItem[];
   friends?: MockFriend[];
   sharedPlans?: MockSharedPlan[];
-  privacySettings?: UserPrivacySettings;
+  privacySettings?: UserPrivacySettings; // Added privacy settings
 }
 
+// Mock user data
 const MOCK_USER_PROFILES_DB: MockUserProfile[] = [
   {
     id: "current_user_id",
@@ -123,6 +124,7 @@ const MOCK_USER_PROFILES_DB: MockUserProfile[] = [
       { id: "plan1", name: "Mój Plan Siłowy na Masę", goal: "Budowa masy mięśniowej", description: "Sprawdzony plan na 8 tygodni, skupiony na progresji siłowej.", icon: Dumbbell },
       { id: "plan2", name: "Przygotowanie do Półmaratonu", goal: "Poprawa wytrzymałości", description: "12-tygodniowy plan biegowy dla średniozaawansowanych.", icon: BookOpen },
     ],
+    // For current user, privacy settings would be loaded from localStorage/backend. Let's assume default for mock.
     privacySettings: {
         isActivityPublic: true,
         isFriendsListPublic: true,
@@ -144,9 +146,9 @@ const MOCK_USER_PROFILES_DB: MockUserProfile[] = [
     ],
     friends: [ { id: "current_user_id", name: "Jan Kowalski", username: "jankowalski_fit", avatarUrl: "https://placehold.co/100x100.png?text=JK" }],
     sharedPlans: [ { id: "plan_joga", name: "Joga dla Początkujących", goal: "Poprawa elastyczności", description: "Delikatny plan wprowadzający do świata jogi."} ],
-    privacySettings: { 
+    privacySettings: { // Example for another user
         isActivityPublic: true,
-        isFriendsListPublic: false, 
+        isFriendsListPublic: false, // Friends list is private
         isSharedPlansPublic: true,
     }
   },
@@ -169,7 +171,7 @@ export default function UserProfilePage() {
   const [profileData, setProfileData] = React.useState<MockUserProfile | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isFollowing, setIsFollowing] = React.useState(false);
-  const [isSubmitting, setIsSubmitting] = React.useState(false); // For remove friend action
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const [friendToRemove, setFriendToRemove] = React.useState<MockFriend | null>(null);
 
@@ -177,38 +179,40 @@ export default function UserProfilePage() {
 
   React.useEffect(() => {
     setIsLoading(true);
+    // Simulate fetching data
     setTimeout(() => {
       let foundProfile = MOCK_USER_PROFILES_DB.find((p) => p.id === userId);
       
       if (foundProfile) {
+        // If it's the current user's profile, try to load their privacy settings from localStorage
         if (foundProfile.id === LOGGED_IN_USER_ID) {
             try {
                 const storedPrivacySettings = localStorage.getItem("currentUserPrivacySettings");
                 if (storedPrivacySettings) {
                     foundProfile = { ...foundProfile, privacySettings: JSON.parse(storedPrivacySettings) };
                 } else if (!foundProfile.privacySettings) {
+                     // Fallback to default if nothing in local storage and not in mock
                     foundProfile = { ...foundProfile, privacySettings: { isActivityPublic: true, isFriendsListPublic: true, isSharedPlansPublic: true } };
                 }
             } catch (e) {
                 console.error("Error loading privacy settings for current_user_id:", e);
-                 if (!foundProfile.privacySettings) { // Fallback if parsing fails or not set in mock
+                if (!foundProfile.privacySettings) {
                    foundProfile = { ...foundProfile, privacySettings: { isActivityPublic: true, isFriendsListPublic: true, isSharedPlansPublic: true } };
                 }
             }
         } else {
-            if (!foundProfile.privacySettings) { // Ensure other profiles also have default privacy if not specified
+            // For other users, ensure they have some default privacy settings if not defined in mock
+            if (!foundProfile.privacySettings) {
                  foundProfile = { ...foundProfile, privacySettings: { isActivityPublic: true, isFriendsListPublic: true, isSharedPlansPublic: true } };
             }
         }
-        
-        setProfileData(JSON.parse(JSON.stringify(foundProfile))); // Deep copy for state modification
-        
+
+        setProfileData(JSON.parse(JSON.stringify(foundProfile)));
         if (!isOwnProfile) {
           const loggedInUser = MOCK_USER_PROFILES_DB.find(u => u.id === LOGGED_IN_USER_ID);
           const isActuallyFollowing = loggedInUser?.friends?.some(f => f.id === userId);
           setIsFollowing(!!isActuallyFollowing);
         }
-
       } else {
         setProfileData(null);
       }
@@ -228,17 +232,17 @@ export default function UserProfilePage() {
     if (!friendToRemove || !profileData || !profileData.friends || !isOwnProfile) return;
     setIsSubmitting(true);
 
-    await new Promise(resolve => setTimeout(resolve, 750)); // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 750));
 
     setProfileData(prev => {
-      if (!prev || !prev.friends) return prev; // Should not happen if friendToRemove is set
+      if (!prev || !prev.friends) return prev;
       return {
         ...prev,
         friends: prev.friends.filter(f => f.id !== friendToRemove.id)
       };
     });
     toast({ title: "Znajomy usunięty", description: `Usunięto ${friendToRemove.name} z listy znajomych.` });
-    setFriendToRemove(null); // Close dialog
+    setFriendToRemove(null);
     setIsSubmitting(false);
   };
 
@@ -272,6 +276,7 @@ export default function UserProfilePage() {
     );
   }
   
+  // Default to public if privacySettings are somehow undefined
   const canViewActivity = isOwnProfile || (profileData.privacySettings?.isActivityPublic ?? true);
   const canViewFriends = isOwnProfile || (profileData.privacySettings?.isFriendsListPublic ?? true);
   const canViewSharedPlans = isOwnProfile || (profileData.privacySettings?.isSharedPlansPublic ?? true);
@@ -279,8 +284,8 @@ export default function UserProfilePage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
+      <header className="sticky top-16 z-30 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/50">
+        <div className="container mx-auto flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2">
             <Button variant="outline" size="icon" asChild>
               <Link href="/dashboard/community">
@@ -288,8 +293,8 @@ export default function UserProfilePage() {
                 <span className="sr-only">Powrót do Społeczności</span>
               </Link>
             </Button>
-            <UserCircle2 className="h-8 w-8 text-primary" />
-            <h1 className="text-2xl font-bold truncate max-w-xs sm:max-w-sm">
+            <UserCircle2 className="h-7 w-7 text-primary" /> 
+            <h1 className="text-xl font-bold truncate max-w-xs sm:max-w-sm">
               Profil: {profileData.username}
             </h1>
           </div>
@@ -311,7 +316,7 @@ export default function UserProfilePage() {
           <Card className="mb-6">
             <CardHeader className="flex flex-col items-center space-y-4 sm:flex-row sm:space-y-0 sm:space-x-6">
               <Avatar className="h-24 w-24 sm:h-32 sm:w-32">
-                <AvatarImage src={profileData.avatarUrl} alt={profileData.fullName} data-ai-hint="profile avatar large" />
+                <AvatarImage src={profileData.avatarUrl} alt={profileData.fullName} data-ai-hint="profile avatar large"/>
                 <AvatarFallback className="text-4xl">{profileData.fullName?.substring(0, 1).toUpperCase()}{profileData.fullName?.split(' ')[1]?.substring(0, 1).toUpperCase()}</AvatarFallback>
               </Avatar>
               <div className="flex-1 text-center sm:text-left">
@@ -323,7 +328,7 @@ export default function UserProfilePage() {
                   <Separator orientation="vertical" className="h-4 hidden sm:block" />
                   <span>Dołączył: {format(parseISO(profileData.joinDate), "PPP", { locale: pl })}</span>
                 </div>
-                 {!isOwnProfile && (
+                {!isOwnProfile && (
                      <p className="mt-2 text-xs text-muted-foreground">
                         Widoczność treści w zakładkach zależy od ustawień prywatności właściciela profilu.
                      </p>
@@ -479,7 +484,15 @@ export default function UserProfilePage() {
                     <ScrollArea className="max-h-[400px]">
                       <div className="space-y-4 pr-3">
                         {profileData.sharedPlans.map(plan => {
-                          const IconComponent = plan.icon || BookOpen;
+                          // Ensure IconComponent is always a valid component type
+                          let IconComponent: React.ElementType = BookOpen; // Default icon
+                          if (plan.icon) {
+                            if (typeof plan.icon === 'function' || typeof plan.icon === 'string') {
+                                IconComponent = plan.icon;
+                            } else {
+                                console.warn(`Invalid icon type provided for plan "${plan.name}". Expected function or string, got ${typeof plan.icon}. Defaulting to BookOpen.`);
+                            }
+                          }
                           return (
                             <Card key={plan.id} className="p-4 hover:shadow-md transition-shadow">
                               <div className="flex items-start gap-3">
@@ -515,3 +528,6 @@ export default function UserProfilePage() {
     </div>
   );
 }
+
+
+    
