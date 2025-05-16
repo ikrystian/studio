@@ -6,17 +6,20 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Settings, Bug, ArrowLeft, Trash2, RefreshCcw, Database, Users, Info, AlertTriangle } from "lucide-react"; // Added AlertTriangle
+import { Settings, Bug, ArrowLeft, Trash2, RefreshCcw, Database, Users, Info, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { MOCK_USER_PROFILES_DB } from "@/lib/mockData"; // Added this import
+import { MOCK_USER_PROFILES_DB } from "@/lib/mockData";
+import { AdminDebugPageSkeleton } from "@/components/admin/AdminDebugPageSkeleton"; // Added import
 
 export default function AdminDebugPage() {
     const { toast } = useToast();
+    const [isLoading, setIsLoading] = React.useState(true); // Added loading state
     const [localStorageSize, setLocalStorageSize] = React.useState<string>("0 KB");
     const [userCount, setUserCount] = React.useState<number>(0);
 
 
     React.useEffect(() => {
+        setIsLoading(true); // Start loading
         if (typeof window !== 'undefined') {
             let total = 0;
             for (let i = 0; i < localStorage.length; i++) {
@@ -31,6 +34,11 @@ export default function AdminDebugPage() {
             setLocalStorageSize(`${(total / 1024).toFixed(2)} KB`);
         }
         setUserCount(MOCK_USER_PROFILES_DB.length);
+        // Simulate data fetching or setup delay
+        const timer = setTimeout(() => {
+            setIsLoading(false); // Finish loading
+        }, 750); // Adjust delay as needed
+        return () => clearTimeout(timer);
     }, []);
 
 
@@ -39,24 +47,20 @@ export default function AdminDebugPage() {
             localStorage.clear();
             toast({ title: "LocalStorage Wyczyczone!", description: "Wszystkie dane lokalne zostały usunięte. Odśwież stronę.", variant: "default" });
             setLocalStorageSize("0 KB"); 
-            // Note: This might log the user out if auth state depends on localStorage
         }
     };
 
     const handleResetMockUsers = () => {
-        // This is a bit tricky as MOCK_USER_PROFILES_DB is imported and not easily mutable globally
-        // For a real app, this would be an API call to reset database state.
-        // For this simulation, we can only clear what's in localStorage perhaps.
         if (typeof window !== 'undefined') {
             localStorage.removeItem('currentUserProfileData');
-             // Remove specific test user data if that's what reset means
-             // or reload MOCK_USER_PROFILES_DB (if it were stateful)
-             // MOCK_USER_PROFILES_DB remains constant in this example
         }
         toast({ title: "Symulacja Resetu Użytkowników", description: "W prawdziwej aplikacji to zresetowałoby bazę użytkowników. Obecnie tylko czyści 'currentUserProfileData'.", variant: "default" });
-        setUserCount(MOCK_USER_PROFILES_DB.length); // It won't change as MOCK_USER_PROFILES_DB is const
+        setUserCount(MOCK_USER_PROFILES_DB.length); 
     };
     
+    if (isLoading) {
+        return <AdminDebugPageSkeleton />;
+    }
 
     return (
         <div className="flex min-h-screen flex-col bg-background text-foreground">
