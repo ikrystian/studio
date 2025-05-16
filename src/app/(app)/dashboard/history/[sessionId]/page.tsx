@@ -1,23 +1,30 @@
 
-// Placeholder for /dashboard/history/[sessionId]/page.tsx
 "use client";
 
+import * as React from "react";
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'; // Added CardFooter
-import { ArrowLeft, Info, History as HistoryIcon } from 'lucide-react';
-
-// If you need dynamic metadata, this should be a server component or use a different approach.
-// export async function generateMetadata({ params }: { params: { sessionId: string } }): Promise<Metadata> {
-//   return {
-//     title: `Szczegóły Sesji ${params.sessionId} | WorkoutWise`,
-//   };
-// }
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { ArrowLeft, Info, History as HistoryIcon, Loader2 } from 'lucide-react';
+import { WorkoutSessionDetailSkeleton } from "@/components/history/WorkoutSessionDetailSkeleton"; // Import skeleton
 
 export default function WorkoutSessionDetailPage() {
   const params = useParams();
   const sessionId = params.sessionId as string;
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    // Simulate data fetching
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 750); // Adjust delay as needed
+    return () => clearTimeout(timer);
+  }, [sessionId]);
+
+  if (isLoading) {
+    return <WorkoutSessionDetailSkeleton />;
+  }
 
   return (
     <div className="flex min-h-screen flex-col items-center bg-background p-4 sm:p-6 md:p-8 text-foreground">
