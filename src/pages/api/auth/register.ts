@@ -20,10 +20,10 @@ export default async function handler(
       fullName,
       email,
       password,
-      dateOfBirth,
+      dateOfBirth, // Expected as ISO string or undefined
       gender,
-      weight,
-      height,
+      weight, // Expected as number or undefined
+      height, // Expected as number or undefined
       fitnessLevel,
     } = req.body;
 
@@ -32,6 +32,7 @@ export default async function handler(
       return res.status(400).json({ success: false, message: 'Missing required fields.' });
     }
     if (password.length < 8) {
+      // This basic check should ideally match the frontend Zod schema more closely
       return res.status(400).json({ success: false, message: 'Password must be at least 8 characters.' });
     }
 
@@ -49,22 +50,36 @@ export default async function handler(
       // Hash password
       const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
+      const dataToInsert = {
+        fullName,
+        email,
+        hashedPassword,
+        dateOfBirth,
+        gender,
+        weight: weight === undefined ? null : weight, // Ensure null if undefined
+        height: height === undefined ? null : height, // Ensure null if undefined
+        fitnessLevel
+      };
+      
+      console.log('Attempting to insert user data into SQLite:', dataToInsert);
+
+
       // Insert new user
       const stmtInsertUser = db.prepare(
         'INSERT INTO users (fullName, email, password, dateOfBirth, gender, weight, height, fitnessLevel) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
       );
       const info = stmtInsertUser.run(
-        fullName,
-        email,
-        hashedPassword,
-        dateOfBirth, // Assuming this is already an ISO string from client
-        gender,
-        weight || null, // Store as null if not provided
-        height || null, // Store as null if not provided
-        fitnessLevel
+        dataToInsert.fullName,
+        dataToInsert.email,
+        dataToInsert.hashedPassword,
+        dataToInsert.dateOfBirth,
+        dataToInsert.gender,
+        dataToInsert.weight,
+        dataToInsert.height,
+        dataToInsert.fitnessLevel
       );
 
-      console.log(`User registered with ID: ${info.lastInsertRowid}`);
+      console.log(`User registered with ID: ${info.lastInsertRowid} into SQLite.`);
       // Simulate sending a verification email (in a real app, you'd integrate an email service)
       console.log(`Simulating: Verification email sent to ${email}`);
 

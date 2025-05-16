@@ -8,6 +8,7 @@ import * as z from "zod";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
+import { pl } from "date-fns/locale";
 import {
   User,
   Mail,
@@ -20,7 +21,7 @@ import {
   TrendingUp,
   Loader2,
   AlertCircle,
-  Image as ImageIcon,
+  ImageIcon,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -77,7 +78,7 @@ const registrationSchema = z
       required_error: "Date of birth is required.",
       invalid_type_error: "Invalid date format.",
     }),
-    gender: z.enum(["male", "female"], { // Updated gender enum
+    gender: z.enum(["male", "female"], { 
       required_error: "Gender is required.",
     }),
     weight: z.coerce
@@ -86,14 +87,14 @@ const registrationSchema = z
       .min(1, "Weight must be at least 1 kg.")
       .max(500, "Weight cannot exceed 500 kg.")
       .optional()
-      .or(z.literal("")),
+      .or(z.literal("")), // Allow empty string, will be converted to undefined/null
     height: z.coerce
       .number({ invalid_type_error: "Height must be a number."})
       .positive("Height must be a positive number.")
       .min(50, "Height must be at least 50 cm.")
       .max(300, "Height cannot exceed 300 cm.")
       .optional()
-      .or(z.literal("")),
+      .or(z.literal("")), // Allow empty string, will be converted to undefined/null
     fitnessLevel: z.enum(["beginner", "intermediate", "advanced"], {
       required_error: "Fitness level is required.",
     }),
@@ -135,18 +136,22 @@ export function RegistrationForm() {
   async function onSubmit(values: RegistrationFormValues) {
     setIsLoading(true);
     setServerError(null);
-    console.log("Form submitted:", values);
-
+    
     const userData = {
       fullName: values.fullName,
       email: values.email,
       password: values.password,
+      // Ensure dateOfBirth is sent as ISO string if defined, otherwise undefined
       dateOfBirth: values.dateOfBirth ? values.dateOfBirth.toISOString() : undefined,
       gender: values.gender,
+      // Convert empty string to undefined for optional number fields
       weight: values.weight === "" ? undefined : Number(values.weight),
       height: values.height === "" ? undefined : Number(values.height),
       fitnessLevel: values.fitnessLevel,
     };
+    
+    console.log("Submitting registration data to API:", userData);
+
 
     try {
       const response = await fetch('/api/auth/register', {
@@ -335,7 +340,7 @@ export function RegistrationForm() {
                             disabled={isLoading}
                           >
                             {field.value ? (
-                              format(field.value, "PPP")
+                              format(field.value, "PPP", { locale: pl })
                             ) : (
                               <span>Pick a date</span>
                             )}
@@ -352,6 +357,7 @@ export function RegistrationForm() {
                             date > new Date() || date < new Date("1900-01-01") || isLoading
                           }
                           initialFocus
+                          locale={pl}
                           captionLayout="dropdown-buttons"
                           fromYear={1900}
                           toYear={new Date().getFullYear()}
