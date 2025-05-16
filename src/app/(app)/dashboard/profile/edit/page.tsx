@@ -39,9 +39,16 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-// import { EditProfilePictureDialog } from "@/components/profile/edit-profile-picture-dialog";
-// import { ProfilePrivacySettingsDialog, type UserPrivacySettings } from "@/components/profile/profile-privacy-settings-dialog";
 import type { UserPrivacySettings } from "@/components/profile/profile-privacy-settings-dialog";
+
+// MOCK BACKEND LOGIC:
+// - Initial Data: Profile data is loaded from localStorage (CURRENT_USER_PROFILE_DATA_KEY).
+//   If not found, falls back to MOCK_USER_DATA_EDIT (hardcoded).
+// - Privacy Settings: Loaded from localStorage (PROFILE_PRIVACY_SETTINGS_KEY).
+// - Saving Profile: Updates are saved back to localStorage (CURRENT_USER_PROFILE_DATA_KEY).
+// - Saving Privacy Settings: Updates are saved to localStorage (PROFILE_PRIVACY_SETTINGS_KEY and also
+//   updated within the main profile data in localStorage).
+// - Avatar Change: Simulates changing avatar; the new (placeholder) URL is saved with the main profile.
 
 const EditProfilePictureDialog = dynamic(() =>
   import("@/components/profile/edit-profile-picture-dialog").then((mod) => mod.EditProfilePictureDialog), {
@@ -56,16 +63,15 @@ const ProfilePrivacySettingsDialog = dynamic(() =>
 });
 
 
-// Mock data for the current user - in a real app, this would be fetched
 const MOCK_USER_DATA_EDIT = {
-  id: "current_user_id", // Assuming this is how we identify the current user
+  id: "current_user_id", 
   fullName: "Jan Kowalski",
   username: "jankowalski_fit",
-  email: "jan.kowalski@example.com", // Email not editable here, managed in Account Settings
+  email: "jan.kowalski@example.com", 
   bio: "Entuzjasta fitnessu i zdrowego stylu życia.",
   fitnessLevel: "Średniozaawansowany" as "Początkujący" | "Średniozaawansowany" | "Zaawansowany",
   avatarUrl: "https://placehold.co/200x200.png?text=JK",
-  joinDate: new Date().toISOString(), // Add joinDate for consistency
+  joinDate: new Date().toISOString(), 
 };
 
 const DEFAULT_PRIVACY_SETTINGS: UserPrivacySettings = {
@@ -82,7 +88,6 @@ const editProfileSchema = z.object({
   fitnessLevel: z.enum(["Początkujący", "Średniozaawansowany", "Zaawansowany"], {
     required_error: "Poziom zaawansowania jest wymagany.",
   }),
-  // avatarUrl is managed separately
 });
 
 type EditProfileFormValues = z.infer<typeof editProfileSchema>;
@@ -104,7 +109,7 @@ export default function EditProfilePage() {
 
   const form = useForm<EditProfileFormValues>({
     resolver: zodResolver(editProfileSchema),
-    defaultValues: { // Will be overridden by useEffect
+    defaultValues: { 
       fullName: "",
       username: "",
       bio: "",
@@ -114,16 +119,15 @@ export default function EditProfilePage() {
 
   React.useEffect(() => {
     setIsFetchingInitialData(true);
+    // MOCK BACKEND LOGIC: Load profile data from localStorage on mount.
     if (typeof window !== 'undefined') {
       try {
         const storedProfileStr = localStorage.getItem(CURRENT_USER_PROFILE_DATA_KEY);
         const storedPrivacyStr = localStorage.getItem(PROFILE_PRIVACY_SETTINGS_KEY);
 
-        let profileToLoad = MOCK_USER_DATA_EDIT; // Fallback
+        let profileToLoad = MOCK_USER_DATA_EDIT; 
         if (storedProfileStr) {
             const storedProfile = JSON.parse(storedProfileStr);
-            // Ensure we use the email of the logged in user for security check,
-            // and then load the profile associated with that email.
             const loggedInEmail = localStorage.getItem('loggedInUserEmail');
             if (loggedInEmail && storedProfile.email === loggedInEmail) {
                  profileToLoad = { ...MOCK_USER_DATA_EDIT, ...storedProfile };
@@ -146,7 +150,6 @@ export default function EditProfilePage() {
 
       } catch (error) {
         console.error("Error loading data from localStorage for edit profile:", error);
-        // Fallback to mock data if localStorage fails
         form.reset({
           fullName: MOCK_USER_DATA_EDIT.fullName,
           username: MOCK_USER_DATA_EDIT.username,
@@ -160,6 +163,7 @@ export default function EditProfilePage() {
     setIsFetchingInitialData(false);
   }, [form]);
 
+  // MOCK BACKEND LOGIC: Simulates updating user profile by saving to localStorage.
   async function onSubmit(values: EditProfileFormValues) {
     setIsLoading(true);
     console.log("Updating profile with:", values);
@@ -170,13 +174,12 @@ export default function EditProfilePage() {
     if (typeof window !== 'undefined') {
         try {
             const existingProfileStr = localStorage.getItem(CURRENT_USER_PROFILE_DATA_KEY);
-            let profileToSave = MOCK_USER_DATA_EDIT; // Fallback
+            let profileToSave = MOCK_USER_DATA_EDIT; 
             if (existingProfileStr) {
                  profileToSave = JSON.parse(existingProfileStr);
             }
-            // Update only the fields managed by this form + avatar
             profileToSave = {
-                ...profileToSave, // Keep other fields like email, joinDate, ID etc.
+                ...profileToSave, 
                 fullName: values.fullName,
                 username: values.username,
                 bio: values.bio || "",
@@ -198,27 +201,26 @@ export default function EditProfilePage() {
   }
 
   const handleAvatarSave = (newAvatarUrl: string) => {
+    // MOCK BACKEND LOGIC: `currentAvatar` state is updated. The actual "save"
+    // of this URL happens when the main form is submitted.
     setCurrentAvatar(newAvatarUrl);
-    // Optionally, save immediately or wait for main form save
-    // For now, it will be saved with the main form
-     toast({ title: "Zdjęcie profilowe zaktualizowane (podgląd)", description: "Zmiany zostaną zapisane po kliknięciu 'Zapisz Zmiany'." });
+    toast({ title: "Zdjęcie profilowe zaktualizowane (podgląd)", description: "Zmiany zostaną zapisane po kliknięciu 'Zapisz Zmiany'." });
   };
 
+  // MOCK BACKEND LOGIC: Saves privacy settings to localStorage.
   const handleSavePrivacySettings = (newSettings: UserPrivacySettings) => {
     setPrivacySettings(newSettings);
     if (typeof window !== 'undefined') {
         try {
             localStorage.setItem(PROFILE_PRIVACY_SETTINGS_KEY, JSON.stringify(newSettings));
-            // Also update the main profile data if it exists
             const profileDataStr = localStorage.getItem(CURRENT_USER_PROFILE_DATA_KEY);
             if (profileDataStr) {
                 try {
                     const profileData = JSON.parse(profileDataStr);
-                    profileData.privacySettings = newSettings; // Assuming privacySettings is a field in the main profile object
+                    profileData.privacySettings = newSettings; 
                     localStorage.setItem(CURRENT_USER_PROFILE_DATA_KEY, JSON.stringify(profileData));
                 } catch (e) { console.error("Error updating privacy settings in profile data:", e); }
             }
-
             toast({
                 title: "Ustawienia prywatności zapisane!",
                 description: "Twoje preferencje prywatności profilu zostały zaktualizowane."
@@ -296,66 +298,31 @@ export default function EditProfilePage() {
                     control={form.control}
                     name="fullName"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Imię i Nazwisko</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Np. Jan Kowalski" {...field} disabled={isLoading} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
+                      <FormItem><FormLabel>Imię i Nazwisko</FormLabel><FormControl><Input placeholder="Np. Jan Kowalski" {...field} disabled={isLoading} /></FormControl><FormMessage /></FormItem>
                     )}
                   />
                   <FormField
                     control={form.control}
                     name="username"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Nazwa Użytkownika</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Np. jankowalski_fit" {...field} disabled={isLoading} />
-                        </FormControl>
-                        <FormDescription className="text-xs">Może być używana w linkach do Twojego profilu. Zmiana może być ograniczona.</FormDescription>
-                        <FormMessage />
-                      </FormItem>
+                      <FormItem><FormLabel>Nazwa Użytkownika</FormLabel><FormControl><Input placeholder="Np. jankowalski_fit" {...field} disabled={isLoading} /></FormControl><FormDescription className="text-xs">Może być używana w linkach do Twojego profilu. Zmiana może być ograniczona.</FormDescription><FormMessage /></FormItem>
                     )}
                   />
                   <FormField
                     control={form.control}
                     name="bio"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>O mnie (Bio)</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Opowiedz coś o sobie, swoich celach, zainteresowaniach..."
-                            {...field}
-                            rows={4}
-                            disabled={isLoading}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
+                      <FormItem><FormLabel>O mnie (Bio)</FormLabel><FormControl><Textarea placeholder="Opowiedz coś o sobie, swoich celach, zainteresowaniach..." {...field} rows={4} disabled={isLoading}/></FormControl><FormMessage /></FormItem>
                     )}
                   />
                   <FormField
                     control={form.control}
                     name="fitnessLevel"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Poziom Zaawansowania</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value} disabled={isLoading}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Wybierz swój poziom" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="Początkujący">Początkujący</SelectItem>
-                            <SelectItem value="Średniozaawansowany">Średniozaawansowany</SelectItem>
-                            <SelectItem value="Zaawansowany">Zaawansowany</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
+                      <FormItem><FormLabel>Poziom Zaawansowania</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value} disabled={isLoading}><FormControl><SelectTrigger><SelectValue placeholder="Wybierz swój poziom" /></SelectTrigger></FormControl>
+                          <SelectContent><SelectItem value="Początkujący">Początkujący</SelectItem><SelectItem value="Średniozaawansowany">Średniozaawansowany</SelectItem><SelectItem value="Zaawansowany">Zaawansowany</SelectItem></SelectContent>
+                        </Select><FormMessage />
                       </FormItem>
                     )}
                   />

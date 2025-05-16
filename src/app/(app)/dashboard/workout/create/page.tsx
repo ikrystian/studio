@@ -57,11 +57,14 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import type { Exercise as SelectableExerciseType } from "@/components/workout/exercise-selection-dialog";
 import type { QuickAddExerciseFormData } from "@/components/workout/quick-add-exercise-dialog";
 
-// MOCK_EXERCISES_DATABASE is now imported from centralized mockData
+// MOCK BACKEND LOGIC: Exercise database (MOCK_EXERCISES_DATABASE) is an in-memory array from a central file.
+// "Quick Add Exercise" simulates adding to this master list (in-memory for this session).
+// Saving a workout ("Zapisz Trening") is a simulation; in a real app, it would POST to a backend.
+// There's no actual database persistence here beyond the session's in-memory state.
+
 import { MOCK_EXERCISES_DATABASE } from "@/lib/mockData";
 import { CreateWorkoutPageSkeleton } from "@/components/workout/CreateWorkoutPageSkeleton";
 
-// Lazy load dialogs
 const ExerciseSelectionDialog = dynamic(() =>
   import("@/components/workout/exercise-selection-dialog").then((mod) => mod.ExerciseSelectionDialog), {
   loading: () => <div className="fixed inset-0 bg-background/50 flex items-center justify-center z-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>,
@@ -76,12 +79,12 @@ const QuickAddExerciseDialog = dynamic(() =>
 
 
 const exerciseInWorkoutSchema = z.object({
-  id: z.string(), // Exercise ID from the database/master list
+  id: z.string(), 
   name: z.string().min(1, "Nazwa ćwiczenia jest wymagana."),
   sets: z.union([z.coerce.number({invalid_type_error: "Serie muszą być liczbą."}).positive("Liczba serii musi być dodatnia.").optional().nullable(), z.literal("")]),
-  reps: z.string().optional().nullable(), // Can be "8-10", "Max", "30s", etc.
+  reps: z.string().optional().nullable(), 
   restTimeSeconds: z.union([z.coerce.number({invalid_type_error: "Czas odpoczynku musi być liczbą."}).int("Czas odpoczynku musi być liczbą całkowitą.").min(0, "Czas odpoczynku nie może być ujemny.").optional().nullable(), z.literal("")]),
-  targetRpe: z.string().optional().nullable(), // Target RPE, e.g., "7-8"
+  targetRpe: z.string().optional().nullable(), 
   exerciseNotes: z.string().optional().nullable(),
 });
 
@@ -89,7 +92,7 @@ export type ExerciseInWorkoutFormValues = z.infer<typeof exerciseInWorkoutSchema
 
 const workoutFormSchema = z.object({
   workoutName: z.string().min(1, "Nazwa treningu jest wymagana."),
-  workoutType: z.string().optional(), // e.g., "Siłowy", "Cardio"
+  workoutType: z.string().optional(), 
   exercises: z.array(exerciseInWorkoutSchema).min(1, "Trening musi zawierać przynajmniej jedno ćwiczenie."),
 });
 
@@ -100,21 +103,21 @@ export default function CreateWorkoutPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [pageIsLoading, setPageIsLoading] = React.useState(true);
-  const [isLoading, setIsLoading] = React.useState(false); // For form submission itself
+  const [isLoading, setIsLoading] = React.useState(false); 
   const [serverError, setServerError] = React.useState<string | null>(null);
   
   const [isExerciseSelectionDialogOpen, setIsExerciseSelectionDialogOpen] = React.useState(false);
   const [isQuickAddExerciseDialogOpen, setIsQuickAddExerciseDialogOpen] = React.useState(false);
 
-  // This list simulates a global exercise database that can be updated by Quick Add.
-  // In a real app, Quick Add would likely call an API to add to a central DB.
+  // MOCK BACKEND LOGIC: `masterExerciseList` starts with MOCK_EXERCISES_DATABASE and can be expanded
+  // by the "Quick Add Exercise" dialog. This simulates a global exercise database.
   const [masterExerciseList, setMasterExerciseList] = React.useState<SelectableExerciseType[]>(MOCK_EXERCISES_DATABASE);
 
   const form = useForm<WorkoutFormValues>({
     resolver: zodResolver(workoutFormSchema),
     defaultValues: {
       workoutName: "",
-      workoutType: "Mieszany", // Default workout type
+      workoutType: "Mieszany", 
       exercises: [],
     },
   });
@@ -124,7 +127,6 @@ export default function CreateWorkoutPage() {
     name: "exercises",
   });
 
-  // Simulate page loading
   React.useEffect(() => {
     const timer = setTimeout(() => setPageIsLoading(false), 750);
     return () => clearTimeout(timer);
@@ -135,23 +137,20 @@ export default function CreateWorkoutPage() {
     setIsExerciseSelectionDialogOpen(true);
   };
 
-  // Called when exercises are selected from the dialog.
   const handleExercisesSelected = (selectedExercises: { id: string; name: string }[]) => {
     const exercisesToAppend = selectedExercises.map(ex => ({
         id: ex.id,
         name: ex.name,
-        // Default empty values for other fields, user will fill them.
-        sets: "", // Changed to empty string to match schema if expecting coerce
+        sets: "", 
         reps: "",
         restTimeSeconds: "",
         targetRpe: "",
         exerciseNotes: "",
     }));
     append(exercisesToAppend);
-    // Clear potential "must have one exercise" error
     if (form.formState.errors.exercises && typeof form.formState.errors.exercises.message === 'string') {
-        form.clearErrors("exercises.root.message" as any); // For array-level error
-        form.clearErrors("exercises"); // General array error
+        form.clearErrors("exercises.root.message" as any); 
+        form.clearErrors("exercises"); 
     }
   };
 
@@ -171,19 +170,17 @@ export default function CreateWorkoutPage() {
     setIsQuickAddExerciseDialogOpen(true);
   };
 
-  // Called when a new exercise is quickly created.
-  // This simulates adding the new exercise to a global database and then to the current workout.
+  // MOCK BACKEND LOGIC: "Quick Add Exercise" adds to the in-memory `masterExerciseList`,
+  // simulating an update to a global exercise database.
   const handleQuickExerciseCreated = (newExerciseData: QuickAddExerciseFormData) => {
     const newDbExercise: SelectableExerciseType = {
-      id: uuidv4(), // Generate a unique ID for the new exercise
+      id: uuidv4(), 
       name: newExerciseData.name,
-      category: newExerciseData.category || "Inne", // Default category if not provided
+      category: newExerciseData.category || "Inne", 
     };
     
-    // Simulate adding to a master list (in a real app, this would be an API call)
     setMasterExerciseList(prev => [...prev, newDbExercise]);
 
-    // Add the new exercise to the current workout form
     append({
       id: newDbExercise.id,
       name: newDbExercise.name,
@@ -199,16 +196,14 @@ export default function CreateWorkoutPage() {
       description: `"${newDbExercise.name}" zostało dodane do bazy i obecnego treningu.`,
     });
     setIsQuickAddExerciseDialogOpen(false);
-    // Clear potential "must have one exercise" error
     if (form.formState.errors.exercises && typeof form.formState.errors.exercises.message === 'string') {
         form.clearErrors("exercises.root.message" as any);
         form.clearErrors("exercises");
     }
   };
 
-  // Simulates copying parameters from the previous exercise to the current one.
   const handleCopyFromPrevious = (index: number) => {
-    if (index === 0) return; // Cannot copy if it's the first exercise
+    if (index === 0) return; 
 
     const previousExerciseData = form.getValues(`exercises.${index - 1}`);
     
@@ -224,9 +219,7 @@ export default function CreateWorkoutPage() {
     });
   };
   
-  // Simulates loading mock default parameters for an exercise.
   const handleLoadMockDefaults = (index: number) => {
-    // These are just example defaults.
     form.setValue(`exercises.${index}.sets`, 3);
     form.setValue(`exercises.${index}.reps`, "10");
     form.setValue(`exercises.${index}.restTimeSeconds`, 60);
@@ -238,22 +231,16 @@ export default function CreateWorkoutPage() {
     });
   };
 
-
-  // Simulates saving the workout to a backend.
+  // MOCK BACKEND LOGIC: Saving a workout is simulated. In a real app, this would involve
+  // an API call to store the workout structure (name, type, exercises with their parameters)
+  // in a database. The `masterExerciseList` also represents a simulated global DB state.
   async function onSubmit(values: WorkoutFormValues) {
     setIsLoading(true);
     setServerError(null);
     console.log("Workout data submitted (simulated save):", values);
-    // In a real app, an API call would be made here.
-    // MOCK_EXERCISES_DATABASE would be updated if new exercises were added via Quick Add.
     console.log("Current Master Exercise List (simulated DB state):", masterExerciseList);
 
-    // Simulate network delay
     await new Promise(resolve => setTimeout(resolve, 1500));
-
-    // Here, you might add the created workout to a list in localStorage or a global state
-    // for demonstration purposes, e.g., to make it appear on the "Start Workout" page.
-    // For this prototype, we'll just show a success message and redirect.
 
     toast({
       title: "Trening zapisany (Symulacja)!",
@@ -261,7 +248,7 @@ export default function CreateWorkoutPage() {
       variant: "default",
       duration: 3000,
     });
-    router.push("/dashboard/workout/start"); // Redirect after successful "save"
+    router.push("/dashboard/workout/start"); 
     setIsLoading(false);
   }
 
@@ -536,7 +523,7 @@ export default function CreateWorkoutPage() {
       <ExerciseSelectionDialog
         isOpen={isExerciseSelectionDialogOpen}
         onOpenChange={setIsExerciseSelectionDialogOpen}
-        availableExercises={masterExerciseList} // Use the state that can be updated
+        availableExercises={masterExerciseList} 
         onExercisesSelected={handleExercisesSelected}
       />
       <QuickAddExerciseDialog

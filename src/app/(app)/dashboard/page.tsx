@@ -44,7 +44,11 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Skeleton } from "@/components/ui/skeleton";
 
-// MOCK DATA for widgets - In a real app, this would come from a backend API or context.
+// MOCK BACKEND LOGIC: All data for widgets (MOCK_LAST_WORKOUT, MOCK_PROGRESS_STATS, MOCK_UPCOMING_REMINDERS, MOCK_FITNESS_TIPS)
+// is hardcoded in this file. User profile data (userName) is fetched from localStorage.
+// The dashboard layout configuration (visibility and order of widgets) is also loaded from and saved to localStorage,
+// simulating a user-specific preference that would typically be stored on a backend.
+
 const MOCK_LAST_WORKOUT = {
   name: 'Full Body Strength - Wtorek',
   date: '2024-07-30',
@@ -90,8 +94,6 @@ interface NavItem {
   description: string;
 }
 
-// All available navigation items for the dashboard quick actions.
-// In a real app, these might be filtered based on user role or preferences.
 const ALL_NAV_ITEMS: NavItem[] = [
   { id: 'workout-start', href: '/dashboard/workout/start', label: 'Rozpocznij trening', icon: PlayCircle, description: 'Rozpocznij nową sesję lub kontynuuj istniejącą.' },
   { id: 'plans', href: '/dashboard/plans', label: 'Plany treningowe', icon: BookOpen, description: 'Przeglądaj, twórz i zarządzaj swoimi planami treningowymi.' },
@@ -124,7 +126,7 @@ const SingleQuickActionCard: React.FC<{ item: NavItem }> = ({ item }) => {
           <IconComponent className="mr-2 h-5 w-5 text-primary" />
           {item.label}
         </div>
-        <div className="pb-4 flex-grow min-h-[60px]">
+        <div className="pb-4 flex-grow min-h-[40px]"> {/* Adjusted min-height for consistency */}
           <p className="text-sm text-muted-foreground line-clamp-2">{item.description}</p>
         </div>
       </div>
@@ -138,7 +140,7 @@ const SingleQuickActionCardSkeleton: React.FC = () => (
       <Skeleton className="mr-2 h-5 w-5 rounded-full" />
       <Skeleton className="h-6 w-3/4" />
     </div>
-    <div className="pb-4 flex-grow min-h-[60px]">
+    <div className="pb-4 flex-grow min-h-[40px]"> {/* Adjusted min-height */}
       <Skeleton className="h-4 w-full mb-1" />
       <Skeleton className="h-4 w-5/6" />
     </div>
@@ -168,10 +170,7 @@ const LastWorkoutWidget: React.FC = () => (
           <span><Dumbbell className="mr-1 inline-block h-4 w-4" />{MOCK_LAST_WORKOUT.exercises} ćwiczeń</span>
         </div>
       </div>
-      <div className="pt-4 flex items-center text-sm text-primary">
-        Zobacz szczegóły
-        <ChevronRight className="ml-auto h-4 w-4" />
-      </div>
+      {/* Removed Przejdź div */}
     </div>
   </Link>
 );
@@ -190,9 +189,7 @@ const LastWorkoutWidgetSkeleton: React.FC = () => (
         <Skeleton className="h-4 w-1/4" />
       </div>
     </CardContent>
-    <CardFooter>
-      <Skeleton className="h-5 w-1/3 ml-auto" />
-    </CardFooter>
+    {/* Removed Footer Skeleton for "Przejdź" */}
   </Card>
 );
 
@@ -225,10 +222,7 @@ const ProgressStatsWidget: React.FC = () => (
           <Progress value={(MOCK_PROGRESS_STATS.workoutsThisWeek / MOCK_PROGRESS_STATS.weeklyGoal) * 100} className="h-2" />
         </div>
       </div>
-      <div className="pt-4 flex items-center text-sm text-primary">
-        Pełne statystyki
-        <ChevronRight className="ml-auto h-4 w-4" />
-      </div>
+      {/* Removed Przejdź div */}
     </div>
   </Link>
 );
@@ -254,9 +248,7 @@ const ProgressStatsWidgetSkeleton: React.FC = () => (
         <Skeleton className="h-2 w-full" />
       </div>
     </CardContent>
-    <CardFooter>
-      <Skeleton className="h-5 w-1/3 ml-auto" />
-    </CardFooter>
+    {/* Removed Footer Skeleton for "Przejdź" */}
   </Card>
 );
 
@@ -317,7 +309,7 @@ const FitnessTipWidget: React.FC = () => {
   const [tip, setTip] = React.useState("");
 
   React.useEffect(() => {
-    // Simulates fetching a random tip, in a real app this might be from an API or a larger local list.
+    // MOCK BACKEND LOGIC: Tip is randomly selected from a hardcoded list.
     setTip(MOCK_FITNESS_TIPS[Math.floor(Math.random() * MOCK_FITNESS_TIPS.length)]);
   }, []);
 
@@ -359,11 +351,10 @@ export interface DashboardWidgetConfig {
   area: 'main' | 'sidebar';
   defaultOrder: number;
   defaultVisible: boolean;
-  currentOrder?: number; // Current order for user customization
-  isVisible?: boolean;   // Current visibility for user customization
+  currentOrder?: number; 
+  isVisible?: boolean;   
 }
 
-// Generates widget configurations for each quick action item.
 const generateQuickActionWidgets = (): DashboardWidgetConfig[] => {
   return ALL_NAV_ITEMS.map((item, index) => ({
     id: item.id,
@@ -371,23 +362,20 @@ const generateQuickActionWidgets = (): DashboardWidgetConfig[] => {
     component: <SingleQuickActionCard item={item} />,
     skeletonComponent: <SingleQuickActionCardSkeleton />,
     area: 'main', 
-    defaultOrder: index + 1, // Base order
+    defaultOrder: index + 1, 
     defaultVisible: true,
   }));
 };
 
-// Initial layout definition. This defines the default state of the dashboard.
 const INITIAL_DASHBOARD_LAYOUT: DashboardWidgetConfig[] = [
   ...generateQuickActionWidgets(),
-  // Sidebar widgets, their order and visibility can also be customized.
   { id: 'last-workout', title: 'Ostatni Trening', component: <LastWorkoutWidget />, skeletonComponent: <LastWorkoutWidgetSkeleton />, area: 'sidebar', defaultOrder: 1, defaultVisible: true },
   { id: 'progress-stats', title: 'Statystyki Postępu', component: <ProgressStatsWidget />, skeletonComponent: <ProgressStatsWidgetSkeleton />, area: 'sidebar', defaultOrder: 2, defaultVisible: true },
   { id: 'upcoming-reminders', title: 'Nadchodzące Przypomnienia', component: <UpcomingRemindersWidget />, skeletonComponent: <UpcomingRemindersWidgetSkeleton />, area: 'sidebar', defaultOrder: 3, defaultVisible: true },
   { id: 'fitness-tip', title: 'Porada Dnia', component: <FitnessTipWidget />, skeletonComponent: <FitnessTipWidgetSkeleton />, area: 'sidebar', defaultOrder: 4, defaultVisible: true },
 ];
 
-// Key for storing user's customized dashboard layout in localStorage.
-const DASHBOARD_LAYOUT_STORAGE_KEY = "dashboardLayoutConfigV3"; // Versioning helps manage layout changes.
+const DASHBOARD_LAYOUT_STORAGE_KEY = "dashboardLayoutConfigV3";
 
 export default function DashboardPage() {
   const { toast } = useToast();
@@ -396,12 +384,11 @@ export default function DashboardPage() {
   const [pageIsLoading, setPageIsLoading] = React.useState(true);
 
   const [dashboardWidgets, setDashboardWidgets] = React.useState<DashboardWidgetConfig[]>([]);
-  // Store a copy of the layout before entering edit mode to allow cancellation.
   const [widgetsBeforeEdit, setWidgetsBeforeEdit] = React.useState<DashboardWidgetConfig[]>([]);
 
   React.useEffect(() => {
-    // Load user's name from localStorage to personalize the welcome message.
-    // This simulates fetching user data that might be stored after login.
+    // MOCK BACKEND LOGIC: User name is fetched from localStorage.
+    // In a real app, this would come from a user context or API call after login.
     if (typeof window !== 'undefined') {
         const storedProfileData = localStorage.getItem('currentUserProfileData');
         if (storedProfileData) {
@@ -414,14 +401,11 @@ export default function DashboardPage() {
         }
     }
 
-    // Load dashboard layout:
-    // 1. Start with the INITIAL_DASHBOARD_LAYOUT as a base.
-    // 2. If a saved layout exists in localStorage, merge it with the base.
-    //    This ensures new widgets are added and old settings are respected.
+    // MOCK BACKEND LOGIC: Dashboard layout (widget visibility and order) is loaded from localStorage.
+    // If no saved layout, defaults are used. This simulates user-specific dashboard customization.
     let loadedLayout: DashboardWidgetConfig[] = [];
     try {
       const savedLayoutJson = typeof window !== 'undefined' ? localStorage.getItem(DASHBOARD_LAYOUT_STORAGE_KEY) : null;
-      // Ensure every widget from INITIAL_DASHBOARD_LAYOUT has isVisible and currentOrder set from defaults.
       const baseLayout = INITIAL_DASHBOARD_LAYOUT.map(w => ({
         ...w,
         isVisible: w.defaultVisible,
@@ -429,24 +413,18 @@ export default function DashboardPage() {
       }));
 
       if (savedLayoutJson) {
-        // Parse saved settings (only id, isVisible, currentOrder, area are saved).
         const parsedSavedWidgets = JSON.parse(savedLayoutJson) as Pick<DashboardWidgetConfig, 'id' | 'isVisible' | 'currentOrder' | 'area'>[];
         
-        // Map over the base layout, applying saved settings if found.
         loadedLayout = baseLayout.map(defaultWidget => {
           const savedWidgetSettings = parsedSavedWidgets.find(w => w.id === defaultWidget.id);
           return {
             ...defaultWidget,
-            // Use saved visibility if present, otherwise default.
             isVisible: savedWidgetSettings?.isVisible !== undefined ? savedWidgetSettings.isVisible : defaultWidget.defaultVisible,
-            // Use saved order if present, otherwise default.
             currentOrder: savedWidgetSettings?.currentOrder !== undefined ? savedWidgetSettings.currentOrder : defaultWidget.defaultOrder,
-            // Use saved area if present, otherwise default.
             area: savedWidgetSettings?.area !== undefined ? savedWidgetSettings.area : defaultWidget.area,
           };
         });
         
-        // Add any new widgets from INITIAL_DASHBOARD_LAYOUT that weren't in the saved layout.
         const loadedIds = new Set(loadedLayout.map(w => w.id));
         baseLayout.forEach(initialWidget => {
           if (!loadedIds.has(initialWidget.id)) {
@@ -455,12 +433,10 @@ export default function DashboardPage() {
         });
 
       } else {
-        // No saved layout, use the base layout with default visibility and order.
         loadedLayout = baseLayout;
       }
     } catch (error) {
       console.error("Error loading dashboard layout from localStorage:", error);
-      // Fallback to initial layout if parsing fails.
       loadedLayout = INITIAL_DASHBOARD_LAYOUT.map(w => ({
         ...w,
         isVisible: w.defaultVisible,
@@ -468,16 +444,14 @@ export default function DashboardPage() {
       }));
     }
     setDashboardWidgets(loadedLayout.sort((a,b) => (a.currentOrder ?? 0) - (b.currentOrder ?? 0)));
-    setTimeout(() => setPageIsLoading(false), 750); // Simulate loading time
+    setTimeout(() => setPageIsLoading(false), 750); 
   }, []);
 
   const handleEnterEditMode = () => {
-    // Save the current state of widgets before entering edit mode.
     setWidgetsBeforeEdit(JSON.parse(JSON.stringify(dashboardWidgets))); 
     setIsEditMode(true);
   };
   
-  // Toggles the visibility of a specific widget.
   const handleToggleWidgetVisibility = (widgetId: string) => {
     setDashboardWidgets(prevWidgets =>
       prevWidgets.map(widget =>
@@ -486,15 +460,13 @@ export default function DashboardPage() {
     );
   };
 
-  // Moves a widget up or down within its area ('main' or 'sidebar').
   const handleMoveWidget = (widgetId: string, direction: 'up' | 'down') => {
     setDashboardWidgets(prevWidgets => {
-      const newWidgets = prevWidgets.map(w => ({...w})); // Create a new array of new objects for immutability
+      const newWidgets = prevWidgets.map(w => ({...w})); 
       const widgetIndex = newWidgets.findIndex(w => w.id === widgetId);
-      if (widgetIndex === -1) return prevWidgets; // Widget not found
+      if (widgetIndex === -1) return prevWidgets; 
 
       const widget = newWidgets[widgetIndex];
-      // Filter and sort widgets within the same area to determine valid moves.
       const areaWidgets = newWidgets
         .filter(w => w.area === widget.area)
         .sort((a, b) => (a.currentOrder ?? 0) - (b.currentOrder ?? 0));
@@ -502,34 +474,29 @@ export default function DashboardPage() {
       const widgetIndexInArea = areaWidgets.findIndex(w => w.id === widgetId);
 
       if (direction === 'up' && widgetIndexInArea > 0) {
-        // Swap 'currentOrder' with the previous widget in the same area.
         const prevWidgetInArea = areaWidgets[widgetIndexInArea - 1];
         const originalPrevWidgetIndex = newWidgets.findIndex(w => w.id === prevWidgetInArea.id);
 
-        // Swap orders
         const tempOrder = newWidgets[originalPrevWidgetIndex].currentOrder;
         newWidgets[originalPrevWidgetIndex].currentOrder = newWidgets[widgetIndex].currentOrder;
         newWidgets[widgetIndex].currentOrder = tempOrder;
 
       } else if (direction === 'down' && widgetIndexInArea < areaWidgets.length - 1) {
-        // Swap 'currentOrder' with the next widget in the same area.
         const nextWidgetInArea = areaWidgets[widgetIndexInArea + 1];
         const originalNextWidgetIndex = newWidgets.findIndex(w => w.id === nextWidgetInArea.id);
         
-        // Swap orders
         const tempOrder = newWidgets[originalNextWidgetIndex].currentOrder;
         newWidgets[originalNextWidgetIndex].currentOrder = newWidgets[widgetIndex].currentOrder;
         newWidgets[widgetIndex].currentOrder = tempOrder;
       }
-      // Re-sort the main list based on the new orders.
       return newWidgets.sort((a,b) => (a.currentOrder ?? 0) - (b.currentOrder ?? 0));
     });
   };
 
-  // Saves the current layout (visibility and order of widgets) to localStorage.
+  // MOCK BACKEND LOGIC: Saves the dashboard layout (widget visibility and order) to localStorage.
+  // In a real app, this would be an API call to persist user preferences.
   const handleSaveLayout = () => {
     try {
-      // Save only the necessary properties to localStorage.
       const layoutToSave = dashboardWidgets.map(({ id, isVisible, currentOrder, area }) => ({ id, isVisible, currentOrder, area }));
       if (typeof window !== 'undefined') {
         localStorage.setItem(DASHBOARD_LAYOUT_STORAGE_KEY, JSON.stringify(layoutToSave));
@@ -542,14 +509,13 @@ export default function DashboardPage() {
     setIsEditMode(false);
   };
 
-  // Cancels edit mode and reverts widget layout to the state before editing.
   const handleCancelEdit = () => {
     setDashboardWidgets(JSON.parse(JSON.stringify(widgetsBeforeEdit)));
     setIsEditMode(false);
     toast({ title: "Zmiany w układzie anulowane." });
   };
 
-  // Restores the dashboard layout to its initial default configuration.
+  // MOCK BACKEND LOGIC: Restores layout to defaults and saves this default to localStorage.
   const handleRestoreDefaults = () => {
     const defaultLayout = INITIAL_DASHBOARD_LAYOUT.map(w => ({
       ...w,
@@ -558,7 +524,6 @@ export default function DashboardPage() {
     }));
     setDashboardWidgets(defaultLayout.sort((a,b) => (a.currentOrder ?? 0) - (b.currentOrder ?? 0)));
     try {
-      // Save the default layout to localStorage immediately after restoring.
       const layoutToSave = defaultLayout.map(({ id, isVisible, currentOrder, area }) => ({ id, isVisible, currentOrder, area }));
       if (typeof window !== 'undefined') {
         localStorage.setItem(DASHBOARD_LAYOUT_STORAGE_KEY, JSON.stringify(layoutToSave));
@@ -571,18 +536,15 @@ export default function DashboardPage() {
     setIsEditMode(false);
   };
 
-  // Helper to render widget content or its skeleton based on page loading state.
   const renderWidgetContent = (widget: DashboardWidgetConfig) => {
     if (pageIsLoading) return widget.skeletonComponent;
     return widget.component;
   }
 
-  // Filter and sort widgets for the main content area.
   const mainAreaWidgets = dashboardWidgets
     .filter(w => w.area === 'main' && w.isVisible)
     .sort((a, b) => (a.currentOrder ?? 0) - (b.currentOrder ?? 0));
 
-  // Filter and sort widgets for the sidebar area.
   const sidebarAreaWidgets = dashboardWidgets
     .filter(w => w.area === 'sidebar' && w.isVisible)
     .sort((a, b) => (a.currentOrder ?? 0) - (b.currentOrder ?? 0));
@@ -620,7 +582,6 @@ export default function DashboardPage() {
 
       <div className="container mx-auto py-6 px-4 sm:px-6 lg:px-8 dashboard-content-area">
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
-            {/* Main Content Area - typically for quick actions */}
             <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 dashboard-main-content">
               {mainAreaWidgets.map(widget => (
                  <div key={widget.id} className={cn("dashboard-widget-wrapper", isEditMode && "border-2 border-dashed border-primary/50 p-2 rounded-lg bg-primary/5 mb-4 relative")}>
@@ -655,7 +616,6 @@ export default function DashboardPage() {
                 </Card>
               )}
             </div>
-            {/* Sidebar Area - for summary widgets */}
             <aside className="space-y-6 lg:col-span-1 dashboard-sidebar-content">
               {sidebarAreaWidgets.map(widget => (
                 <div key={widget.id} className={cn("dashboard-widget-wrapper", isEditMode && "border-2 border-dashed border-primary/50 p-2 rounded-lg bg-primary/5 mb-4 relative")}>
@@ -670,7 +630,6 @@ export default function DashboardPage() {
                       <Button variant="ghost" size="icon" className="h-6 w-6 widget-move-down-button" onClick={() => handleMoveWidget(widget.id, 'down')} title="Przesuń w dół">
                         <MoveDown className="h-3 w-3" />
                       </Button>
-                      {/* Resize and move to main area might be more complex and are omitted for now */}
                     </div>
                   )}
                   <div className={cn(isEditMode && "pt-6")}>

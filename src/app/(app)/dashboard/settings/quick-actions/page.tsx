@@ -11,18 +11,20 @@ import { ArrowLeft, ListChecks, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { SettingsQuickActionsPageSkeleton } from "@/components/settings/SettingsQuickActionsPageSkeleton";
 
-// This interface defines the structure for each quick action item.
-// It should ideally match the structure used on the dashboard page (ALL_NAV_ITEMS).
+// MOCK BACKEND LOGIC:
+// - Visibility Preferences: Loaded from and saved to localStorage.
+// - The actual effect of these settings (hiding/showing quick actions on the dashboard)
+//   is handled by the dashboard page (`src/app/(app)/dashboard/page.tsx`) which reads these
+//   preferences from localStorage.
+
 interface NavItem {
-  id: string; // Unique ID for identification and localStorage key
-  href: string; // Navigation path
-  label: string; // Display label for the action
-  icon: React.ElementType; // Icon component
-  description: string; // Brief description of the action
+  id: string; 
+  href: string; 
+  label: string; 
+  icon: React.ElementType; 
+  description: string; 
 }
 
-// ALL_QUICK_ACTION_DEFINITIONS: Defines all possible quick actions available for customization.
-// This list should be consistent with what's used on the dashboard.
 const ALL_QUICK_ACTION_DEFINITIONS: NavItem[] = [
   { id: 'workout-start', href: '/dashboard/workout/start', label: 'Rozpocznij trening', icon: PlayCircle, description: 'Rozpocznij nową sesję lub kontynuuj.' },
   { id: 'plans', href: '/dashboard/plans', label: 'Plany treningowe', icon: BookOpen, description: 'Przeglądaj i zarządzaj planami.' },
@@ -38,36 +40,30 @@ const ALL_QUICK_ACTION_DEFINITIONS: NavItem[] = [
   { id: 'app-settings', href: '/dashboard/settings', label: 'Ustawienia Aplikacji', icon: SettingsIcon, description: 'Dostosuj preferencje aplikacji.' },
   { id: 'rest-timer', href: '/dashboard/tools/rest-timer', label: 'Timer Odpoczynku', icon: TimerIcon, description: 'Niezależny stoper odpoczynku.' },
 ];
-// Re-import icons for use in this component
 import {
   PlayCircle, BookOpen, History as HistoryIcon, Award, Users, Scale, Camera, HeartPulse, GlassWater, BarChart3, Settings2, Settings as SettingsIcon, Timer as TimerIcon
 } from 'lucide-react';
 
-// Key for storing quick action visibility preferences in localStorage.
 const QUICK_ACTIONS_VISIBILITY_KEY = "dashboardQuickActionItemVisibility";
 
 export default function QuickActionsSettingsPage() {
   const { toast } = useToast();
-  // State to hold the visibility preferences for each quick action item (itemId -> boolean).
   const [visibilityPreferences, setVisibilityPreferences] = React.useState<Record<string, boolean>>({});
   const [pageIsLoading, setPageIsLoading] = React.useState(true);
 
-  // Effect to load visibility preferences from localStorage on component mount.
   React.useEffect(() => {
     setPageIsLoading(true);
-    const timer = setTimeout(() => { // Simulate loading delay
-      // Initialize preferences: by default, all actions are visible.
+    const timer = setTimeout(() => { 
+      // MOCK BACKEND LOGIC: Load visibility preferences from localStorage.
       const initialPrefs: Record<string, boolean> = {};
       ALL_QUICK_ACTION_DEFINITIONS.forEach(item => {
-        initialPrefs[item.id] = true; // Default to visible
+        initialPrefs[item.id] = true; 
       });
 
-      // Load saved preferences from localStorage, if any.
       const storedPrefs = localStorage.getItem(QUICK_ACTIONS_VISIBILITY_KEY);
       if (storedPrefs) {
         try {
           const parsedPrefs = JSON.parse(storedPrefs);
-          // Merge stored preferences with defaults, ensuring all items have a value.
           for (const key in initialPrefs) {
               if (parsedPrefs.hasOwnProperty(key)) {
                   initialPrefs[key] = parsedPrefs[key];
@@ -75,20 +71,18 @@ export default function QuickActionsSettingsPage() {
           }
         } catch (e) {
           console.error("Error parsing quick actions visibility from localStorage", e);
-          // If parsing fails, stick with defaults.
         }
       }
       setVisibilityPreferences(initialPrefs);
       setPageIsLoading(false);
-    }, 500); // Simulate 500ms loading delay
+    }, 500); 
     return () => clearTimeout(timer);
   }, []);
 
-  // Handles changing the visibility of a quick action item and saves to localStorage.
+  // MOCK BACKEND LOGIC: Saves visibility preferences to localStorage.
   const handleVisibilityChange = (itemId: string, isVisible: boolean) => {
     const newPrefs = { ...visibilityPreferences, [itemId]: isVisible };
     setVisibilityPreferences(newPrefs);
-    // Simulate saving preferences to a backend or localStorage.
     try {
       localStorage.setItem(QUICK_ACTIONS_VISIBILITY_KEY, JSON.stringify(newPrefs));
       toast({
@@ -105,7 +99,6 @@ export default function QuickActionsSettingsPage() {
     }
   };
   
-  // Map item IDs to their corresponding icon components for easy rendering.
   const iconMap: Record<string, React.ElementType> = {
     'workout-start': PlayCircle,
     'plans': BookOpen,
@@ -140,7 +133,7 @@ export default function QuickActionsSettingsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               {ALL_QUICK_ACTION_DEFINITIONS.map((item) => {
-                const IconComponent = iconMap[item.id] || ListChecks; // Fallback icon
+                const IconComponent = iconMap[item.id] || ListChecks; 
                 return (
                   <div
                     key={item.id}
@@ -154,7 +147,7 @@ export default function QuickActionsSettingsPage() {
                     </div>
                     <Switch
                       id={`switch-${item.id}`}
-                      checked={visibilityPreferences[item.id] !== undefined ? visibilityPreferences[item.id] : true} // Default to true if not set
+                      checked={visibilityPreferences[item.id] !== undefined ? visibilityPreferences[item.id] : true} 
                       onCheckedChange={(checked) => handleVisibilityChange(item.id, checked)}
                     />
                   </div>

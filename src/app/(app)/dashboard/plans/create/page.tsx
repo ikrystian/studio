@@ -76,10 +76,14 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { CreateTrainingPlanPageSkeleton } from "@/components/plans/CreateTrainingPlanPageSkeleton";
-// MOCK_AVAILABLE_WORKOUTS_FOR_PLAN_EDITOR and MOCK_DAY_TEMPLATES_FOR_PLAN_EDITOR are now imported from centralized mockData
+// MOCK BACKEND LOGIC:
+// - `MOCK_AVAILABLE_WORKOUTS_FOR_PLAN_EDITOR` and `MOCK_DAY_TEMPLATES_FOR_PLAN_EDITOR` are in-memory arrays from `src/lib/mockData.ts`,
+//   simulating a database of available workouts and day templates.
+// - "Quick Create Workout" adds to an in-memory `availableWorkouts` state, simulating adding to a global workout DB for this session.
+// - Saving a plan ("Zapisz Plan") is a simulation; in a real app, this would POST data to a backend API.
+//   The created plan data is not persisted beyond this session unless explicitly added to `MOCK_DETAILED_TRAINING_PLANS` in `mockData.ts`.
 import { MOCK_AVAILABLE_WORKOUTS_FOR_PLAN_EDITOR, MOCK_DAY_TEMPLATES_FOR_PLAN_EDITOR } from "@/lib/mockData";
 
-// Lazy load dialogs
 const SelectWorkoutDialog = dynamic(() =>
   import("@/components/plans/select-workout-dialog").then((mod) => mod.SelectWorkoutDialog), {
   loading: () => <div className="fixed inset-0 bg-background/50 flex items-center justify-center z-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>,
@@ -93,7 +97,6 @@ const QuickCreateWorkoutDialog = dynamic(() =>
 });
 
 
-// Interface for RichDayTemplate is now implicitly available via MOCK_DAY_TEMPLATES_FOR_PLAN_EDITOR.
 export interface RichDayTemplate {
   id: string;
   name: string;
@@ -116,19 +119,17 @@ const DAYS_OF_WEEK = [
   "Poniedziałek", "Wtorek", "Środa", "Czwartek", "Piątek", "Sobota", "Niedziela"
 ];
 
-// Zod schema for a single day in the plan's weekly schedule.
 const planDaySchema = z.object({
   dayName: z.string(),
   assignedWorkoutId: z.string().nullable().default(null),
   assignedWorkoutName: z.string().nullable().default(null),
-  templateId: z.string().nullable().default(null), // Store ID of the template
-  templateName: z.string().nullable().default(null), // Store name of the template for display
+  templateId: z.string().nullable().default(null), 
+  templateName: z.string().nullable().default(null), 
   isRestDay: z.boolean().default(false),
 });
 export type PlanDayFormValues = z.infer<typeof planDaySchema>;
 
 
-// Zod schema for the entire training plan form.
 const planFormSchema = z.object({
   planName: z.string().min(1, "Nazwa planu jest wymagana."),
   description: z.string().optional(),
@@ -136,15 +137,15 @@ const planFormSchema = z.object({
   endDate: z.date().optional(),
   goal: z.string().optional(),
   days: z.array(planDaySchema).length(7, "Plan musi obejmować 7 dni."),
-}).refine(data => { // Custom validation for end date vs start date
+}).refine(data => { 
   if (data.startDate && data.endDate && data.endDate < data.startDate) {
     return false;
   }
   return true;
 }, {
   message: "Data zakończenia nie może być wcześniejsza niż data rozpoczęcia.",
-  path: ["endDate"], // Path to the field causing the error
-}).refine(data => { // Custom validation ensuring at least one day has an assignment
+  path: ["endDate"], 
+}).refine(data => { 
     return data.days.some(day => day.assignedWorkoutId || day.templateId || day.isRestDay);
 }, {
     message: "Plan musi zawierać przynajmniej jeden przypisany trening, szablon lub dzień odpoczynku.",
@@ -158,18 +159,17 @@ export default function CreateTrainingPlanPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [pageIsLoading, setPageIsLoading] = React.useState(true);
-  const [isLoading, setIsLoading] = React.useState(false); // For form submission
+  const [isLoading, setIsLoading] = React.useState(false); 
   const [serverError, setServerError] = React.useState<string | null>(null);
 
-  // State for dialogs and managing workout assignment
   const [isWorkoutSelectionDialogOpen, setIsWorkoutSelectionDialogOpen] = React.useState(false);
   const [isQuickCreateWorkoutDialogOpen, setIsQuickCreateWorkoutDialogOpen] = React.useState(false);
   const [currentDayIndexToAssign, setCurrentDayIndexToAssign] = React.useState<number | null>(null);
 
-  // Simulates a global list of available workouts, including those quickly created.
+  // MOCK BACKEND LOGIC: `availableWorkouts` state simulates a dynamic list of workouts,
+  // potentially updated by "Quick Create Workout".
   const [availableWorkouts, setAvailableWorkouts] = React.useState<SelectableWorkout[]>(MOCK_AVAILABLE_WORKOUTS_FOR_PLAN_EDITOR);
 
-  // State for copy/paste functionality
   const [copiedDayConfig, setCopiedDayConfig] = React.useState<Omit<PlanDayFormValues, 'dayName'> | null>(null);
   const [isPastingModeActive, setIsPastingModeActive] = React.useState(false);
   
@@ -192,7 +192,6 @@ export default function CreateTrainingPlanPage() {
     },
   });
 
-  // Simulate page loading for skeleton visibility
   React.useEffect(() => {
     const timer = setTimeout(() => {
       setPageIsLoading(false);
@@ -200,7 +199,6 @@ export default function CreateTrainingPlanPage() {
     return () => clearTimeout(timer);
   }, []);
   
-  // Watch for start date changes to update the calendar view month
   const watchedStartDate = form.watch("startDate");
   const [calendarViewMonth, setCalendarViewMonth] = React.useState(watchedStartDate || new Date());
 
@@ -208,32 +206,26 @@ export default function CreateTrainingPlanPage() {
     if (watchedStartDate && !isSameMonth(watchedStartDate, calendarViewMonth)) {
       setCalendarViewMonth(startOfMonth(watchedStartDate));
     } else if (!watchedStartDate && !isSameMonth(new Date(), calendarViewMonth)) {
-        // If startDate is cleared or not set, default calendar to current month
         setCalendarViewMonth(startOfMonth(new Date()));
     }
   }, [watchedStartDate, calendarViewMonth]);
 
 
-  // useFieldArray for managing the dynamic list of days in the form
   const { fields, update } = useFieldArray({
     control: form.control,
     name: "days",
   });
 
-  // Opens the dialog to select an existing workout for a specific day.
   const handleOpenWorkoutSelectionDialog = (dayIndex: number) => {
     setCurrentDayIndexToAssign(dayIndex);
     setIsWorkoutSelectionDialogOpen(true);
   };
 
-  // Opens the dialog for quickly creating a new workout to assign to a day.
   const handleOpenQuickCreateDialog = (dayIndex: number) => {
     setCurrentDayIndexToAssign(dayIndex);
     setIsQuickCreateWorkoutDialogOpen(true);
   };
 
-  // Callback when a workout is selected from the dialog.
-  // Updates the form state for the specified day.
   const handleWorkoutSelected = (workout: SelectableWorkout) => {
     if (currentDayIndexToAssign !== null) {
       const currentDay = fields[currentDayIndexToAssign];
@@ -241,30 +233,27 @@ export default function CreateTrainingPlanPage() {
         ...currentDay,
         assignedWorkoutId: workout.id,
         assignedWorkoutName: workout.name,
-        templateId: null, // Clear template if workout is directly assigned
+        templateId: null, 
         templateName: null,
-        isRestDay: false, // Not a rest day if a workout is assigned
+        isRestDay: false, 
       });
-      form.trigger("days"); // Trigger validation for the 'days' array
+      form.trigger("days"); 
     }
     setIsWorkoutSelectionDialogOpen(false);
     setCurrentDayIndexToAssign(null);
   };
 
-  // Callback when a new workout is created via the quick add dialog.
-  // Simulates adding to a global DB and updates the form.
+  // MOCK BACKEND LOGIC: "Quick Create Workout" adds to the in-memory `availableWorkouts` state,
+  // simulating adding to a global workout database for the current session.
   const handleQuickWorkoutCreated = (newWorkoutData: QuickCreateWorkoutFormData) => {
-     // Simulate creating a new workout object
      const newWorkout: SelectableWorkout = {
-      id: uuidv4(), // Assign a new unique ID
+      id: uuidv4(), 
       name: newWorkoutData.name,
-      type: newWorkoutData.workoutType || "Mieszany", // Default type if not specified
+      type: newWorkoutData.workoutType || "Mieszany", 
     };
-    // Simulate adding to a master list of workouts (would be an API call)
     setAvailableWorkouts(prev => [...prev, newWorkout]);
 
     if (currentDayIndexToAssign !== null) {
-      // Assign the newly created workout to the selected day
       const currentDay = fields[currentDayIndexToAssign];
       update(currentDayIndexToAssign, {
         ...currentDay,
@@ -280,7 +269,6 @@ export default function CreateTrainingPlanPage() {
       });
       form.trigger("days"); 
     } else {
-       // This case might happen if Quick Add is accessed globally, not for a specific day.
        toast({
         title: "Trening Utworzony!",
         description: `Trening "${newWorkout.name}" został utworzony i dodany do listy dostępnych treningów.`,
@@ -290,16 +278,15 @@ export default function CreateTrainingPlanPage() {
     setCurrentDayIndexToAssign(null);
   };
 
-  // Assigns a pre-defined day template to a specific day in the plan.
   const handleAssignTemplate = (dayIndex: number, template: RichDayTemplate) => {
     const currentDay = fields[dayIndex];
     update(dayIndex, {
       ...currentDay,
       templateId: template.id,
       templateName: template.name,
-      assignedWorkoutId: template.assignedWorkoutId || null, // Use workout from template if any
+      assignedWorkoutId: template.assignedWorkoutId || null, 
       assignedWorkoutName: template.assignedWorkoutName || null,
-      isRestDay: template.isRestDay || false, // Mark as rest day if template specifies
+      isRestDay: template.isRestDay || false, 
     });
     toast({
         title: "Szablon Przypisany",
@@ -309,7 +296,6 @@ export default function CreateTrainingPlanPage() {
   };
 
 
-  // Marks a specific day as a rest day.
   const handleMarkAsRestDay = (dayIndex: number) => {
     const currentDay = fields[dayIndex];
     update(dayIndex, {
@@ -323,7 +309,6 @@ export default function CreateTrainingPlanPage() {
     form.trigger("days"); 
   };
 
-  // Clears any assignment (workout, template, rest day) from a specific day.
   const handleRemoveAssignment = (dayIndex: number) => {
     const currentDay = fields[dayIndex];
     update(dayIndex, {
@@ -337,10 +322,9 @@ export default function CreateTrainingPlanPage() {
     form.trigger("days"); 
   };
 
-  // Copies the configuration of a source day (excluding its name).
   const handleCopyDay = (sourceDayIndex: number) => {
     const dayToCopy = { ...form.getValues(`days.${sourceDayIndex}`) };
-    const { dayName, ...configToCopy } = dayToCopy; // Exclude dayName, as it's fixed
+    const { dayName, ...configToCopy } = dayToCopy; 
     setCopiedDayConfig(configToCopy as Omit<PlanDayFormValues, 'dayName'>);
     setIsPastingModeActive(true);
     toast({
@@ -349,14 +333,13 @@ export default function CreateTrainingPlanPage() {
     });
   };
 
-  // Pastes the copied day configuration to a target day.
   const handlePasteDay = (targetDayIndex: number) => {
     if (copiedDayConfig) {
-      const targetDayName = form.getValues(`days.${targetDayIndex}.dayName`); // Preserve target day's name
+      const targetDayName = form.getValues(`days.${targetDayIndex}.dayName`); 
       const newDayData = { ...copiedDayConfig, dayName: targetDayName } as PlanDayFormValues;
       update(targetDayIndex, newDayData);
-      setCopiedDayConfig(null); // Clear clipboard
-      setIsPastingModeActive(false); // Exit pasting mode
+      setCopiedDayConfig(null); 
+      setIsPastingModeActive(false); 
       toast({
         title: "Konfiguracja Wklejona",
         description: `Skopiowana konfiguracja została wklejona do dnia "${targetDayName}".`,
@@ -365,7 +348,6 @@ export default function CreateTrainingPlanPage() {
     }
   };
 
-  // Cancels the pasting mode.
   const handleCancelPasting = () => {
     setCopiedDayConfig(null);
     setIsPastingModeActive(false);
@@ -375,47 +357,41 @@ export default function CreateTrainingPlanPage() {
     });
   };
 
-
-  // Simulates submitting the plan data to a backend.
+  // MOCK BACKEND LOGIC: Submitting the form simulates saving the plan.
+  // In a real application, this would be an API call. The `availableWorkouts` state
+  // reflects a simulated global DB that might have been updated by Quick Add.
   async function onSubmit(values: PlanFormValues) {
     setIsLoading(true);
     setServerError(null);
     console.log("Training Plan data submitted (simulated save):", values);
-    // In a real application, an API call would be made here.
-    // The `availableWorkouts` state simulates a DB that might have been updated by Quick Add.
     console.log("Current available workouts (after potential quick adds):", availableWorkouts);
 
-    // Simulate network delay
     await new Promise(resolve => setTimeout(resolve, 1500));
 
-    // In a real app, this would be where you handle the response from your API.
-    // For this prototype, we assume success.
     toast({
       title: "Plan treningowy zapisany!",
       description: `Plan "${values.planName}" został pomyślnie utworzony (symulacja).`,
       variant: "default",
     });
-    router.push("/dashboard/plans"); // Redirect to plans list after "successful" save
+    router.push("/dashboard/plans"); 
     setIsLoading(false);
   }
   
-  // Calendar visualization data
   const firstDayCurrentMonth = startOfMonth(calendarViewMonth);
   const lastDayCurrentMonth = endOfMonth(calendarViewMonth);
   const daysInMonth = eachDayOfInterval({ start: firstDayCurrentMonth, end: lastDayCurrentMonth });
 
-  let startingDayOfWeek = getDay(firstDayCurrentMonth); // Sunday is 0, adjust for Monday start
-  if (startingDayOfWeek === 0) startingDayOfWeek = 7; // Sunday becomes 7th day (if Monday is 1st)
+  let startingDayOfWeek = getDay(firstDayCurrentMonth); 
+  if (startingDayOfWeek === 0) startingDayOfWeek = 7; 
   const daysBeforeMonth = Array.from({ length: startingDayOfWeek - 1 });
 
-  // Function to get the assignment for a specific date in the calendar view.
   const getDayAssignment = (date: Date) => {
     const planStartDate = form.watch("startDate");
     if (!planStartDate || isBefore(date, startOfDay(planStartDate))) {
-      return null; // No assignment before plan start date
+      return null; 
     }
     const diff = differenceInCalendarDays(date, startOfDay(planStartDate));
-    const dayIndexInCycle = diff % 7; // Determine which day of the 7-day cycle it is
+    const dayIndexInCycle = diff % 7; 
     return form.watch(`days.${dayIndexInCycle}`);
   };
 
@@ -510,7 +486,7 @@ export default function CreateTrainingPlanPage() {
                                 selected={field.value}
                                 onSelect={(date) => {
                                     field.onChange(date);
-                                    if(date) setCalendarViewMonth(startOfMonth(date)); // Update calendar view on date change
+                                    if(date) setCalendarViewMonth(startOfMonth(date)); 
                                 }}
                                 disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) || isLoading}
                                 initialFocus
@@ -615,12 +591,10 @@ export default function CreateTrainingPlanPage() {
                               </Button>
                             )}
                         </div>
-                      {/* Display area for assigned workout/template/rest day */}
                       <div className="min-h-[40px] mb-3 p-3 border border-dashed rounded-md bg-background flex items-center justify-center">
                         {day.templateName ? (
                             <span className="text-purple-600 dark:text-purple-400 flex items-center">
                                 <LayoutDashboard className="mr-2 h-5 w-5"/> {day.templateName}
-                                {/* Show if manually assigned workout overrides template's workout */}
                                 {day.assignedWorkoutName && day.assignedWorkoutId !== MOCK_DAY_TEMPLATES_FOR_PLAN_EDITOR.find(t => t.id === day.templateId)?.assignedWorkoutId && 
                                  <span className="text-xs text-muted-foreground ml-1">(zastąpiony: {day.assignedWorkoutName})</span>}
                             </span>
@@ -632,7 +606,6 @@ export default function CreateTrainingPlanPage() {
                           <span className="text-muted-foreground">Brak przypisanej aktywności</span>
                         )}
                       </div>
-                      {/* Action buttons for the day */}
                       <div className="flex flex-wrap gap-2">
                         {isPastingModeActive ? (
                           <Button
@@ -677,7 +650,7 @@ export default function CreateTrainingPlanPage() {
                                   <Coffee className="mr-2 h-4 w-4"/> Oznacz jako Dzień Odpoczynku
                                   </DropdownMenuItem>
                               )}
-                               {(day.assignedWorkoutId || day.isRestDay || day.templateId) && ( // Show remove only if something is assigned
+                               {(day.assignedWorkoutId || day.isRestDay || day.templateId) && ( 
                                   <DropdownMenuItem onClick={() => handleRemoveAssignment(index)} className="text-destructive focus:text-destructive">
                                       <Trash2 className="mr-2 h-4 w-4"/> Usuń przypisanie
                                   </DropdownMenuItem>
@@ -688,7 +661,6 @@ export default function CreateTrainingPlanPage() {
                       </div>
                     </Card>
                   ))}
-                   {/* Display array-level validation error for 'days' */}
                    {form.formState.errors.days && typeof form.formState.errors.days.message === 'string' && (
                      <p className="text-sm font-medium text-destructive mt-2">
                        {form.formState.errors.days.message}
@@ -697,7 +669,6 @@ export default function CreateTrainingPlanPage() {
                 </CardContent>
               </Card>
 
-              {/* Calendar Visualization Card */}
                <Card>
                 <CardHeader>
                     <CardTitle>Wizualizacja Kalendarza Planu</CardTitle>
@@ -755,9 +726,7 @@ export default function CreateTrainingPlanPage() {
                                             className={cn(
                                                 "p-2 border-b border-r min-h-[80px] text-xs relative transition-colors",
                                                 isSameMonth(day, calendarViewMonth) ? bgColor : "bg-muted/30",
-                                                // Apply opacity if day is before start date but in current month view
                                                 isDayBeforeStartDate && isSameMonth(day, calendarViewMonth) ? "opacity-60 bg-muted/50" : "",
-                                                // Dim text for days not in current month view
                                                 !isSameMonth(day, calendarViewMonth) ? "text-muted-foreground/50" : textColor
                                             )}
                                         >

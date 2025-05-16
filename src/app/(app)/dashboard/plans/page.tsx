@@ -12,17 +12,19 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { TrainingPlansPageSkeleton } from '@/components/plans/TrainingPlansPageSkeleton';
 
-// Interface for a training plan summary displayed on this list page.
+// MOCK BACKEND LOGIC: Training plans (MOCK_TRAINING_PLANS) are sourced from an in-memory array.
+// Filtering by search term and goal is performed client-side on this array.
+// There are no actual backend calls for fetching or manipulating plan data on this list page.
+
 interface TrainingPlan {
   id: string;
   name: string;
   description: string;
   goal: string; 
   duration: string; 
-  icon?: React.ElementType; // For a visual cue, optional
+  icon?: React.ElementType; 
 }
 
-// Placeholder icon for "StretchHorizontal" if not available in Lucide or if a custom SVG is preferred.
 function StretchHorizontalIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
@@ -31,8 +33,6 @@ function StretchHorizontalIcon(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
-// MOCK_TRAINING_PLANS: Simulates data that would be fetched from a backend.
-// In a real application, this would be replaced with an API call in a useEffect hook.
 const MOCK_TRAINING_PLANS: TrainingPlan[] = [
   {
     id: 'plan1',
@@ -68,7 +68,6 @@ const MOCK_TRAINING_PLANS: TrainingPlan[] = [
   },
 ];
 
-// Options for the goal filter dropdown.
 const PLAN_GOALS_FILTER_OPTIONS = [
     "Wszystkie", 
     "Budowa podstawowej siły i masy mięśniowej", 
@@ -82,19 +81,16 @@ export default function TrainingPlansPage() {
   const [searchTerm, setSearchTerm] = React.useState('');
   const [selectedGoal, setSelectedGoal] = React.useState(PLAN_GOALS_FILTER_OPTIONS[0]);
 
-  // Simulate data fetching with a delay to show the skeleton.
   React.useEffect(() => {
-    // In a real app, you would fetch data here, e.g., from an API.
-    // For now, we just simulate the loading process.
+    // MOCK BACKEND LOGIC: Simulates fetching data. In a real app, this would be an API call.
     const timer = setTimeout(() => {
       setIsLoading(false);
-    }, 750); // Simulate 750ms loading time
+    }, 750); 
     return () => clearTimeout(timer);
   }, []);
 
-  // Memoized filtering of plans based on search term and selected goal.
-  // This client-side filtering works with the MOCK_TRAINING_PLANS.
   const filteredPlans = React.useMemo(() => {
+    // MOCK BACKEND LOGIC: Client-side filtering of `MOCK_TRAINING_PLANS`.
     return MOCK_TRAINING_PLANS.filter(plan => {
       const matchesSearch = plan.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             plan.description.toLowerCase().includes(searchTerm.toLowerCase());
@@ -156,7 +152,7 @@ export default function TrainingPlansPage() {
             <ScrollArea className="h-[calc(100vh-25rem)] pr-4"> 
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {filteredPlans.map((plan) => {
-                  const IconComponent = plan.icon || Dumbbell; // Default to Dumbbell if no icon specified
+                  const IconComponent = plan.icon || Dumbbell; 
                   return (
                     <Card key={plan.id} className="flex flex-col hover:shadow-lg transition-shadow duration-200">
                       <CardHeader>
@@ -176,6 +172,8 @@ export default function TrainingPlansPage() {
                       </CardContent>
                       <CardFooter>
                         <Button asChild className="w-full">
+                          {/* MOCK BACKEND LOGIC: Clicking navigates to a detail page. The detail page
+                              will then "fetch" details for this planId from MOCK_DETAILED_TRAINING_PLANS. */}
                           <Link href={`/dashboard/plans/${plan.id}`}>
                             Zobacz szczegóły
                           </Link>

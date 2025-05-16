@@ -36,6 +36,13 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input"; 
 import { SettingsRemindersPageSkeleton } from "@/components/settings/SettingsRemindersPageSkeleton";
 
+// MOCK BACKEND LOGIC:
+// - Settings Persistence: Reminder settings are loaded from and saved to localStorage.
+// - Notification Permission: Browser's Notification API is used for permission requests.
+// - Last Workout Date: Loaded from localStorage (set by workout summary page) to simulate inactivity check.
+// - Reminder Triggering: Actual reminder notifications (system notifications) are simulated via toasts due to
+//   the complexities of implementing service workers/background tasks in this prototype environment.
+
 const DAYS_OF_WEEK = [
   { id: "monday", label: "Poniedziałek" },
   { id: "tuesday", label: "Wtorek" },
@@ -46,27 +53,24 @@ const DAYS_OF_WEEK = [
   { id: "sunday", label: "Niedziela" },
 ] as const;
 
-// Mock data for plan selection. In a real app, this would be fetched.
 const MOCK_PLANS_FOR_REMINDERS = [
     { id: "plan1", name: "Mój Plan Siłowy Wiosna" },
     { id: "plan2", name: "Przygotowanie do Maratonu Lato" },
     { id: "plan3", name: "Redukcja Wakacyjna" },
 ];
 
-// Key for storing reminder settings in localStorage.
 const REMINDER_SETTINGS_LOCAL_STORAGE_KEY = "workoutWiseReminderSettings";
 
-// Zod schema for validating reminder settings form.
 const reminderSettingsSchema = z.object({
   enableReminders: z.boolean().default(false),
   reminderType: z.enum(["regular", "plan_based", "inactivity"]).default("regular"),
-  reminderDays: z.array(z.string()).optional(), // For "regular" type
-  reminderHour: z.string().optional(),         // For "regular" and "plan_based"
-  reminderMinute: z.string().optional(),       // For "regular" and "plan_based"
-  activePlanId: z.string().optional(),         // For "plan_based" type
-  daysForInactivityReminder: z.coerce.number().int().positive("Liczba dni musi być dodatnia.").optional(), // For "inactivity" type
-  playSound: z.boolean().default(false),       // General option
-}).superRefine((data, ctx) => { // Custom refinement for conditional validation
+  reminderDays: z.array(z.string()).optional(), 
+  reminderHour: z.string().optional(),         
+  reminderMinute: z.string().optional(),       
+  activePlanId: z.string().optional(),         
+  daysForInactivityReminder: z.coerce.number().int().positive("Liczba dni musi być dodatnia.").optional(), 
+  playSound: z.boolean().default(false),       
+}).superRefine((data, ctx) => { 
   if (data.enableReminders) {
     if (data.reminderType === "regular") {
       if (!data.reminderDays || data.reminderDays.length === 0) {
@@ -86,7 +90,6 @@ const reminderSettingsSchema = z.object({
       if (!data.activePlanId) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Wybierz plan treningowy.", path: ["activePlanId"] });
       }
-      // Time is also required for plan_based reminders
       if (!data.reminderHour) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Godzina przypomnienia jest wymagana.", path: ["reminderHour"] });
       }
@@ -108,12 +111,11 @@ const reminderSettingsSchema = z.object({
 
 type ReminderSettingsFormValues = z.infer<typeof reminderSettingsSchema>;
 
-// Default values for the form
 const defaultReminderValues: ReminderSettingsFormValues = {
   enableReminders: false,
   reminderType: "regular",
   reminderDays: [],
-  reminderHour: "17", // Default to 5 PM
+  reminderHour: "17", 
   reminderMinute: "00",
   activePlanId: undefined,
   daysForInactivityReminder: 3,
@@ -123,12 +125,10 @@ const defaultReminderValues: ReminderSettingsFormValues = {
 
 export default function ReminderSettingsPage() {
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = React.useState(false); // For form submission
-  const [isFetchingSettings, setIsFetchingSettings] = React.useState(true); // For initial load
+  const [isLoading, setIsLoading] = React.useState(false); 
+  const [isFetchingSettings, setIsFetchingSettings] = React.useState(true); 
   const [serverError, setServerError] = React.useState<string | null>(null);
-  // State to store notification permission status (default, granted, denied)
   const [notificationPermission, setNotificationPermission] = React.useState<NotificationPermission>('default');
-  // State to store the date of the last workout, loaded from localStorage
   const [lastWorkoutDateString, setLastWorkoutDateString] = React.useState<string | null>(null);
 
   const form = useForm<ReminderSettingsFormValues>({
@@ -136,9 +136,9 @@ export default function ReminderSettingsPage() {
     defaultValues: defaultReminderValues,
   });
 
-  // Simulates sending an inactivity reminder if conditions are met.
-  // This would be handled by a backend service worker in a real app.
   const checkAndSimulateInactivityReminder = React.useCallback((settings: ReminderSettingsFormValues, lastWorkoutDateStr: string | null) => {
+    // MOCK BACKEND LOGIC: Simulates sending an inactivity reminder if conditions are met.
+    // This would be handled by a backend service worker in a real app.
     if (
       settings.enableReminders &&
       settings.reminderType === "inactivity" &&
@@ -153,44 +153,39 @@ export default function ReminderSettingsPage() {
             title: "Symulacja Przypomnienia o Braku Aktywności",
             description: `Nie trenowałeś od ${daysPassed} dni (ustawiono ${settings.daysForInactivityReminder} dni). Czas na ruch!`,
             variant: "default",
-            duration: 7000, // Show for longer
+            duration: 7000, 
           });
         }
       } catch (error) {
         console.error("Error processing last workout date for inactivity reminder:", error);
-        // Do not toast an error here to avoid spamming user if date is malformed
       }
     }
-  }, [toast]); // Dependencies for the memoized callback
+  }, [toast]); 
 
 
-  // Effect to load settings from localStorage on component mount.
-  // Also checks notification permission and loads last workout date.
   React.useEffect(() => {
     async function fetchSettings() {
       setIsFetchingSettings(true);
-      let loadedSettings = { ...defaultReminderValues }; // Start with defaults
+      let loadedSettings = { ...defaultReminderValues }; 
       try {
-        // Simulate fetching delay
         await new Promise(resolve => setTimeout(resolve, 500));
 
-        // Load settings from localStorage
+        // MOCK BACKEND LOGIC: Load settings from localStorage.
         const storedSettings = localStorage.getItem(REMINDER_SETTINGS_LOCAL_STORAGE_KEY);
         if (storedSettings) {
           loadedSettings = { ...loadedSettings, ...JSON.parse(storedSettings) };
         }
-        form.reset(loadedSettings); // Reset form with loaded or default settings
+        form.reset(loadedSettings); 
 
-        // Check browser notification permission
+        // MOCK BACKEND LOGIC: Check browser notification permission.
         if (typeof window !== "undefined" && "Notification" in window) {
           setNotificationPermission(Notification.permission);
         }
 
-        // Load last workout date from localStorage (used for inactivity reminder)
+        // MOCK BACKEND LOGIC: Load last workout date from localStorage.
         const storedLastWorkoutDate = localStorage.getItem('workoutWiseLastWorkoutDate');
         setLastWorkoutDateString(storedLastWorkoutDate);
         
-        // Check if inactivity reminder should be shown based on loaded settings
         if (storedLastWorkoutDate) {
             checkAndSimulateInactivityReminder(loadedSettings, storedLastWorkoutDate);
         }
@@ -207,25 +202,22 @@ export default function ReminderSettingsPage() {
       }
     }
     fetchSettings();
-  }, [form, toast, checkAndSimulateInactivityReminder]); // Include checkAndSimulateInactivityReminder in dependencies
+  }, [form, toast, checkAndSimulateInactivityReminder]); 
 
 
-  // Handles form submission: saves settings to localStorage.
-  // In a real app, this would be an API call to save settings on the backend.
+  // MOCK BACKEND LOGIC: Simulates saving settings to a backend by persisting them in localStorage.
   async function onSubmit(values: ReminderSettingsFormValues) {
     setIsLoading(true);
     setServerError(null);
     console.log("Reminder settings submitted (simulated save):", values);
 
     try {
-      // Simulate saving settings to localStorage.
       localStorage.setItem(REMINDER_SETTINGS_LOCAL_STORAGE_KEY, JSON.stringify(values));
       toast({
         title: "Ustawienia Zapisane!",
         description: "Twoje preferencje dotyczące przypomnień zostały zaktualizowane.",
         variant: "default",
       });
-      // After saving, re-check if an inactivity reminder needs to be shown.
       checkAndSimulateInactivityReminder(values, lastWorkoutDateString);
 
     } catch (error) {
@@ -237,7 +229,7 @@ export default function ReminderSettingsPage() {
     }
   }
 
-  // Handles requesting notification permission from the browser.
+  // MOCK BACKEND LOGIC: Handles requesting browser notification permission.
   const handleRequestNotificationPermission = async () => {
     if (typeof window !== "undefined" && "Notification" in window) {
       if (Notification.permission === 'granted') {
@@ -251,7 +243,7 @@ export default function ReminderSettingsPage() {
           toast({ title: "Pozwolenie udzielone!", description: "Powiadomienia zostały włączone.", variant: "default" });
         } else if (permission === 'denied') {
           toast({ title: "Pozwolenie odrzucone", description: "Nie będziesz otrzymywać powiadomień. Możesz to zmienić w ustawieniach przeglądarki.", variant: "destructive", duration: 7000 });
-        } else { // 'default' - user dismissed the prompt or an error occurred
+        } else { 
           toast({ title: "Pozwolenie nieudzielone", description: "Status pozwolenia nieznany. Spróbuj ponownie.", variant: "default" });
         }
       } catch (error) {
@@ -259,12 +251,10 @@ export default function ReminderSettingsPage() {
         toast({ title: "Błąd", description: "Nie udało się poprosić o pozwolenie na powiadomienia.", variant: "destructive" });
       }
     } else {
-      // Notifications not supported by the browser
       toast({ title: "Powiadomienia nieobsługiwane", description: "Twoja przeglądarka nie wspiera powiadomień systemowych.", variant: "destructive" });
     }
   };
 
-  // Watch form values to conditionally render parts of the form.
   const watchEnableReminders = form.watch("enableReminders");
   const watchReminderType = form.watch("reminderType");
 
@@ -289,7 +279,6 @@ export default function ReminderSettingsPage() {
                     <CardTitle>Ustawienia Powiadomień Systemowych</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    {/* Display current notification permission status */}
                     {notificationPermission === 'granted' ? (
                         <Alert variant="default" className="border-green-500">
                             <CheckCircle className="h-4 w-4 text-green-500"/>
@@ -307,7 +296,7 @@ export default function ReminderSettingsPage() {
                                 <Button variant="link" size="sm" className="p-0 h-auto mt-1" onClick={handleRequestNotificationPermission}>Spróbuj ponownie poprosić o pozwolenie</Button>
                             </AlertDescription>
                         </Alert>
-                    ) : ( // 'default' or unsupported
+                    ) : ( 
                          <Alert>
                             <Info className="h-4 w-4"/>
                             <AlertTitle>Pozwolenie na powiadomienia: Wymagane</AlertTitle>
@@ -356,7 +345,6 @@ export default function ReminderSettingsPage() {
                     )}
                   />
 
-                  {/* Conditional fields based on selected reminder type */}
                   {watchEnableReminders && (
                     <>
                       <FormField
@@ -382,7 +370,6 @@ export default function ReminderSettingsPage() {
                         )}
                       />
                     
-                      {/* Fields for "regular" reminder type */}
                       {watchReminderType === "regular" && (
                         <>
                           <FormField
@@ -485,7 +472,6 @@ export default function ReminderSettingsPage() {
                         </>
                       )}
 
-                      {/* Fields for "plan_based" reminder type */}
                       {watchReminderType === "plan_based" && (
                         <>
                            <FormField
@@ -514,7 +500,6 @@ export default function ReminderSettingsPage() {
                             </div>
                         </>
                       )}
-                      {/* Fields for "inactivity" reminder type */}
                       {watchReminderType === "inactivity" && (
                          <FormField
                             control={form.control}
@@ -523,8 +508,8 @@ export default function ReminderSettingsPage() {
                                 <FormItem>
                                     <FormLabel>Przypomnij po X dniach bez treningu</FormLabel>
                                     <Select
-                                        onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)} // Ensure value is number or undefined
-                                        value={field.value?.toString()} // Convert number to string for Select value
+                                        onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)} 
+                                        value={field.value?.toString()} 
                                         disabled={isLoading || !watchEnableReminders}
                                     >
                                         <FormControl><SelectTrigger><SelectValue placeholder="Wybierz liczbę dni" /></SelectTrigger></FormControl>
@@ -548,7 +533,6 @@ export default function ReminderSettingsPage() {
                             )}
                         />
                       )}
-                      {/* General sound setting */}
                       <FormField
                         control={form.control}
                         name="playSound"
@@ -567,12 +551,10 @@ export default function ReminderSettingsPage() {
                             </FormItem>
                         )}
                       />
-                       {/* Placeholder for sound selection (future feature) */}
                        <Select disabled={isLoading || !watchEnableReminders || !form.watch("playSound")}>
                             <SelectTrigger><SelectValue placeholder="Wybierz dźwięk powiadomienia (Wkrótce)" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="default_sound">Domyślny Dźwięk</SelectItem>
-                                {/* More sounds later */}
                             </SelectContent>
                         </Select>
                     </>

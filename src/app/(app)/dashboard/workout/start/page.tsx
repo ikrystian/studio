@@ -33,7 +33,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { StartWorkoutPageSkeleton } from '@/components/workout/StartWorkoutPageSkeleton';
 
-// Simulated workout data - In a real app, this would be fetched from a backend or global state.
+// MOCK BACKEND LOGIC: `availableWorkouts` is an in-memory array. Checking for unfinished workouts
+// involves looking for specific keys in `localStorage`. Discarding an unfinished workout
+// removes the item from `localStorage`. Data is not persisted beyond the session/browser storage.
+
 const availableWorkouts = [
   { id: 'wk1', name: 'Poranny Trening Siłowy', type: 'Siłowy', estimatedDuration: '60 min', icon: Dumbbell, description: 'Kompleksowy trening siłowy całego ciała.' },
   { id: 'wk2', name: 'Szybkie Cardio HIIT', type: 'Cardio', estimatedDuration: '30 min', icon: Zap, description: 'Intensywny trening interwałowy dla poprawy kondycji.' },
@@ -42,7 +45,6 @@ const availableWorkouts = [
   { id: 'wk5', name: 'Długie Wybieganie', type: 'Cardio', estimatedDuration: '90 min', icon: Zap, description: 'Trening wytrzymałościowy na świeżym powietrzu.' },
 ];
 
-// Placeholder icon component
 function StretchHorizontal(props: React.SVGProps<SVGSVGElement>) { 
   return (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
@@ -52,14 +54,13 @@ function StretchHorizontal(props: React.SVGProps<SVGSVGElement>) {
 }
 
 const WORKOUT_TYPES_FILTER = ["Wszystkie", "Siłowy", "Cardio", "Rozciąganie"];
-// Key prefix for storing autosaved active workout data in localStorage.
 const ACTIVE_WORKOUT_AUTOSAVE_KEY_PREFIX = "activeWorkoutAutosave_";
 
 interface UnfinishedWorkoutInfo {
   workoutId: string;
   workoutName: string;
-  startTime: string; // ISO String
-  autosaveKey: string; // The localStorage key for this specific unfinished workout
+  startTime: string; 
+  autosaveKey: string; 
 }
 
 export default function StartWorkoutPage() {
@@ -74,9 +75,8 @@ export default function StartWorkoutPage() {
   React.useEffect(() => {
     setIsLoading(true);
     let foundUnfinished = false;
-    // This effect simulates checking for an unfinished workout session.
-    // In a real app, this might involve an API call or more complex local storage logic.
-    // Here, it checks localStorage for any key starting with ACTIVE_WORKOUT_AUTOSAVE_KEY_PREFIX.
+    // MOCK BACKEND LOGIC: Checks localStorage for any keys starting with ACTIVE_WORKOUT_AUTOSAVE_KEY_PREFIX
+    // to find previously started but unfinished workouts.
     if (typeof window !== 'undefined') {
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
@@ -85,7 +85,6 @@ export default function StartWorkoutPage() {
           if (savedDataString) {
             try {
               const parsedData = JSON.parse(savedDataString);
-              // Basic validation of the parsed data
               if (parsedData.workoutId && parsedData.workoutName && parsedData.workoutStartTime) {
                 setUnfinishedWorkoutInfo({
                   workoutId: parsedData.workoutId,
@@ -94,17 +93,15 @@ export default function StartWorkoutPage() {
                   autosaveKey: key,
                 });
                 foundUnfinished = true;
-                break; // Found an unfinished workout, no need to check further
+                break; 
               }
             } catch (e) {
               console.error("Error parsing autosaved workout data:", e);
-              // Potentially remove the malformed key: localStorage.removeItem(key);
             }
           }
         }
       }
     }
-    // Simulate a delay for fetching/checking data
     const timer = setTimeout(() => {
         setIsLoading(false);
     }, 750); 
@@ -112,7 +109,7 @@ export default function StartWorkoutPage() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Simulates discarding an unfinished workout by removing its data from localStorage.
+  // MOCK BACKEND LOGIC: Simulates discarding an unfinished workout by removing its data from localStorage.
   const handleDiscardUnfinishedWorkout = () => {
     if (unfinishedWorkoutInfo) {
       localStorage.removeItem(unfinishedWorkoutInfo.autosaveKey);
@@ -125,8 +122,6 @@ export default function StartWorkoutPage() {
     }
   };
 
-  // Filters available workouts based on search term and selected type.
-  // This is a client-side filtering of mock data.
   const filteredWorkouts = availableWorkouts.filter(workout => {
     const matchesSearch = workout.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           workout.description.toLowerCase().includes(searchTerm.toLowerCase());
@@ -269,6 +264,9 @@ export default function StartWorkoutPage() {
                     </CardContent>
                     <CardFooter>
                       <Button asChild className="w-full">
+                        {/* MOCK BACKEND LOGIC: Clicking "Rozpocznij" navigates to the active workout page.
+                            The active workout page will load the workout structure based on its ID
+                            (from MOCK_WORKOUTS or from localStorage if it's a custom/repeated plan workout). */}
                         <Link href={`/dashboard/workout/active/${workout.id}`}>
                           Rozpocznij
                         </Link>

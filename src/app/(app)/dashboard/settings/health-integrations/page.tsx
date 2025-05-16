@@ -21,27 +21,30 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { SettingsHealthIntegrationsPageSkeleton } from "@/components/settings/SettingsHealthIntegrationsPageSkeleton";
 
-// Interface for the status of a health integration (e.g., Apple Health, Google Fit)
+// MOCK BACKEND LOGIC:
+// - Settings Persistence: Health integration settings (connection status, sync options) are loaded from and saved to localStorage.
+// - Connection Toggling: Connecting/disconnecting from services like Apple Health or Google Fit is simulated.
+//   In a real app, this would involve OAuth flows and API interactions with the respective services.
+// - Data Sync: Toggling sync options (workouts, weight, sleep) updates the settings in localStorage.
+//   Actual data synchronization would require backend processes and APIs for these health services.
+
 interface IntegrationStatus {
   connected: boolean;
-  lastSync?: Date | null; // Stores the timestamp of the last successful synchronization
+  lastSync?: Date | null; 
 }
 
-// Interface for all health integration settings managed on this page
 interface HealthIntegrationSettings {
   appleHealth: IntegrationStatus;
   googleFit: IntegrationStatus;
-  syncWorkouts: boolean; // Sync completed workouts
-  syncWeight: boolean;   // Sync weight measurements
-  syncSleep: boolean;    // Sync sleep data
+  syncWorkouts: boolean; 
+  syncWeight: boolean;   
+  syncSleep: boolean;    
 }
 
-// Key for storing these settings in localStorage
 const LOCAL_STORAGE_KEY = "workoutWiseHealthIntegrationSettings";
 
 export default function HealthIntegrationsPage() {
   const { toast } = useToast();
-  // State for managing the health integration settings
   const [settings, setSettings] = React.useState<HealthIntegrationSettings>({
     appleHealth: { connected: false, lastSync: null },
     googleFit: { connected: false, lastSync: null },
@@ -51,12 +54,10 @@ export default function HealthIntegrationsPage() {
   });
   const [pageIsLoading, setPageIsLoading] = React.useState(true);
 
-  // Effect to load settings from localStorage on component mount
   React.useEffect(() => {
     setPageIsLoading(true);
     const timer = setTimeout(() => { 
-      // Simulate loading settings from localStorage.
-      // In a real app, this might be an API call to a backend.
+      // MOCK BACKEND LOGIC: Simulate loading settings from localStorage.
       try {
         const storedSettings = localStorage.getItem(LOCAL_STORAGE_KEY);
         if (storedSettings) {
@@ -75,12 +76,11 @@ export default function HealthIntegrationsPage() {
      return () => clearTimeout(timer);
   }, [toast]);
 
-  // Saves the current settings to localStorage.
-  // This simulates a backend save operation.
+  // MOCK BACKEND LOGIC: Saves settings to localStorage, simulating a backend save.
   const saveSettings = (newSettings: HealthIntegrationSettings) => {
     try {
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newSettings));
-      setSettings(newSettings); // Update local component state
+      setSettings(newSettings); 
       toast({
         title: "Ustawienia Zapisane",
         description: "Twoje preferencje integracji zostały zaktualizowane.",
@@ -95,21 +95,18 @@ export default function HealthIntegrationsPage() {
     }
   };
 
-  // Toggles the connection status for a given service (Apple Health or Google Fit).
-  // Simulates the OAuth flow and connection process.
+  // MOCK BACKEND LOGIC: Toggles connection status and simulates OAuth flow.
   const handleToggleConnection = (service: "appleHealth" | "googleFit") => {
     const currentStatus = settings[service].connected;
     const newSettings = {
       ...settings,
       [service]: {
         connected: !currentStatus,
-        lastSync: !currentStatus ? new Date() : null, // Set lastSync on connect, clear on disconnect
+        lastSync: !currentStatus ? new Date() : null, 
       },
     };
     saveSettings(newSettings);
 
-    // Simulate the connection/disconnection toast message.
-    // A real app would handle OAuth redirects and API calls here.
     toast({
       title: `${service === "appleHealth" ? "Apple Health" : "Google Fit"}`,
       description: `Symulacja ${!currentStatus ? "połączenia" : "rozłączenia"}. W prawdziwej aplikacji tutaj nastąpiłby proces autoryzacji.`,
@@ -117,7 +114,6 @@ export default function HealthIntegrationsPage() {
     });
   };
 
-  // Toggles individual data synchronization options (workouts, weight, sleep).
   const handleToggleSyncOption = (option: keyof Pick<HealthIntegrationSettings, "syncWorkouts" | "syncWeight" | "syncSleep">) => {
     const newSettings = {
       ...settings,
@@ -196,7 +192,6 @@ export default function HealthIntegrationsPage() {
             </CardContent>
           </Card>
 
-          {/* Show sync options only if at least one service is connected */}
           {(settings.appleHealth.connected || settings.googleFit.connected) && (
             <Card>
               <CardHeader>

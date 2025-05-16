@@ -32,20 +32,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { SettingsProgressionModelPageSkeleton } from "@/components/settings/SettingsProgressionModelPageSkeleton";
-// Ensure this type is correctly defined and exported if used for context.
-// For this page, we use a local form schema.
 import type { ProgressionSettings } from "@/context/ProgressionSettingsContext"; 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
+// MOCK BACKEND LOGIC:
+// - Settings Persistence: Progression model settings are loaded from and saved to localStorage.
+// - Actual Progression Logic: This page only handles the settings. The actual application of these
+//   progression rules (e.g., suggesting next weights/reps) would happen in the "Active Workout" page,
+//   using these settings and the user's workout history (which is also mock data).
 
-// Key for storing these settings in localStorage.
 const PROGRESSION_SETTINGS_LOCAL_STORAGE_KEY = "workoutWiseProgressionSettings";
 
-// Zod schema for validating the progression settings form.
 const progressionSettingsSchema = z.object({
   enableProgression: z.boolean().default(true),
   selectedModel: z.enum(["linear_weight", "linear_reps", "double_progression", "none"]).default("linear_weight"),
-  linearWeightIncrement: z.coerce.number().positive("Przyrost musi być dodatni").optional().or(z.literal("")), // Allow empty string for optional number
+  linearWeightIncrement: z.coerce.number().positive("Przyrost musi być dodatni").optional().or(z.literal("")), 
   linearWeightCondition: z.string().optional(),
   linearRepsIncrement: z.coerce.number().positive("Przyrost musi być dodatni").int("Przyrost musi być liczbą całkowitą").optional().or(z.literal("")),
   linearRepsCondition: z.string().optional(),
@@ -56,7 +57,6 @@ const progressionSettingsSchema = z.object({
 
 type ProgressionSettingsFormValues = z.infer<typeof progressionSettingsSchema>;
 
-// Default values for the form.
 const defaultProgressionSettings: ProgressionSettingsFormValues = {
   enableProgression: true,
   selectedModel: "linear_weight",
@@ -79,18 +79,14 @@ export default function ProgressionModelSettingsPage() {
     defaultValues: defaultProgressionSettings,
   });
 
-  // Effect to load settings from localStorage on component mount.
   React.useEffect(() => {
     setPageIsLoading(true);
     const timer = setTimeout(() => {
-      // Simulate loading settings from localStorage.
-      // In a real app, this might be an API call or from a global context.
+      // MOCK BACKEND LOGIC: Simulate loading settings from localStorage.
       try {
         const storedSettings = localStorage.getItem(PROGRESSION_SETTINGS_LOCAL_STORAGE_KEY);
         if (storedSettings) {
           const parsedSettings = JSON.parse(storedSettings);
-          // Ensure numeric fields are numbers or empty string, not null/undefined before reset
-          // This handles cases where optional number fields might be saved as null or not present.
           const valuesToReset: ProgressionSettingsFormValues = {
             enableProgression: parsedSettings.enableProgression ?? defaultProgressionSettings.enableProgression,
             selectedModel: parsedSettings.selectedModel ?? defaultProgressionSettings.selectedModel,
@@ -104,12 +100,11 @@ export default function ProgressionModelSettingsPage() {
           };
           form.reset(valuesToReset);
         } else {
-           // No stored settings, use defaults.
            form.reset(defaultProgressionSettings);
         }
       } catch (error) {
         console.error("Error loading progression settings:", error);
-        form.reset(defaultProgressionSettings); // Fallback to defaults on error
+        form.reset(defaultProgressionSettings); 
         toast({
           title: "Błąd ładowania",
           description: "Nie udało się załadować zapisanych ustawień progresji.",
@@ -117,18 +112,15 @@ export default function ProgressionModelSettingsPage() {
         });
       }
       setPageIsLoading(false);
-    }, 500); // Simulate 500ms loading delay
+    }, 500); 
     return () => clearTimeout(timer);
   }, [form, toast]);
 
-  // Handles form submission: saves settings to localStorage.
-  // This simulates a backend save operation.
+  // MOCK BACKEND LOGIC: Saves settings to localStorage, simulating a backend save.
   async function onSubmit(values: ProgressionSettingsFormValues) {
     setIsSaving(true);
     console.log("Progression settings submitted (simulated save):", values);
 
-    // Prepare settings for saving: convert empty strings for numbers to undefined
-    // so they don't get stored as empty strings if the field was cleared.
     const settingsToSave = {
         ...values,
         linearWeightIncrement: values.linearWeightIncrement === "" ? undefined : Number(values.linearWeightIncrement),
@@ -154,7 +146,6 @@ export default function ProgressionModelSettingsPage() {
     }
   }
 
-  // Watch form values to conditionally render parts of the form.
   const watchEnableProgression = form.watch("enableProgression");
   const watchSelectedModel = form.watch("selectedModel");
 
@@ -205,7 +196,6 @@ export default function ProgressionModelSettingsPage() {
                     )}
                   />
 
-                  {/* Conditional fields based on whether progression is enabled */}
                   {watchEnableProgression && (
                     <>
                       <FormField
@@ -243,7 +233,6 @@ export default function ProgressionModelSettingsPage() {
                         )}
                       />
 
-                      {/* Specific settings for "Linear Weight" model */}
                       {watchSelectedModel === "linear_weight" && (
                         <Card className="p-4 bg-muted/30">
                           <CardTitle className="text-md mb-2 flex items-center gap-1"><TrendingUp className="h-4 w-4"/>Progresja Liniowa (Ciężar)</CardTitle>
@@ -251,7 +240,6 @@ export default function ProgressionModelSettingsPage() {
                           <FormField control={form.control} name="linearWeightCondition" render={({ field }) => (<FormItem className="mt-2"><FormLabel>Warunek zwiększenia ciężaru (opis)</FormLabel><FormControl><Textarea placeholder="Np. Jeśli wykonano wszystkie serie i powtórzenia z zapasem" {...field} disabled={isSaving} rows={2}/></FormControl><FormMessage /></FormItem>)}/>
                         </Card>
                       )}
-                      {/* Specific settings for "Linear Reps" model */}
                       {watchSelectedModel === "linear_reps" && (
                         <Card className="p-4 bg-muted/30">
                           <CardTitle className="text-md mb-2 flex items-center gap-1"><Repeat className="h-4 w-4"/>Progresja Liniowa (Powtórzenia)</CardTitle>
@@ -259,7 +247,6 @@ export default function ProgressionModelSettingsPage() {
                           <FormField control={form.control} name="linearRepsCondition" render={({ field }) => (<FormItem className="mt-2"><FormLabel>Warunek zwiększenia powtórzeń (opis)</FormLabel><FormControl><Textarea placeholder="Np. Jeśli wykonano założony ciężar z łatwością" {...field} disabled={isSaving} rows={2}/></FormControl><FormMessage /></FormItem>)}/>
                         </Card>
                       )}
-                      {/* Specific settings for "Double Progression" model */}
                       {watchSelectedModel === "double_progression" && (
                         <Card className="p-4 bg-muted/30">
                           <CardTitle className="text-md mb-2 flex items-center gap-1"><TrendingUp className="h-4 w-4"/><Repeat className="h-4 w-4 ml-[-0.5rem]"/>Podwójna Progresja</CardTitle>
@@ -268,7 +255,6 @@ export default function ProgressionModelSettingsPage() {
                           <FormField control={form.control} name="doubleProgressionCondition" render={({ field }) => (<FormItem className="mt-2"><FormLabel>Warunek zwiększenia ciężaru (opis)</FormLabel><FormControl><Textarea placeholder="Np. Po osiągnięciu górnej granicy powtórzeń we wszystkich seriach" {...field} disabled={isSaving} rows={2}/></FormControl><FormMessage /></FormItem>)}/>
                         </Card>
                       )}
-                      {/* Information for "None" (manual) model */}
                       {watchSelectedModel === "none" && (
                         <Alert variant="default">
                             <Info className="h-4 w-4"/>
