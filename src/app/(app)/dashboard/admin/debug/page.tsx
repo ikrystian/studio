@@ -6,9 +6,9 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Settings, Bug, ArrowLeft, Trash2, RefreshCcw, Database, Users, Info } from "lucide-react";
+import { Settings, Bug, ArrowLeft, Trash2, RefreshCcw, Database, Users, Info, AlertTriangle } from "lucide-react"; // Added AlertTriangle
 import { useToast } from "@/hooks/use-toast";
-import { MOCK_USER_PROFILES_DB } from "@/app/(app)/dashboard/profile/[userId]/page";
+import { MOCK_USER_PROFILES_DB } from "@/lib/mockData"; // Corrected import path
 
 export default function AdminDebugPage() {
     const { toast } = useToast();
