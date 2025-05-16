@@ -56,6 +56,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ExerciseSelectionDialog, type Exercise as SelectableExerciseType } from "@/components/workout/exercise-selection-dialog";
 import { QuickAddExerciseDialog, type QuickAddExerciseFormData } from "@/components/workout/quick-add-exercise-dialog";
 import { MOCK_EXERCISES_DATABASE } from "@/lib/mockData"; // Updated import
+import { CreateWorkoutPageSkeleton } from "@/components/workout/CreateWorkoutPageSkeleton";
 
 
 const exerciseInWorkoutSchema = z.object({
@@ -82,7 +83,8 @@ type WorkoutFormValues = z.infer<typeof workoutFormSchema>;
 export default function CreateWorkoutPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = React.useState(false);
+  const [pageIsLoading, setPageIsLoading] = React.useState(true); // For skeleton
+  const [isLoading, setIsLoading] = React.useState(false); // For form submission
   const [serverError, setServerError] = React.useState<string | null>(null);
   
   const [isExerciseSelectionDialogOpen, setIsExerciseSelectionDialogOpen] = React.useState(false);
@@ -103,6 +105,12 @@ export default function CreateWorkoutPage() {
     control: form.control,
     name: "exercises",
   });
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => setPageIsLoading(false), 750); // Simulate loading
+    return () => clearTimeout(timer);
+  }, []);
+
 
   const handleOpenExerciseSelectionDialog = () => {
     setIsExerciseSelectionDialogOpen(true);
@@ -217,6 +225,10 @@ export default function CreateWorkoutPage() {
     });
     router.push("/dashboard/workout/start");
     setIsLoading(false);
+  }
+
+  if (pageIsLoading) {
+    return <CreateWorkoutPageSkeleton />;
   }
 
 
