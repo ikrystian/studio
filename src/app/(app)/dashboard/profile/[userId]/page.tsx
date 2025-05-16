@@ -13,9 +13,9 @@ import {
   Eye,
   ClipboardList,
   Users,
-  BookOpen, // Imported
+  BookOpen,
   MessageSquare,
-  Dumbbell, // Imported
+  Dumbbell,
   Award,
   Trash2,
   Loader2,
@@ -48,14 +48,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import type { UserPrivacySettings } from "@/components/profile/profile-privacy-settings-dialog"; // Import UserPrivacySettings
+import type { UserPrivacySettings } from "@/components/profile/profile-privacy-settings-dialog";
 
-// Mock data structures
 interface MockActivityItem {
   id: string;
   type: "new_post" | "shared_workout" | "achieved_pb";
   content: string;
-  timestamp: string; // ISO string
+  timestamp: string;
   link?: string;
   workoutName?: string;
   pbValue?: string;
@@ -84,7 +83,7 @@ interface MockUserProfile {
   avatarUrl: string;
   bio?: string;
   fitnessLevel: "Początkujący" | "Średniozaawansowany" | "Zaawansowany";
-  joinDate: string; // ISO string
+  joinDate: string;
   stats?: {
     completedWorkouts: number;
     followers: number;
@@ -93,13 +92,15 @@ interface MockUserProfile {
   activities?: MockActivityItem[];
   friends?: MockFriend[];
   sharedPlans?: MockSharedPlan[];
-  privacySettings?: UserPrivacySettings; // Added privacy settings
+  privacySettings?: UserPrivacySettings;
+  role?: 'client' | 'trener' | 'admin';
 }
 
-// Mock user data
-const MOCK_USER_PROFILES_DB: MockUserProfile[] = [
+const LOGGED_IN_USER_ID = "current_user_id"; // This should ideally come from a global auth context
+
+export const MOCK_USER_PROFILES_DB: MockUserProfile[] = [
   {
-    id: "current_user_id",
+    id: LOGGED_IN_USER_ID,
     fullName: "Jan Kowalski",
     username: "jankowalski_fit",
     email: "jan.kowalski@example.com",
@@ -124,12 +125,8 @@ const MOCK_USER_PROFILES_DB: MockUserProfile[] = [
       { id: "plan1", name: "Mój Plan Siłowy na Masę", goal: "Budowa masy mięśniowej", description: "Sprawdzony plan na 8 tygodni, skupiony na progresji siłowej.", icon: Dumbbell },
       { id: "plan2", name: "Przygotowanie do Półmaratonu", goal: "Poprawa wytrzymałości", description: "12-tygodniowy plan biegowy dla średniozaawansowanych.", icon: BookOpen },
     ],
-    // For current user, privacy settings would be loaded from localStorage/backend. Let's assume default for mock.
-    privacySettings: {
-        isActivityPublic: true,
-        isFriendsListPublic: true,
-        isSharedPlansPublic: true,
-    }
+    privacySettings: { isActivityPublic: true, isFriendsListPublic: true, isSharedPlansPublic: true },
+    role: 'admin',
   },
   {
     id: "user2",
@@ -144,17 +141,44 @@ const MOCK_USER_PROFILES_DB: MockUserProfile[] = [
     activities: [
       { id: "act_anna1", type: "new_post", content: "Poranna joga na plaży - najlepszy start dnia! 🧘‍♀️☀️", timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString() },
     ],
-    friends: [ { id: "current_user_id", name: "Jan Kowalski", username: "jankowalski_fit", avatarUrl: "https://placehold.co/100x100.png?text=JK" }],
+    friends: [ { id: LOGGED_IN_USER_ID, name: "Jan Kowalski", username: "jankowalski_fit", avatarUrl: "https://placehold.co/100x100.png?text=JK" }],
     sharedPlans: [ { id: "plan_joga", name: "Joga dla Początkujących", goal: "Poprawa elastyczności", description: "Delikatny plan wprowadzający do świata jogi."} ],
-    privacySettings: { // Example for another user
-        isActivityPublic: true,
-        isFriendsListPublic: false, // Friends list is private
-        isSharedPlansPublic: true,
-    }
+    privacySettings: { isActivityPublic: true, isFriendsListPublic: false, isSharedPlansPublic: true },
+    role: 'client',
+  },
+  {
+    id: "user3",
+    fullName: "Piotr Trener",
+    username: "piotr_coach",
+    email: "piotr.coach@example.com",
+    avatarUrl: "https://placehold.co/200x200.png?text=PT",
+    bio: "Certyfikowany trener personalny. Pomagam osiągać cele!",
+    fitnessLevel: "Zaawansowany",
+    joinDate: "2021-01-20T12:00:00.000Z",
+    stats: { completedWorkouts: 500, followers: 1500, following: 100 },
+    activities: [],
+    friends: [],
+    sharedPlans: [],
+    privacySettings: { isActivityPublic: true, isFriendsListPublic: true, isSharedPlansPublic: true },
+    role: 'trener',
+  },
+   { 
+    id: "krystian_bpcoders", 
+    fullName: "Krystian Koder", 
+    username: "krystian_bpcoders", 
+    email: "krystian@bpcoders.pl", 
+    avatarUrl: "https://placehold.co/200x200.png?text=KK", 
+    fitnessLevel: "Zaawansowany", 
+    joinDate: new Date().toISOString(), 
+    role: 'admin', 
+    bio: "Koduję i trenuję!",
+    stats: { completedWorkouts: 10, followers: 5, following: 2 },
+    activities: [], 
+    friends: [], 
+    sharedPlans: [],
+    privacySettings: { isActivityPublic: true, isFriendsListPublic: true, isSharedPlansPublic: true },
   },
 ];
-
-const LOGGED_IN_USER_ID = "current_user_id";
 
 const PrivacyRestrictedMessage = () => (
     <p className="text-muted-foreground text-center py-6">
@@ -175,41 +199,64 @@ export default function UserProfilePage() {
 
   const [friendToRemove, setFriendToRemove] = React.useState<MockFriend | null>(null);
 
-  const isOwnProfile = userId === LOGGED_IN_USER_ID;
+  const [loggedInUserIdFromStorage, setLoggedInUserIdFromStorage] = React.useState<string | null>(null);
+  const isOwnProfile = loggedInUserIdFromStorage ? userId === loggedInUserIdFromStorage : userId === LOGGED_IN_USER_ID; // Fallback if localStorage is slow
+
 
   React.useEffect(() => {
     setIsLoading(true);
-    // Simulate fetching data
+    let effectiveLoggedInUserId = LOGGED_IN_USER_ID; // Default mock
+    
+    if (typeof window !== 'undefined') {
+      const storedEmail = localStorage.getItem('loggedInUserEmail');
+      // For prototype, map email to ID or use a generic 'current_user_id'
+      // In a real app, you'd get the ID from auth context
+      if (storedEmail) {
+        // Find the user by email to get their ID for "isOwnProfile" check.
+        // This assumes email is unique and can map to a user ID.
+        const userFromDb = MOCK_USER_PROFILES_DB.find(u => u.email === storedEmail);
+        if (userFromDb) {
+          effectiveLoggedInUserId = userFromDb.id;
+        }
+      }
+      setLoggedInUserIdFromStorage(effectiveLoggedInUserId);
+    }
+
+
     setTimeout(() => {
       let foundProfile = MOCK_USER_PROFILES_DB.find((p) => p.id === userId);
       
       if (foundProfile) {
-        // If it's the current user's profile, try to load their privacy settings from localStorage
-        if (foundProfile.id === LOGGED_IN_USER_ID) {
+        if (userId === effectiveLoggedInUserId) { // Check if it's the currently "logged in" user's profile
             try {
-                const storedPrivacySettings = localStorage.getItem("currentUserPrivacySettings");
+                const storedProfileData = typeof window !== 'undefined' ? localStorage.getItem('currentUserProfileData') : null;
+                if (storedProfileData) {
+                   const parsedLocalStorageProfile = JSON.parse(storedProfileData);
+                   // Merge, giving precedence to localStorage but keeping base structure
+                   foundProfile = { ...foundProfile, ...parsedLocalStorageProfile, id: foundProfile.id, email: foundProfile.email}; // ensure ID and email from DB are not overwritten
+                }
+                const storedPrivacySettings = typeof window !== 'undefined' ? localStorage.getItem("currentUserPrivacySettings") : null;
                 if (storedPrivacySettings) {
                     foundProfile = { ...foundProfile, privacySettings: JSON.parse(storedPrivacySettings) };
                 } else if (!foundProfile.privacySettings) {
-                     // Fallback to default if nothing in local storage and not in mock
                     foundProfile = { ...foundProfile, privacySettings: { isActivityPublic: true, isFriendsListPublic: true, isSharedPlansPublic: true } };
                 }
             } catch (e) {
-                console.error("Error loading privacy settings for current_user_id:", e);
-                if (!foundProfile.privacySettings) {
+                console.error("Error loading/merging data for current_user_id:", e);
+                 if (!foundProfile.privacySettings) {
                    foundProfile = { ...foundProfile, privacySettings: { isActivityPublic: true, isFriendsListPublic: true, isSharedPlansPublic: true } };
                 }
             }
         } else {
-            // For other users, ensure they have some default privacy settings if not defined in mock
             if (!foundProfile.privacySettings) {
                  foundProfile = { ...foundProfile, privacySettings: { isActivityPublic: true, isFriendsListPublic: true, isSharedPlansPublic: true } };
             }
         }
 
-        setProfileData(JSON.parse(JSON.stringify(foundProfile)));
-        if (!isOwnProfile) {
-          const loggedInUser = MOCK_USER_PROFILES_DB.find(u => u.id === LOGGED_IN_USER_ID);
+        setProfileData(JSON.parse(JSON.stringify(foundProfile))); // Deep copy
+        
+        if (userId !== effectiveLoggedInUserId) {
+          const loggedInUser = MOCK_USER_PROFILES_DB.find(u => u.id === effectiveLoggedInUserId);
           const isActuallyFollowing = loggedInUser?.friends?.some(f => f.id === userId);
           setIsFollowing(!!isActuallyFollowing);
         }
@@ -218,7 +265,7 @@ export default function UserProfilePage() {
       }
       setIsLoading(false);
     }, 500);
-  }, [userId, isOwnProfile]);
+  }, [userId]);
 
   const handleFollowToggle = () => {
     setIsFollowing(!isFollowing);
@@ -236,10 +283,14 @@ export default function UserProfilePage() {
 
     setProfileData(prev => {
       if (!prev || !prev.friends) return prev;
-      return {
-        ...prev,
-        friends: prev.friends.filter(f => f.id !== friendToRemove.id)
-      };
+      const updatedFriends = prev.friends.filter(f => f.id !== friendToRemove.id);
+      const updatedProfileData = { ...prev, friends: updatedFriends };
+      
+      // If this is the "current_user_id", update localStorage as well
+      if (prev.id === loggedInUserIdFromStorage && typeof window !== 'undefined') {
+          localStorage.setItem('currentUserProfileData', JSON.stringify(updatedProfileData));
+      }
+      return updatedProfileData;
     });
     toast({ title: "Znajomy usunięty", description: `Usunięto ${friendToRemove.name} z listy znajomych.` });
     setFriendToRemove(null);
@@ -276,7 +327,6 @@ export default function UserProfilePage() {
     );
   }
   
-  // Default to public if privacySettings are somehow undefined
   const canViewActivity = isOwnProfile || (profileData.privacySettings?.isActivityPublic ?? true);
   const canViewFriends = isOwnProfile || (profileData.privacySettings?.isFriendsListPublic ?? true);
   const canViewSharedPlans = isOwnProfile || (profileData.privacySettings?.isSharedPlansPublic ?? true);
@@ -484,8 +534,7 @@ export default function UserProfilePage() {
                     <ScrollArea className="max-h-[400px]">
                       <div className="space-y-4 pr-3">
                         {profileData.sharedPlans.map(plan => {
-                          // Ensure IconComponent is always a valid component type
-                          let IconComponent: React.ElementType = BookOpen; // Default icon
+                          let IconComponent: React.ElementType = BookOpen; 
                           if (plan.icon) {
                             if (typeof plan.icon === 'function' || typeof plan.icon === 'string') {
                                 IconComponent = plan.icon;
@@ -528,6 +577,3 @@ export default function UserProfilePage() {
     </div>
   );
 }
-
-
-    

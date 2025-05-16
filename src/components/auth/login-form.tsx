@@ -33,10 +33,9 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
-
 const loginSchema = z.object({
-  email: z.string().email("Invalid email address.").min(1, "Email is required."),
-  password: z.string().min(6, "Password must be at least 6 characters.").min(1, "Password is required."),
+  email: z.string().email("Nieprawidłowy adres email.").min(1, "Email jest wymagany."),
+  password: z.string().min(6, "Hasło musi mieć co najmniej 6 znaków.").min(1, "Hasło jest wymagane."),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -54,10 +53,21 @@ export function LoginForm() {
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: "test@example.com",
-      password: "password",
+      email: "", // Default empty, will be pre-filled if tempRegisteredUserEmail exists
+      password: "",
     },
   });
+
+  React.useEffect(() => {
+    // Pre-fill email if redirected from successful registration
+    if (typeof window !== 'undefined') {
+      const tempEmail = localStorage.getItem('tempRegisteredUserEmail');
+      if (tempEmail) {
+        form.setValue('email', tempEmail);
+        localStorage.removeItem('tempRegisteredUserEmail'); // Clean up
+      }
+    }
+  }, [form]);
 
 
   const handleLoginSubmit = React.useCallback(async (values: LoginFormValues) => {
@@ -80,16 +90,33 @@ export function LoginForm() {
       if (response.ok && data.success) {
         if (typeof window !== 'undefined') {
           localStorage.setItem('isUserLoggedIn', 'true');
-          localStorage.setItem('loggedInUserEmail', values.email); // Store email for potential display/use
+          localStorage.setItem('loggedInUserEmail', values.email);
+          // If this is the test user and they don't have profile data yet, create some.
+          if (values.email === "test@example.com" && !localStorage.getItem('currentUserProfileData')) {
+            const testUserProfile = {
+              fullName: "Test User",
+              email: "test@example.com",
+              username: "testuser",
+              fitnessLevel: "intermediate",
+              dateOfBirth: new Date(1990, 0, 1).toISOString(),
+              gender: "male",
+              weight: 75,
+              height: 180,
+              bio: "A test user account.",
+              joinDate: new Date().toISOString(),
+              avatarUrl: "https://placehold.co/100x100.png?text=TU",
+            };
+            localStorage.setItem('currentUserProfileData', JSON.stringify(testUserProfile));
+          }
         }
         await router.push("/dashboard");
         navigated = true;
       } else {
-        setErrorMessage(data.message || "Login failed. Please check your credentials.");
+        setErrorMessage(data.message || "Logowanie nieudane. Sprawdź dane.");
       }
     } catch (error) {
       console.error("Login API call failed:", error);
-      setErrorMessage("An unexpected error occurred. Please try again.");
+      setErrorMessage("Wystąpił nieoczekiwany błąd. Spróbuj ponownie.");
     }
 
     if (!navigated) {
@@ -106,7 +133,6 @@ export function LoginForm() {
     let toastTitle = "";
     let toastDescription = "";
     let toastVariant: "default" | "destructive" = "default";
-
 
     if (currentSearchParams.get("registered") === "true") {
       shouldShowToast = true;
@@ -144,7 +170,6 @@ export function LoginForm() {
       paramsModified = true;
     }
 
-
     if (shouldShowToast) {
       toast({
         title: toastTitle,
@@ -161,7 +186,6 @@ export function LoginForm() {
     }
   }, [searchParams, router, toast, pathname]);
 
-
   React.useEffect(() => {
     const statusParam = searchParams?.get("status");
     const registeredParam = searchParams?.get("registered");
@@ -176,18 +200,16 @@ export function LoginForm() {
       setAutoLoginAttempted(true);
       const timer = setTimeout(() => {
         handleLoginSubmit(form.getValues());
-      }, 100); // Short delay to allow component to fully mount
+      }, 100); 
       return () => clearTimeout(timer);
     }
   }, [autoLoginAttempted, form, handleLoginSubmit, searchParams]);
-
 
   const handleSocialLogin = (provider: "google" | "facebook") => {
     setIsLoading(true);
     setErrorMessage(null);
     setSuccessMessage(null);
     console.log(`Attempting ${provider} login...`);
-    // Simulate API call
     setTimeout(() => {
       setErrorMessage(`${provider.charAt(0).toUpperCase() + provider.slice(1)} login is not implemented yet.`);
       setIsLoading(false);

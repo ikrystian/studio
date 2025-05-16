@@ -44,12 +44,6 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Skeleton } from "@/components/ui/skeleton";
 
-const MOCK_HEADER_USER = { 
-  name: 'Jan Kowalski',
-  avatarUrl: 'https://placehold.co/100x100.png?text=JK',
-  id: 'current_user_id'
-};
-
 const MOCK_LAST_WORKOUT = {
   name: 'Full Body Strength - Wtorek',
   date: '2024-07-30',
@@ -70,6 +64,8 @@ const MOCK_UPCOMING_REMINDERS = [
   { id: 1, title: 'Zaplanowany Trening: Nogi', time: 'Jutro, 18:00', link: '/dashboard/plans/plan1' },
   { id: 2, title: 'Sprawdź Tygodniowe Postępy', time: 'Niedziela, 20:00', link: '/dashboard/statistics' },
   { id: 3, title: 'Uzupełnij Dziennik Samopoczucia', time: 'Codziennie, 21:00', link: '/dashboard/wellness-journal'},
+  { id: 4, title: 'Zaplanowany trening: Cardio Boost', time: 'Za 2 dni, 08:00', link: '/dashboard/plans/plan2'},
+  { id: 5, title: 'Pamiętaj o pomiarach!', time: 'Piątek, 09:00', link: '/dashboard/measurements'},
 ];
 
 const MOCK_FITNESS_TIPS = [
@@ -84,7 +80,6 @@ const MOCK_FITNESS_TIPS = [
   "Każdy trening się liczy, nawet ten krótki. Ważne, że działasz!",
   "Nie porównuj swojego rozdziału 1 do czyjegoś rozdziału 20. Skup się na własnej drodze."
 ];
-
 
 interface NavItem {
   id: string;
@@ -139,21 +134,20 @@ const SingleQuickActionCard: React.FC<{ item: NavItem }> = ({ item }) => {
 };
 
 const SingleQuickActionCardSkeleton: React.FC = () => (
-  <Card>
-    <CardHeader className="pb-2">
-       <div className="flex items-center text-lg">
-         <Skeleton className="mr-2 h-5 w-5 rounded-full" />
-         <Skeleton className="h-6 w-3/4" />
-       </div>
-    </CardHeader>
-    <CardContent className="pb-4 min-h-[60px]">
+  <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6 flex flex-col h-full">
+    <div className="flex items-center text-lg font-semibold pb-2">
+      <Skeleton className="mr-2 h-5 w-5 rounded-full" />
+      <Skeleton className="h-6 w-3/4" />
+    </div>
+    <div className="pb-4 flex-grow min-h-[60px]">
       <Skeleton className="h-4 w-full mb-1" />
       <Skeleton className="h-4 w-5/6" />
-    </CardContent>
-    <CardFooter>
-      <Skeleton className="h-8 w-1/3" />
-    </CardFooter>
-  </Card>
+    </div>
+    <div className="pt-2 flex items-center text-sm">
+      <Skeleton className="h-5 w-1/4" />
+      <ChevronRight className="ml-auto h-4 w-4 text-muted-foreground/30" />
+    </div>
+  </div>
 );
 
 
@@ -165,13 +159,13 @@ const LastWorkoutWidget: React.FC = () => (
     )}
   >
     <div className="p-6 flex flex-col h-full">
-      <div className="pb-2"> {/* Header-like structure */}
+      <div className="pb-2"> 
         <h3 className="flex items-center text-lg font-semibold">
           <Activity className="mr-2 h-5 w-5 text-primary" /> Ostatni trening
         </h3>
         <p className="text-sm text-muted-foreground">{new Date(MOCK_LAST_WORKOUT.date).toLocaleDateString('pl-PL', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
       </div>
-      <div className="space-y-3 flex-grow"> {/* Content-like structure */}
+      <div className="space-y-3 flex-grow"> 
         <h4 className="font-semibold">{MOCK_LAST_WORKOUT.name}</h4>
         <div className="flex items-center justify-between text-sm text-muted-foreground">
           <span><CalendarDays className="mr-1 inline-block h-4 w-4" />{MOCK_LAST_WORKOUT.duration}</span>
@@ -179,7 +173,7 @@ const LastWorkoutWidget: React.FC = () => (
           <span><Dumbbell className="mr-1 inline-block h-4 w-4" />{MOCK_LAST_WORKOUT.exercises} ćwiczeń</span>
         </div>
       </div>
-      <div className="pt-4 flex items-center text-sm text-primary"> {/* Footer-like structure */}
+      <div className="pt-4 flex items-center text-sm text-primary">
         Zobacz szczegóły
         <ChevronRight className="ml-auto h-4 w-4" />
       </div>
@@ -202,7 +196,7 @@ const LastWorkoutWidgetSkeleton: React.FC = () => (
       </div>
     </CardContent>
     <CardFooter>
-      <Skeleton className="h-9 w-full" />
+      <Skeleton className="h-5 w-1/3 ml-auto" />
     </CardFooter>
   </Card>
 );
@@ -215,13 +209,13 @@ const ProgressStatsWidget: React.FC = () => (
     )}
   >
     <div className="p-6 flex flex-col h-full">
-      <div className="pb-2"> {/* Header-like structure */}
+      <div className="pb-2">
         <h3 className="flex items-center text-lg font-semibold">
           <BarChart3 className="mr-2 h-5 w-5 text-primary" /> Statystyki postępu
         </h3>
         <p className="text-sm text-muted-foreground">Twój postęp w tym tygodniu.</p>
       </div>
-      <div className="space-y-4 flex-grow"> {/* Content-like structure */}
+      <div className="space-y-4 flex-grow">
         <div>
           <div className="mb-1 flex justify-between text-sm">
             <span>Waga</span>
@@ -236,7 +230,7 @@ const ProgressStatsWidget: React.FC = () => (
           <Progress value={(MOCK_PROGRESS_STATS.workoutsThisWeek / MOCK_PROGRESS_STATS.weeklyGoal) * 100} className="h-2" />
         </div>
       </div>
-      <div className="pt-4 flex items-center text-sm text-primary"> {/* Footer-like structure */}
+      <div className="pt-4 flex items-center text-sm text-primary">
         Pełne statystyki
         <ChevronRight className="ml-auto h-4 w-4" />
       </div>
@@ -266,7 +260,7 @@ const ProgressStatsWidgetSkeleton: React.FC = () => (
       </div>
     </CardContent>
     <CardFooter>
-      <Skeleton className="h-9 w-full" />
+      <Skeleton className="h-5 w-1/3 ml-auto" />
     </CardFooter>
   </Card>
 );
@@ -397,7 +391,7 @@ const DASHBOARD_LAYOUT_STORAGE_KEY = "dashboardLayoutConfigV3";
 
 export default function DashboardPage() {
   const { toast } = useToast();
-  const userName = MOCK_HEADER_USER.name || 'Użytkowniku';
+  const [userName, setUserName] = React.useState('Użytkowniku');
   const [isEditMode, setIsEditMode] = React.useState(false);
   const [pageIsLoading, setPageIsLoading] = React.useState(true);
 
@@ -405,9 +399,21 @@ export default function DashboardPage() {
   const [widgetsBeforeEdit, setWidgetsBeforeEdit] = React.useState<DashboardWidgetConfig[]>([]);
 
   React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+        const storedProfileData = localStorage.getItem('currentUserProfileData');
+        if (storedProfileData) {
+            try {
+                const profile = JSON.parse(storedProfileData);
+                setUserName(profile.fullName || 'Użytkowniku');
+            } catch (e) {
+                console.error("Error parsing profile data from localStorage for dashboard:", e);
+            }
+        }
+    }
+
     let loadedLayout: DashboardWidgetConfig[] = [];
     try {
-      const savedLayoutJson = localStorage.getItem(DASHBOARD_LAYOUT_STORAGE_KEY);
+      const savedLayoutJson = typeof window !== 'undefined' ? localStorage.getItem(DASHBOARD_LAYOUT_STORAGE_KEY) : null;
       const baseLayout = INITIAL_DASHBOARD_LAYOUT.map(w => ({
         ...w,
         isVisible: w.defaultVisible,
@@ -427,8 +433,9 @@ export default function DashboardPage() {
           };
         });
         
+        const loadedIds = new Set(loadedLayout.map(w => w.id));
         baseLayout.forEach(initialWidget => {
-          if (!loadedLayout.find(w => w.id === initialWidget.id)) {
+          if (!loadedIds.has(initialWidget.id)) {
             loadedLayout.push({ ...initialWidget, isVisible: initialWidget.defaultVisible, currentOrder: initialWidget.defaultOrder });
           }
         });
@@ -497,7 +504,9 @@ export default function DashboardPage() {
   const handleSaveLayout = () => {
     try {
       const layoutToSave = dashboardWidgets.map(({ id, isVisible, currentOrder, area }) => ({ id, isVisible, currentOrder, area }));
-      localStorage.setItem(DASHBOARD_LAYOUT_STORAGE_KEY, JSON.stringify(layoutToSave));
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(DASHBOARD_LAYOUT_STORAGE_KEY, JSON.stringify(layoutToSave));
+      }
       toast({ title: "Układ dashboardu zapisany!", description: "Twoje zmiany zostały zapisane w pamięci przeglądarki." });
     } catch (error) {
       console.error("Error saving layout to localStorage:", error);
@@ -521,7 +530,9 @@ export default function DashboardPage() {
     setDashboardWidgets(defaultLayout.sort((a,b) => (a.currentOrder ?? 0) - (b.currentOrder ?? 0)));
     try {
       const layoutToSave = defaultLayout.map(({ id, isVisible, currentOrder, area }) => ({ id, isVisible, currentOrder, area }));
-      localStorage.setItem(DASHBOARD_LAYOUT_STORAGE_KEY, JSON.stringify(layoutToSave));
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(DASHBOARD_LAYOUT_STORAGE_KEY, JSON.stringify(layoutToSave));
+      }
       toast({ title: "Przywrócono i zapisano domyślny układ!", description: "Dashboard został zresetowany do ustawień fabrycznych." });
     } catch (error) {
       console.error("Error saving default layout to localStorage:", error);
@@ -576,7 +587,7 @@ export default function DashboardPage() {
 
       <div className="container mx-auto py-6 px-4 sm:px-6 lg:px-8 dashboard-content-area">
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
-            <div className="lg:col-span-2 space-y-6 dashboard-main-content">
+            <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 dashboard-main-content">
               {mainAreaWidgets.map(widget => (
                  <div key={widget.id} className={cn("dashboard-widget-wrapper", isEditMode && "border-2 border-dashed border-primary/50 p-2 rounded-lg bg-primary/5 mb-4 relative")}>
                   {isEditMode && (
@@ -604,7 +615,7 @@ export default function DashboardPage() {
                 </div>
               ))}
               {mainAreaWidgets.length === 0 && !pageIsLoading && (
-                <Card className="dashboard-empty-main-area">
+                <Card className="dashboard-empty-main-area md:col-span-2">
                     <CardHeader><CardTitle>Brak widgetów</CardTitle></CardHeader>
                     <CardContent><p className="text-muted-foreground">Wszystkie widgety w tej sekcji są ukryte. Włącz tryb edycji, aby je pokazać.</p></CardContent>
                 </Card>
@@ -646,5 +657,3 @@ export default function DashboardPage() {
     </>
   );
 }
-
-    

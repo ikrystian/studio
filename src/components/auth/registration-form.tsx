@@ -61,49 +61,49 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const registrationSchema = z
   .object({
-    fullName: z.string().min(1, "Full name is required."),
-    email: z.string().email("Invalid email address.").min(1, "Email is required."),
+    fullName: z.string().min(1, "Imię i nazwisko jest wymagane."),
+    email: z.string().email("Nieprawidłowy adres email.").min(1, "Email jest wymagany."),
     password: z
       .string()
-      .min(8, "Password must be at least 8 characters.")
-      .regex(/^(?=.*[a-z])/, "Password must contain at least one lowercase letter.")
-      .regex(/^(?=.*[A-Z])/, "Password must contain at least one uppercase letter.")
-      .regex(/^(?=.*\d)/, "Password must contain at least one number.")
+      .min(8, "Hasło musi mieć co najmniej 8 znaków.")
+      .regex(/^(?=.*[a-z])/, "Hasło musi zawierać co najmniej jedną małą literę.")
+      .regex(/^(?=.*[A-Z])/, "Hasło musi zawierać co najmniej jedną wielką literę.")
+      .regex(/^(?=.*\d)/, "Hasło musi zawierać co najmniej jedną cyfrę.")
       .regex(
         /^(?=.*[@$!%*?&])/,
-        "Password must contain at least one special character (@$!%*?&)."
+        "Hasło musi zawierać co najmniej jeden znak specjalny (@$!%*?&)."
       ),
-    confirmPassword: z.string().min(1, "Please confirm your password."),
+    confirmPassword: z.string().min(1, "Proszę potwierdzić hasło."),
     dateOfBirth: z.date({
-      required_error: "Date of birth is required.",
-      invalid_type_error: "Invalid date format.",
+      required_error: "Data urodzenia jest wymagana.",
+      invalid_type_error: "Nieprawidłowy format daty.",
     }),
     gender: z.enum(["male", "female"], {
-      required_error: "Gender is required.",
+      required_error: "Płeć jest wymagana.",
     }),
     weight: z.coerce
-      .number({ invalid_type_error: "Weight must be a number."})
-      .positive("Weight must be a positive number.")
-      .min(1, "Weight must be at least 1 kg.")
-      .max(500, "Weight cannot exceed 500 kg.")
+      .number({ invalid_type_error: "Waga musi być liczbą."})
+      .positive("Waga musi być dodatnia.")
+      .min(1, "Waga musi wynosić co najmniej 1 kg.")
+      .max(500, "Waga nie może przekraczać 500 kg.")
       .optional()
       .or(z.literal("")),
     height: z.coerce
-      .number({ invalid_type_error: "Height must be a number."})
-      .positive("Height must be a positive number.")
-      .min(50, "Height must be at least 50 cm.")
-      .max(300, "Height cannot exceed 300 cm.")
+      .number({ invalid_type_error: "Wzrost musi być liczbą."})
+      .positive("Wzrost musi być dodatni.")
+      .min(50, "Wzrost musi wynosić co najmniej 50 cm.")
+      .max(300, "Wzrost nie może przekraczać 300 cm.")
       .optional()
       .or(z.literal("")),
     fitnessLevel: z.enum(["beginner", "intermediate", "advanced"], {
-      required_error: "Fitness level is required.",
+      required_error: "Poziom zaawansowania jest wymagany.",
     }),
     termsAccepted: z.boolean().refine((val) => val === true, {
-      message: "You must accept the terms and conditions.",
+      message: "Musisz zaakceptować regulamin i politykę prywatności.",
     }),
   })
   .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords do not match.",
+    message: "Hasła nie pasują do siebie.",
     path: ["confirmPassword"],
   });
 
@@ -137,32 +137,44 @@ export function RegistrationForm() {
     setIsLoading(true);
     setServerError(null);
     
-    const userData = {
+    const userDataForApi = {
       fullName: values.fullName,
       email: values.email,
       password: values.password,
       dateOfBirth: values.dateOfBirth ? values.dateOfBirth.toISOString() : undefined,
       gender: values.gender,
-      weight: values.weight === "" ? undefined : Number(values.weight),
-      height: values.height === "" ? undefined : Number(values.height),
+      weight: values.weight === "" || values.weight === undefined ? undefined : Number(values.weight),
+      height: values.height === "" || values.height === undefined ? undefined : Number(values.height),
       fitnessLevel: values.fitnessLevel,
     };
     
-    console.log("Submitting registration data to API:", userData);
+    console.log("Submitting registration data to API:", userDataForApi);
 
     try {
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(userData),
+        body: JSON.stringify(userDataForApi),
       });
 
       const data = await response.json();
 
       if (response.ok && data.success) {
+        // Store profile data in localStorage for the new user
+        if (data.userData && typeof window !== 'undefined') {
+          const profileDataToStore = {
+            ...data.userData,
+            // We might want to add more fields here if needed later
+            // For now, it takes what the API returns
+            bio: "", // Bio is empty on registration
+          };
+          localStorage.setItem('currentUserProfileData', JSON.stringify(profileDataToStore));
+          localStorage.setItem('tempRegisteredUserEmail', values.email); // To prefill login after redirect
+        }
+
         toast({
           title: "Rejestracja Zakończona Sukcesem!",
-          description: data.message || "Twoje konto zostało utworzone. Sprawdź email w celu weryfikacji.",
+          description: data.message || "Twoje konto zostało utworzone. Sprawdź email w celu weryfikacji (symulowane).",
           variant: "default",
           duration: 7000,
         });
@@ -186,16 +198,16 @@ export function RegistrationForm() {
   return (
     <Card className={cn("w-full max-w-2xl shadow-2xl", "registration-form-card")}>
       <CardHeader className={cn("text-center", "registration-form-header")}>
-        <CardTitle className={cn("text-3xl font-bold", "registration-form-title")}>Create Your WorkoutWise Account</CardTitle>
+        <CardTitle className={cn("text-3xl font-bold", "registration-form-title")}>Stwórz Konto WorkoutWise</CardTitle>
         <CardDescription className="registration-form-description">
-          Fill in the details below to get started.
+          Wypełnij poniższe pola, aby rozpocząć.
         </CardDescription>
       </CardHeader>
       <CardContent className={cn("space-y-6", "registration-form-content")}>
         {serverError && (
           <Alert variant="destructive" className="registration-form-server-error-alert">
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Registration Failed</AlertTitle>
+            <AlertTitle>Rejestracja Nieudana</AlertTitle>
             <AlertDescription>{serverError}</AlertDescription>
           </Alert>
         )}
@@ -223,11 +235,11 @@ export function RegistrationForm() {
                 name="fullName"
                 render={({ field }) => (
                   <FormItem className="registration-fullname-item">
-                    <FormLabel>Full Name</FormLabel>
+                    <FormLabel>Imię i Nazwisko</FormLabel>
                     <FormControl>
                       <div className="relative">
                         <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input placeholder="John Doe" {...field} className="pl-10 registration-fullname-input" disabled={isLoading} />
+                        <Input placeholder="Jan Kowalski" {...field} className="pl-10 registration-fullname-input" disabled={isLoading} />
                       </div>
                     </FormControl>
                     <FormMessage />
@@ -243,7 +255,7 @@ export function RegistrationForm() {
                     <FormControl>
                       <div className="relative">
                         <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input type="email" placeholder="yourname@example.com" {...field} className="pl-10 registration-email-input" disabled={isLoading} />
+                        <Input type="email" placeholder="twoj@email.com" {...field} className="pl-10 registration-email-input" disabled={isLoading} />
                       </div>
                     </FormControl>
                     <FormMessage />
@@ -255,7 +267,7 @@ export function RegistrationForm() {
                 name="password"
                 render={({ field }) => (
                   <FormItem className="registration-password-item">
-                    <FormLabel>Password</FormLabel>
+                    <FormLabel>Hasło</FormLabel>
                     <FormControl>
                       <div className="relative">
                         <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -273,14 +285,14 @@ export function RegistrationForm() {
                           className="absolute right-1 top-1/2 -translate-y-1/2 px-2 registration-password-toggle"
                           onClick={() => setShowPassword(!showPassword)}
                           disabled={isLoading}
-                          aria-label={showPassword ? "Hide password" : "Show password"}
+                          aria-label={showPassword ? "Ukryj hasło" : "Pokaż hasło"}
                         >
                           {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </Button>
                       </div>
                     </FormControl>
                     <FormDescription className="text-xs registration-password-description">
-                      Min 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special.
+                      Min 8 znaków, 1 wielka i 1 mała litera, 1 cyfra, 1 znak specjalny.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -291,7 +303,7 @@ export function RegistrationForm() {
                 name="confirmPassword"
                 render={({ field }) => (
                   <FormItem className="registration-confirm-password-item">
-                    <FormLabel>Confirm Password</FormLabel>
+                    <FormLabel>Potwierdź Hasło</FormLabel>
                     <FormControl>
                       <div className="relative">
                         <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -309,7 +321,7 @@ export function RegistrationForm() {
                           className="absolute right-1 top-1/2 -translate-y-1/2 px-2 registration-confirm-password-toggle"
                           onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                           disabled={isLoading}
-                          aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                          aria-label={showConfirmPassword ? "Ukryj potwierdzenie hasła" : "Pokaż potwierdzenie hasła"}
                         >
                           {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </Button>
@@ -324,7 +336,7 @@ export function RegistrationForm() {
                 name="dateOfBirth"
                 render={({ field }) => (
                   <FormItem className="flex flex-col registration-dob-item">
-                    <FormLabel>Date of Birth</FormLabel>
+                    <FormLabel>Data Urodzenia</FormLabel>
                     <Popover>
                       <PopoverTrigger asChild>
                         <FormControl>
@@ -339,7 +351,7 @@ export function RegistrationForm() {
                             {field.value ? (
                               format(field.value, "PPP", { locale: pl })
                             ) : (
-                              <span>Pick a date</span>
+                              <span>Wybierz datę</span>
                             )}
                             <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                           </Button>
@@ -370,7 +382,7 @@ export function RegistrationForm() {
                 name="gender"
                 render={({ field }) => (
                   <FormItem className="space-y-3 registration-gender-item">
-                    <FormLabel>Gender</FormLabel>
+                    <FormLabel>Płeć</FormLabel>
                     <FormControl>
                       <RadioGroup
                         onValueChange={field.onChange}
@@ -401,11 +413,11 @@ export function RegistrationForm() {
                 name="weight"
                 render={({ field }) => (
                   <FormItem className="registration-weight-item">
-                    <FormLabel>Weight (optional)</FormLabel>
+                    <FormLabel>Waga (opcjonalnie)</FormLabel>
                     <FormControl>
                       <div className="relative">
                         <Weight className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input type="number" placeholder="e.g., 70 (in kg)" {...field} className="pl-10 registration-weight-input" disabled={isLoading}/>
+                        <Input type="number" placeholder="np. 70 (w kg)" {...field} className="pl-10 registration-weight-input" disabled={isLoading}/>
                       </div>
                     </FormControl>
                     <FormMessage />
@@ -417,11 +429,11 @@ export function RegistrationForm() {
                 name="height"
                 render={({ field }) => (
                   <FormItem className="registration-height-item">
-                    <FormLabel>Height (optional)</FormLabel>
+                    <FormLabel>Wzrost (opcjonalnie)</FormLabel>
                     <FormControl>
                        <div className="relative">
                         <Ruler className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input type="number" placeholder="e.g., 175 (in cm)" {...field} className="pl-10 registration-height-input" disabled={isLoading} />
+                        <Input type="number" placeholder="np. 175 (w cm)" {...field} className="pl-10 registration-height-input" disabled={isLoading} />
                       </div>
                     </FormControl>
                     <FormMessage />
@@ -434,18 +446,18 @@ export function RegistrationForm() {
               name="fitnessLevel"
               render={({ field }) => (
                 <FormItem className="registration-fitnesslevel-item">
-                  <FormLabel>Fitness Level</FormLabel>
+                  <FormLabel>Poziom Zaawansowania</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading}>
                     <FormControl>
                       <SelectTrigger className="registration-fitnesslevel-trigger">
                         <TrendingUp className="mr-2 h-4 w-4 text-muted-foreground" />
-                        <SelectValue placeholder="Select your fitness level" />
+                        <SelectValue placeholder="Wybierz swój poziom zaawansowania" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="beginner">Beginner</SelectItem>
-                      <SelectItem value="intermediate">Intermediate</SelectItem>
-                      <SelectItem value="advanced">Advanced</SelectItem>
+                      <SelectItem value="beginner">Początkujący</SelectItem>
+                      <SelectItem value="intermediate">Średniozaawansowany</SelectItem>
+                      <SelectItem value="advanced">Zaawansowany</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -468,13 +480,13 @@ export function RegistrationForm() {
                   </FormControl>
                   <div className="space-y-1 leading-none">
                     <FormLabel id="terms-label" className="cursor-pointer registration-terms-label">
-                      I accept the{" "}
+                      Akceptuję{" "}
                       <Link href="/terms" className="font-medium text-primary hover:underline registration-terms-link" target="_blank">
-                        terms and conditions
+                        regulamin serwisu
                       </Link>{" "}
-                      and{" "}
+                      oraz{" "}
                       <Link href="/privacy" className="font-medium text-primary hover:underline registration-privacy-link" target="_blank">
-                        privacy policy
+                        politykę prywatności
                       </Link>
                       .
                     </FormLabel>
@@ -487,7 +499,7 @@ export function RegistrationForm() {
               {isLoading ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
-                "Create Account"
+                "Stwórz Konto"
               )}
             </Button>
           </form>
@@ -495,9 +507,9 @@ export function RegistrationForm() {
       </CardContent>
       <CardFooter className={cn("flex flex-col items-center space-y-2 text-sm", "registration-form-footer")}>
         <p className="text-muted-foreground registration-login-prompt">
-          Already have an account?{" "}
+          Masz już konto?{" "}
           <Link href="/login" className="font-medium text-primary hover:underline registration-login-link">
-            Login
+            Zaloguj się
           </Link>
         </p>
       </CardFooter>
