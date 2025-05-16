@@ -5,7 +5,7 @@ import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { PlusCircle, Save, XCircle } from "lucide-react";
+import { PlusCircle, Save, XCircle, Loader2 } from "lucide-react"; // Added Loader2
 
 import { Button } from "@/components/ui/button";
 import {
@@ -33,11 +33,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { EXERCISE_CATEGORIES } from "./exercise-selection-dialog"; // Reuse categories
+import { EXERCISE_CATEGORIES } from "./exercise-selection-dialog"; 
+import { useToast } from "@/hooks/use-toast";
+import type { SelectableExerciseType } from "./exercise-selection-dialog";
 
 const quickAddExerciseSchema = z.object({
-  name: z.string().min(1, "Nazwa ćwiczenia jest wymagana."),
-  category: z.string().optional(), // Optional category
+  name: z.string().min(1, "Nazwa ćwiczenia jest wymagana.").max(100, "Nazwa ćwiczenia zbyt długa."),
+  category: z.string().optional(),
 });
 
 export type QuickAddExerciseFormData = z.infer<typeof quickAddExerciseSchema>;
@@ -45,7 +47,7 @@ export type QuickAddExerciseFormData = z.infer<typeof quickAddExerciseSchema>;
 interface QuickAddExerciseDialogProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
-  onExerciseCreated: (data: { name: string; category: string }) => void;
+  onExerciseCreated: (newExercise: SelectableExerciseType) => void;
 }
 
 export function QuickAddExerciseDialog({
@@ -53,26 +55,59 @@ export function QuickAddExerciseDialog({
   onOpenChange,
   onExerciseCreated,
 }: QuickAddExerciseDialogProps) {
+  const { toast } = useToast();
+  const [isSaving, setIsSaving] = React.useState(false);
+
   const form = useForm<QuickAddExerciseFormData>({
     resolver: zodResolver(quickAddExerciseSchema),
     defaultValues: {
       name: "",
-      category: "Wszystkie", // Default to "Wszystkie" or make it truly optional
+      category: "Inne", 
     },
   });
 
   React.useEffect(() => {
     if (!isOpen) {
-      form.reset(); // Reset form when dialog is closed
+      form.reset({ name: "", category: "Inne" });
+      setIsSaving(false);
     }
   }, [isOpen, form]);
 
-  function onSubmit(values: QuickAddExerciseFormData) {
-    onExerciseCreated({
-        name: values.name,
-        category: values.category || "Inne", // Default to "Inne" if not selected
-    });
-    // onOpenChange(false); // Parent will close it after processing
+  async function onSubmit(values: QuickAddExerciseFormData) {
+    setIsSaving(true);
+    try {
+      const response = await fetch('/api/exercises/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: values.name,
+          category: values.category || 'Inne',
+        }),
+      });
+      const result = await response.json();
+
+      if (response.ok && result.success && result.exercise) {
+        onExerciseCreated(result.exercise);
+        // Toast will be shown by the parent component (CreateWorkoutPage)
+        // to confirm it's added to the current workout and master list.
+        onOpenChange(false);
+      } else {
+        toast({
+          title: "Błąd zapisu ćwiczenia",
+          description: result.message || "Nie udało się zapisać nowego ćwiczenia w bazie danych.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error calling /api/exercises/create:", error);
+      toast({
+        title: "Błąd sieci",
+        description: "Nie udało się połączyć z serwerem, aby zapisać ćwiczenie.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -84,8 +119,8 @@ export function QuickAddExerciseDialog({
             Szybkie Dodawanie Nowego Ćwiczenia
           </DialogTitle>
           <DialogDescription>
-            Wprowadź nazwę nowego ćwiczenia i opcjonalnie wybierz kategorię. 
-            Zostanie ono dodane do globalnej bazy i obecnego treningu.
+            Wprowadź nazwę nowego ćwiczenia i opcjonalnie wybierz kategorię.
+            Zostanie ono zapisane w głównej bazie ćwiczeń i dodane do obecnego treningu.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -97,7 +132,7 @@ export function QuickAddExerciseDialog({
                 <FormItem>
                   <FormLabel>Nazwa nowego ćwiczenia</FormLabel>
                   <FormControl>
-                    <Input placeholder="Np. Pompki diamentowe" {...field} />
+                    <Input placeholder="Np. Pompki diamentowe" {...field} disabled={isSaving} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -109,19 +144,18 @@ export function QuickAddExerciseDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Kategoria (opcjonalnie)</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isSaving}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Wybierz kategorię..." />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {EXERCISE_CATEGORIES.map((cat) => (
+                      {EXERCISE_CATEGORIES.filter(cat => cat !== "Wszystkie").map((cat) => ( // Filter out "Wszystkie" as it's a filter option, not a real category
                         <SelectItem key={cat} value={cat}>
                           {cat}
                         </SelectItem>
                       ))}
-                      <SelectItem value="Inne">Inne (Nieskategoryzowane)</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -130,12 +164,13 @@ export function QuickAddExerciseDialog({
             />
             <DialogFooter className="pt-4 border-t">
               <DialogClose asChild>
-                <Button type="button" variant="outline">
+                <Button type="button" variant="outline" disabled={isSaving}>
                   <XCircle className="mr-2 h-4 w-4" /> Anuluj
                 </Button>
               </DialogClose>
-              <Button type="submit">
-                <Save className="mr-2 h-4 w-4" /> Zapisz i Dodaj do Treningu
+              <Button type="submit" disabled={isSaving}>
+                {isSaving ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Save className="mr-2 h-4 w-4" />}
+                Zapisz i Dodaj do Treningu
               </Button>
             </DialogFooter>
           </form>
@@ -144,5 +179,3 @@ export function QuickAddExerciseDialog({
     </Dialog>
   );
 }
-
-    

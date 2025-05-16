@@ -23,7 +23,7 @@ import {
   Copy,
   ClipboardList,
   Edit3,
-  AlertTriangle, // Added for error alert
+  AlertTriangle, 
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -57,7 +57,11 @@ import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import type { Exercise as SelectableExerciseType } from "@/components/workout/exercise-selection-dialog";
 import type { QuickAddExerciseFormData } from "@/components/workout/quick-add-exercise-dialog";
-// Removed MOCK_EXERCISES_DATABASE import
+// MOCK BACKEND LOGIC:
+// - Master Exercise List: Fetched from `/api/exercises` (SQLite DB).
+// - Quick Add Exercise: A new exercise is saved to the SQLite DB via `/api/exercises/create`.
+//   The client-side `masterExerciseList` is updated optimistically.
+// - Save Workout: The complete workout definition is POSTed to `/api/workout-definitions/create` (SQLite DB).
 
 const ExerciseSelectionDialog = dynamic(() =>
   import("@/components/workout/exercise-selection-dialog").then((mod) => mod.ExerciseSelectionDialog), {
@@ -111,9 +115,10 @@ export default function CreateWorkoutPage() {
       setPageIsLoading(true);
       setExerciseFetchError(null);
       try {
+        // MOCK BACKEND LOGIC: Fetch master list of exercises from the API (SQLite DB).
         const response = await fetch('/api/exercises');
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({})); // Try to parse error, fallback to empty object
+          const errorData = await response.json().catch(() => ({}));
           throw new Error(errorData.message || `Nie udało się załadować listy ćwiczeń. Status: ${response.status}`);
         }
         const data = await response.json();
@@ -125,7 +130,7 @@ export default function CreateWorkoutPage() {
       } catch (error: any) {
         console.error("Error fetching exercises for create page:", error);
         setExerciseFetchError(error.message || "Wystąpił nieznany błąd podczas ładowania ćwiczeń.");
-        setMasterExerciseList([]); // Ensure list is empty on error
+        setMasterExerciseList([]); 
         toast({ title: "Błąd Ładowania Ćwiczeń", description: error.message || "Spróbuj odświeżyć stronę.", variant: "destructive" });
       } finally {
         setPageIsLoading(false);
@@ -190,14 +195,11 @@ export default function CreateWorkoutPage() {
     setIsQuickAddExerciseDialogOpen(true);
   };
 
-  const handleQuickExerciseCreated = (newExerciseData: QuickAddExerciseFormData) => {
-    const newDbExercise: SelectableExerciseType = {
-      id: `custom-${uuidv4().substring(0,8)}`, 
-      name: newExerciseData.name,
-      category: newExerciseData.category || "Inne",
-    };
-    setMasterExerciseList(prev => [...prev, newDbExercise]);
-    append({
+  // MOCK BACKEND LOGIC: After a new exercise is successfully saved to DB via API (handled in dialog),
+  // update the client-side master list and append to current workout form.
+  const handleQuickExerciseCreated = (newDbExercise: SelectableExerciseType) => {
+    setMasterExerciseList(prev => [...prev, newDbExercise]); // Add to client-side master list
+    append({ // Append to current workout form
       id: newDbExercise.id,
       name: newDbExercise.name,
       sets: "",
@@ -207,8 +209,8 @@ export default function CreateWorkoutPage() {
       exerciseNotes: "",
     });
     toast({
-      title: "Ćwiczenie Dodane (Lokalnie)!",
-      description: `"${newDbExercise.name}" zostało dodane do listy wyboru i obecnego treningu. Zmiany w głównej bazie ćwiczeń nie są tutaj symulowane.`,
+      title: "Ćwiczenie Zapisane i Dodane!",
+      description: `"${newDbExercise.name}" zostało zapisane w bazie i dodane do tego treningu.`,
     });
     setIsQuickAddExerciseDialogOpen(false);
     if (form.formState.errors.exercises && typeof form.formState.errors.exercises.message === 'string') {
@@ -243,6 +245,8 @@ export default function CreateWorkoutPage() {
     });
   };
 
+  // MOCK BACKEND LOGIC: Submits the new workout definition to the `/api/workout-definitions/create` endpoint,
+  // which then saves it to the SQLite database.
   async function onSubmit(values: WorkoutFormValues) {
     setIsLoading(true);
     setServerError(null);
@@ -408,7 +412,7 @@ export default function CreateWorkoutPage() {
                         <AlertTriangle className="h-4 w-4" />
                         <AlertTitle>Błąd Ładowania Listy Ćwiczeń</AlertTitle>
                         <AlertDescription>
-                            {exerciseFetchError} Spróbuj odświeżyć stronę.
+                            {exerciseFetchError} Spróbuj odświeżyć stronę. Nie można dodać ćwiczeń z bazy. Możesz skorzystać z opcji "Szybkie Dodaj Ćwiczenie".
                         </AlertDescription>
                     </Alert>
                   )}
@@ -591,4 +595,3 @@ export default function CreateWorkoutPage() {
     </div>
   );
 }
-
