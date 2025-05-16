@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowLeft, GlassWater, PlusCircle, Edit3, Settings, Trash2, History, Info, Loader2, BotIcon, Droplet, CupSoda } from "lucide-react"; // Added CupSoda
+import { ArrowLeft, GlassWater, PlusCircle, Edit3, Settings, Trash2, History, Info, Loader2, BotIcon, Droplet, CupSoda, PartyPopper } from "lucide-react"; // Added PartyPopper
 import { v4 as uuidv4 } from "uuid";
 import { format, isToday, parseISO } from "date-fns";
 import { pl } from "date-fns/locale";
@@ -331,7 +331,10 @@ export default function HydrationTrackingPage() {
               </div>
               <Progress value={progressPercent} className="h-4 mb-4" />
               {todaysIntake >= hydrationData.dailyGoal && (
-                <p className="text-green-600 font-semibold">Gratulacje! Osiągnąłeś/aś dzienny cel!</p>
+                <p className="text-green-600 font-semibold flex items-center justify-center gap-2">
+                  <PartyPopper className="h-5 w-5 text-green-600" />
+                  Gratulacje! Osiągnąłeś/aś dzienny cel!
+                </p>
               )}
             </CardContent>
             <CardFooter>
@@ -366,23 +369,22 @@ export default function HydrationTrackingPage() {
             </CardHeader>
             <CardContent className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {DEFAULT_PORTIONS.map(portion => {
-                let IconComponent = CupSoda; // Default for bottles
+                let IconComponent = CupSoda; 
                 const lowerPortionName = portion.name.toLowerCase();
                 if (lowerPortionName.includes("szklanka")) {
                   IconComponent = GlassWater;
                 }
-                // BotIcon is no longer used as a default here, CupSoda is for bottles.
                 return (
-                    <Button key={portion.id} variant="outline" onClick={() => handleAddWater(portion.amount)} className="py-6 text-lg flex flex-col h-auto items-center justify-center">
-                    <IconComponent className="mb-1 h-6 w-6"/>
+                    <Button key={portion.id} variant="outline" onClick={() => handleAddWater(portion.amount)} className="py-6 text-base flex flex-col h-auto items-center justify-center">
+                    <IconComponent className="mb-1.5 h-5 w-5"/>
                     <span>{portion.name}</span>
                     <span className="text-xs text-muted-foreground">({portion.amount}ml)</span>
                     </Button>
                 );
                 })}
               {hydrationData.customPortions.map(portion => (
-                <Button key={portion.id} variant="outline" onClick={() => handleAddWater(portion.amount)} className="py-6 text-lg flex flex-col h-auto items-center justify-center">
-                  <Droplet className="mb-1 h-6 w-6"/>
+                <Button key={portion.id} variant="outline" onClick={() => handleAddWater(portion.amount)} className="py-6 text-base flex flex-col h-auto items-center justify-center">
+                  <Droplet className="mb-1.5 h-5 w-5"/>
                   <span>{portion.name}</span>
                   <span className="text-xs text-muted-foreground">({portion.amount}ml)</span>
                 </Button>
