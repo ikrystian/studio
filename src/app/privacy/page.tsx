@@ -4,8 +4,8 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy | WorkoutWise',
-  description: 'Read the privacy policy for WorkoutWise.',
+  title: 'Privacy Policy | LeniwaKluska',
+  description: 'Read the privacy policy for LeniwaKluska.',
 };
 
 export default function PrivacyPage() {
@@ -42,7 +42,7 @@ export default function PrivacyPage() {
             <li>Communicate with you, including responding to your inquiries and sending service-related updates.</li>
             <li>Process transactions and send you related information.</li>
             <li>Monitor and analyze trends, usage, and activities in connection with our services.</li>
-            <li>Detect, investigate, and prevent fraudulent transactions and other illegal activities and protect the rights and property of WorkoutWise and others.</li>
+            <li>Detect, investigate, and prevent fraudulent transactions and other illegal activities and protect the rights and property of LeniwaKluska and others.</li>
           </ul>
         </section>
 
@@ -89,5 +89,3 @@ export default function PrivacyPage() {
     </div>
   );
 }
-
-    

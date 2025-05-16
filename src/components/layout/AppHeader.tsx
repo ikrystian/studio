@@ -89,7 +89,7 @@ export function AppHeader() {
       <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8 app-header-container">
         <Link href="/dashboard" className="flex items-center gap-2 app-header-logo-link">
           <Dumbbell className="h-7 w-7 text-primary app-header-logo-icon" />
-          <span className="text-xl font-bold app-header-title">WorkoutWise</span>
+          <span className="text-xl font-bold app-header-title">LeniwaKluska</span>
         </Link>
 
         <div className="flex items-center gap-4 app-header-actions">

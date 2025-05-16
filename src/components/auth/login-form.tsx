@@ -8,6 +8,7 @@ import * as z from "zod";
 import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation"; // Import usePathname
 import { Facebook, AlertCircle, Loader2, CheckCircle2, Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { getAuth, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -32,6 +33,7 @@ import { GoogleIcon } from "@/components/icons/google-icon";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { app as firebaseApp } from "@/lib/firebase"; // Ensure app is exported
 
 const loginSchema = z.object({
   email: z.string().email("Nieprawidłowy adres email.").min(1, "Email jest wymagany."),
@@ -91,33 +93,11 @@ export function LoginForm() {
 
       const data = await response.json();
 
-      if (response.ok && data.success) {
+      if (response.ok && data.success && data.userData) {
         if (typeof window !== 'undefined') {
           localStorage.setItem('isUserLoggedIn', 'true');
-          localStorage.setItem('loggedInUserEmail', values.email);
-
-          // If this is the test user and they don't have profile data yet, create some.
-          if (values.email === "test@example.com") {
-            const existingProfile = localStorage.getItem('currentUserProfileData');
-            if (!existingProfile) {
-              const testUserProfile = {
-                id: "current_user_id", // Default ID for the test user
-                fullName: "Test User",
-                email: "test@example.com",
-                username: "testuser",
-                fitnessLevel: "Średniozaawansowany",
-                dateOfBirth: new Date(1990, 0, 1).toISOString(),
-                gender: "male",
-                weight: 75,
-                height: 180,
-                bio: "Konto testowe do demonstracji aplikacji WorkoutWise.",
-                joinDate: new Date().toISOString(),
-                avatarUrl: "https://placehold.co/100x100.png?text=TU",
-                role: "admin",
-              };
-              localStorage.setItem('currentUserProfileData', JSON.stringify(testUserProfile));
-            }
-          }
+          localStorage.setItem('loggedInUserEmail', data.userData.email); // Use email from API response
+          localStorage.setItem('currentUserProfileData', JSON.stringify(data.userData)); // Store full profile
           localStorage.removeItem('tempRegisteredUserEmail'); // Clean up after successful login
         }
         toast({
@@ -128,11 +108,19 @@ export function LoginForm() {
         await router.push("/dashboard");
         navigated = true;
       } else {
-        setErrorMessage(data.message || "Logowanie nieudane. Sprawdź email i hasło.");
+        let errorMsg = data.message || "Logowanie nieudane. Sprawdź email i hasło.";
+        if (localStorage.getItem('WORKOUTWISE_REGISTRATION_DEBUG') === 'true') {
+          errorMsg += `\nDebug (Serwer): Status ${response.status} - ${response.statusText}. Response: ${JSON.stringify(data, null, 2)}`;
+        }
+        setErrorMessage(errorMsg);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login API call failed:", error);
-      setErrorMessage("Wystąpił nieoczekiwany błąd podczas logowania. Spróbuj ponownie.");
+      let errorMsg = "Wystąpił nieoczekiwany błąd podczas logowania. Spróbuj ponownie.";
+      if (localStorage.getItem('WORKOUTWISE_REGISTRATION_DEBUG') === 'true') {
+          errorMsg += `\nDebug (Klient): ${error.message ? error.message : JSON.stringify(error, null, 2)}`;
+      }
+      setErrorMessage(errorMsg);
     }
 
     if (!navigated) {
@@ -172,6 +160,16 @@ export function LoginForm() {
         shouldShowToast = true;
         toastTitle = "Wylogowano";
         toastDescription = "Zostałeś pomyślnie wylogowany.";
+      }
+      currentSearchParams.delete("status");
+      paramsModified = true;
+    }
+    if (currentSearchParams.get("status") === "account_deleted") {
+      if(!shouldShowToast) {
+        shouldShowToast = true;
+        toastTitle = "Konto Usunięte";
+        toastDescription = "Twoje konto zostało pomyślnie usunięte.";
+        toastVariant = "destructive";
       }
       currentSearchParams.delete("status");
       paramsModified = true;
@@ -224,26 +222,82 @@ export function LoginForm() {
   }, [autoLoginAttempted, form, handleLoginSubmit, searchParams]);
 
 
-  const handleSocialLogin = (provider: "google" | "facebook") => {
+  const handleSocialLogin = async (providerName: "google" | "facebook") => {
     setIsLoading(true);
     setErrorMessage(null);
     setSuccessMessage(null);
-    // Simulate social login attempt
-    toast({
-      title: `Logowanie przez ${provider.charAt(0).toUpperCase() + provider.slice(1)}`,
-      description: "Ta funkcja jest w trakcie implementacji.",
-      variant: "default",
-    });
-    setTimeout(() => {
+    let navigated = false;
+
+    if (providerName === "google") {
+      const auth = getAuth(firebaseApp);
+      const provider = new GoogleAuthProvider();
+      try {
+        const result = await signInWithPopup(auth, provider);
+        const user = result.user;
+
+        // Call your backend to ensure profile exists / create if not
+        const profileResponse = await fetch('/api/auth/ensure-profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName,
+            photoURL: user.photoURL,
+          }),
+        });
+
+        const profileData = await profileResponse.json();
+
+        if (profileResponse.ok && profileData.success && profileData.userData) {
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('isUserLoggedIn', 'true');
+            localStorage.setItem('loggedInUserEmail', profileData.userData.email);
+            localStorage.setItem('currentUserProfileData', JSON.stringify(profileData.userData));
+          }
+          toast({ title: "Logowanie Google Pomyślne!", description: `Witaj, ${user.displayName || 'Użytkowniku'}!`, variant: "default" });
+          await router.push("/dashboard");
+          navigated = true;
+        } else {
+          let errorMsg = profileData.message || "Nie udało się przetworzyć logowania przez Google.";
+          if (localStorage.getItem('WORKOUTWISE_REGISTRATION_DEBUG') === 'true') {
+              errorMsg += `\nDebug (API Profile): Status ${profileResponse.status} - ${profileResponse.statusText}. Response: ${JSON.stringify(profileData, null, 2)}`;
+          }
+          setErrorMessage(errorMsg);
+        }
+      } catch (error: any) {
+        console.error("Google Sign-In Error:", error);
+        let errorMsg = "Wystąpił błąd podczas logowania przez Google.";
+        if (error.code === 'auth/popup-closed-by-user') {
+            errorMsg = "Okno logowania Google zostało zamknięte przed zakończeniem.";
+        } else if (error.code === 'auth/account-exists-with-different-credential') {
+            errorMsg = "Konto z tym adresem email już istnieje, ale zostało utworzone inną metodą logowania.";
+        }
+        if (localStorage.getItem('WORKOUTWISE_REGISTRATION_DEBUG') === 'true') {
+            errorMsg += `\nDebug (Klient): ${error.message ? error.message : JSON.stringify(error, null, 2)}. Szczegóły: ${JSON.stringify(error, Object.getOwnPropertyNames(error))}`;
+        }
+        setErrorMessage(errorMsg);
+      }
+    } else if (providerName === "facebook") {
+        toast({
+            title: `Logowanie przez Facebook`,
+            description: "Ta funkcja jest w trakcie implementacji.",
+            variant: "default",
+        });
+        // Placeholder for Facebook login logic
+    }
+
+    if (!navigated) {
       setIsLoading(false);
-    }, 1500);
+    }
   };
+
 
   return (
     <Card className={cn("w-full max-w-md shadow-2xl", "login-form-card")}>
       <CardHeader className={cn("space-y-1 text-center", "login-form-header")}>
         <CardTitle className={cn("text-3xl font-bold", "login-form-title")}>Zaloguj się</CardTitle>
-        <CardDescription className="login-form-description">Wprowadź swój email i hasło, aby uzyskać dostęp do WorkoutWise.</CardDescription>
+        <CardDescription className="login-form-description">Wprowadź swój email i hasło, aby uzyskać dostęp do LeniwaKluska.</CardDescription>
       </CardHeader>
       <CardContent className={cn("space-y-6", "login-form-content")}>
         {errorMessage && (

@@ -4,8 +4,8 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
 export const metadata: Metadata = {
-  title: 'Terms and Conditions | WorkoutWise',
-  description: 'Read the terms and conditions for WorkoutWise.',
+  title: 'Terms and Conditions | LeniwaKluska',
+  description: 'Read the terms and conditions for LeniwaKluska.',
 };
 
 export default function TermsPage() {
@@ -18,11 +18,11 @@ export default function TermsPage() {
         <section className="space-y-2">
           <h2 className="text-xl font-semibold text-foreground">1. Introduction</h2>
           <p className="text-muted-foreground">
-            Welcome to WorkoutWise! These terms and conditions outline the rules and regulations for the use of
-            WorkoutWise's Website, located at [Your Website URL].
+            Welcome to LeniwaKluska! These terms and conditions outline the rules and regulations for the use of
+            LeniwaKluska's Website, located at [Your Website URL].
           </p>
           <p className="text-muted-foreground">
-            By accessing this website we assume you accept these terms and conditions. Do not continue to use WorkoutWise
+            By accessing this website we assume you accept these terms and conditions. Do not continue to use LeniwaKluska
             if you do not agree to take all of the terms and conditions stated on this page.
           </p>
         </section>
@@ -30,7 +30,7 @@ export default function TermsPage() {
         <section className="space-y-2">
           <h2 className="text-xl font-semibold text-foreground">2. Intellectual Property Rights</h2>
           <p className="text-muted-foreground">
-            Other than the content you own, under these Terms, WorkoutWise and/or its licensors own all the
+            Other than the content you own, under these Terms, LeniwaKluska and/or its licensors own all the
             intellectual property rights and materials contained in this Website. You are granted limited license
             only for purposes of viewing the material contained on this Website.
           </p>
@@ -61,12 +61,12 @@ export default function TermsPage() {
             <h2 className="text-xl font-semibold text-foreground">4. Your Content</h2>
             <p className="text-muted-foreground">
             In these Website Standard Terms and Conditions, “Your Content” shall mean any audio, video text, images
-            or other material you choose to display on this Website. By displaying Your Content, you grant WorkoutWise
+            or other material you choose to display on this Website. By displaying Your Content, you grant LeniwaKluska
             a non-exclusive, worldwide irrevocable, sub licensable license to use, reproduce, adapt, publish,
             translate and distribute it in any and all media.
             </p>
             <p className="text-muted-foreground">
-            Your Content must be your own and must not be invading any third-party’s rights. WorkoutWise reserves
+            Your Content must be your own and must not be invading any third-party’s rights. LeniwaKluska reserves
             the right to remove any of Your Content from this Website at any time without notice.
             </p>
         </section>
@@ -74,7 +74,7 @@ export default function TermsPage() {
         <section className="space-y-2">
             <h2 className="text-xl font-semibold text-foreground">5. No warranties</h2>
             <p className="text-muted-foreground">
-            This Website is provided “as is,” with all faults, and WorkoutWise express no representations or
+            This Website is provided “as is,” with all faults, and LeniwaKluska express no representations or
             warranties, of any kind related to this Website or the materials contained on this Website. Also,
             nothing contained on this Website shall be interpreted as advising you.
             </p>
@@ -91,5 +91,3 @@ export default function TermsPage() {
     </div>
   );
 }
-
-    

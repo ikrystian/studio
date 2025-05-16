@@ -56,7 +56,7 @@ export default function CommunityHomePage() {
               </Link>
             </Button>
             <Users className="h-7 w-7 text-primary" />
-            <h1 className="text-xl font-bold">Społeczność WorkoutWise</h1>
+            <h1 className="text-xl font-bold">Społeczność LeniwaKluska</h1>
           </div>
         </div>
       </header>

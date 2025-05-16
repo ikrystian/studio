@@ -12,10 +12,10 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: 'WorkoutWise',
-    template: '%s | WorkoutWise',
+    default: 'LeniwaKluska',
+    template: '%s | LeniwaKluska',
   },
-  description: 'Manage your workouts efficiently with WorkoutWise.',
+  description: 'Manage your workouts efficiently with LeniwaKluska.',
   icons: {
     // While favicons are out of scope for generation, this is where they would be defined.
     // icon: '/favicon.ico', 
@@ -29,7 +29,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pl" suppressHydrationWarning className={inter.variable}>
-      <body className={`font-sans antialiased bg-background text-foreground`}>
+      <body className={`font-sans antialiased bg-background text-foreground`} suppressHydrationWarning={true}>
         {children}
         <Toaster />
       </body>

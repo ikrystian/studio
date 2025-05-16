@@ -53,7 +53,7 @@ export default function LoginPage() {
         />
         <div className="relative z-10 text-center p-8 text-white">
           <Dumbbell className="mx-auto h-24 w-24 text-primary mb-6" />
-          <h1 className="text-5xl font-bold mb-4 drop-shadow-lg">WorkoutWise</h1>
+          <h1 className="text-5xl font-bold mb-4 drop-shadow-lg">LeniwaKluska</h1>
           <p className="text-xl lg:text-2xl text-primary-foreground/90 drop-shadow-md">
             Śledź swoje treningi. Osiągaj swoje cele. Bądź mądrzejszy w treningu.
           </p>

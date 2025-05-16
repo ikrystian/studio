@@ -160,16 +160,13 @@ export function RegistrationForm() {
       const data = await response.json();
 
       if (response.ok && data.success) {
-        // Store profile data in localStorage for the new user
         if (data.userData && typeof window !== 'undefined') {
           const profileDataToStore = {
             ...data.userData,
-            // We might want to add more fields here if needed later
-            // For now, it takes what the API returns
-            bio: "", // Bio is empty on registration
+            bio: "", 
           };
           localStorage.setItem('currentUserProfileData', JSON.stringify(profileDataToStore));
-          localStorage.setItem('tempRegisteredUserEmail', values.email); // To prefill login after redirect
+          localStorage.setItem('tempRegisteredUserEmail', values.email); 
         }
 
         toast({
@@ -180,16 +177,30 @@ export function RegistrationForm() {
         });
         router.push("/login?registered=true");
       } else {
-        setServerError(data.message || "Wystąpił błąd podczas rejestracji.");
+        let errorMsg = data.message || "Wystąpił błąd podczas rejestracji.";
+        if (localStorage.getItem('WORKOUTWISE_REGISTRATION_DEBUG') === 'true') {
+          let debugDetails = `\nDebug Info: Status ${response.status} - ${response.statusText}.`;
+          if (data.errors) {
+            debugDetails += `\nAPI Errors: ${JSON.stringify(data.errors, null, 2)}`;
+          }
+          debugDetails += `\nRaw Response: ${JSON.stringify(data, null, 2)}`;
+          errorMsg += debugDetails;
+        }
+        setServerError(errorMsg);
+
         if (data.errors) {
           for (const [field, message] of Object.entries(data.errors)) {
             form.setError(field as keyof RegistrationFormValues, { type: 'manual', message: message as string });
           }
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Registration API call error:", error);
-      setServerError("Nie udało się połączyć z serwerem. Spróbuj ponownie później.");
+      let errorMsg = "Nie udało się połączyć z serwerem. Spróbuj ponownie później.";
+       if (localStorage.getItem('WORKOUTWISE_REGISTRATION_DEBUG') === 'true') {
+         errorMsg += `\nDebug (Client-side error): ${error.message ? error.message : JSON.stringify(error, null, 2)}`;
+       }
+      setServerError(errorMsg);
     } finally {
       setIsLoading(false);
     }
@@ -198,14 +209,14 @@ export function RegistrationForm() {
   return (
     <Card className={cn("w-full max-w-2xl shadow-2xl", "registration-form-card")}>
       <CardHeader className={cn("text-center", "registration-form-header")}>
-        <CardTitle className={cn("text-3xl font-bold", "registration-form-title")}>Stwórz Konto WorkoutWise</CardTitle>
+        <CardTitle className={cn("text-3xl font-bold", "registration-form-title")}>Stwórz Konto LeniwaKluska</CardTitle>
         <CardDescription className="registration-form-description">
           Wypełnij poniższe pola, aby rozpocząć.
         </CardDescription>
       </CardHeader>
       <CardContent className={cn("space-y-6", "registration-form-content")}>
         {serverError && (
-          <Alert variant="destructive" className="registration-form-server-error-alert">
+          <Alert variant="destructive" className="registration-form-server-error-alert whitespace-pre-wrap">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Rejestracja Nieudana</AlertTitle>
             <AlertDescription>{serverError}</AlertDescription>
