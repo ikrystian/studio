@@ -1,0 +1,351 @@
+WorkoutWise SQLite Backend Schema Proposal
+
+--------------------------------------------------
+-- Users & Authentication
+--------------------------------------------------
+
+Table: users
+Description: Stores user account information and basic profile details.
+Columns:
+  - id TEXT PRIMARY KEY (Firebase UID)
+  - email TEXT UNIQUE NOT NULL
+  - fullName TEXT NOT NULL
+  - username TEXT UNIQUE NOT NULL
+  - hashedPassword TEXT (Only if not solely relying on Firebase Auth for password management; Firebase Auth handles this itself)
+  - avatarUrl TEXT
+  - bio TEXT
+  - fitnessLevel TEXT (e.g., "Początkujący", "Średniozaawansowany", "Zaawansowany")
+  - joinDate TEXT (ISO 8601 string, e.g., "2023-08-01T10:00:00.000Z")
+  - dateOfBirth TEXT (ISO 8601 string)
+  - gender TEXT (e.g., "male", "female", "other")
+  - weight REAL (current weight in kg)
+  - height REAL (height in cm)
+  - role TEXT (e.g., "client", "trener", "admin")
+  - createdAt TEXT DEFAULT (datetime('now'))
+  - updatedAt TEXT DEFAULT (datetime('now'))
+
+Table: user_privacy_settings
+Description: Stores privacy preferences for each user.
+Columns:
+  - user_id TEXT PRIMARY KEY (FK to users.id)
+  - isActivityPublic INTEGER DEFAULT 1 (0 for false, 1 for true)
+  - isFriendsListPublic INTEGER DEFAULT 1
+  - isSharedPlansPublic INTEGER DEFAULT 1
+  - updatedAt TEXT DEFAULT (datetime('now'))
+
+Table: user_social_accounts
+Description: Stores links to social accounts if user connects them (e.g., via Firebase social login).
+Columns:
+  - user_id TEXT NOT NULL (FK to users.id)
+  - provider TEXT NOT NULL (e.g., "google.com", "facebook.com")
+  - provider_uid TEXT NOT NULL (User ID from the social provider)
+  - PRIMARY KEY (user_id, provider)
+
+--------------------------------------------------
+-- Workout Creation & Definitions
+--------------------------------------------------
+
+Table: exercises
+Description: Master list of available exercises.
+Columns:
+  - id TEXT PRIMARY KEY (e.g., "ex1", "uuid_for_custom_exercise")
+  - name TEXT NOT NULL UNIQUE
+  - category TEXT (e.g., "Klatka", "Nogi", "Cardio")
+  - instructions TEXT
+  - videoUrl TEXT
+  - createdBy_user_id TEXT (FK to users.id, if users can add to master list, NULL for system exercises)
+  - createdAt TEXT DEFAULT (datetime('now'))
+
+Table: workout_definitions
+Description: Stores user-created or predefined workout templates.
+Columns:
+  - id TEXT PRIMARY KEY (UUID)
+  - user_id TEXT (FK to users.id, NULL if it's a system/public template not owned by a specific user)
+  - name TEXT NOT NULL
+  - type TEXT (e.g., "Siłowy", "Cardio")
+  - description TEXT
+  - isPublic INTEGER DEFAULT 0 (0 for private, 1 for public template)
+  - createdAt TEXT DEFAULT (datetime('now'))
+  - updatedAt TEXT DEFAULT (datetime('now'))
+
+Table: workout_definition_exercises
+Description: Links exercises to workout definitions, defining the structure of a workout template.
+Columns:
+  - id TEXT PRIMARY KEY (UUID)
+  - workout_definition_id TEXT NOT NULL (FK to workout_definitions.id)
+  - exercise_id TEXT NOT NULL (FK to exercises.id)
+  - order_index INTEGER NOT NULL (Order of exercise in the workout)
+  - defaultSets INTEGER
+  - defaultReps TEXT (e.g., "8-10", "Max", "30s")
+  - defaultRestSeconds INTEGER
+  - targetRpe TEXT
+  - notes TEXT
+  - UNIQUE (workout_definition_id, order_index)
+
+--------------------------------------------------
+-- Workout Tracking & History
+--------------------------------------------------
+
+Table: workout_sessions
+Description: Stores records of completed workout sessions.
+Columns:
+  - id TEXT PRIMARY KEY (UUID for the session instance)
+  - user_id TEXT NOT NULL (FK to users.id)
+  - workout_definition_id TEXT (FK to workout_definitions.id, if started from a template)
+  - workout_name TEXT NOT NULL (Could be from definition or custom if started ad-hoc)
+  - workout_type TEXT
+  - startTime TEXT NOT NULL (ISO 8601 string)
+  - endTime TEXT NOT NULL (ISO 8601 string)
+  - totalTimeSeconds INTEGER NOT NULL
+  - difficulty TEXT (e.g., "Łatwy", "Średni", "Trudny")
+  - generalNotes TEXT
+  - calculatedTotalVolume REAL
+  - createdAt TEXT DEFAULT (datetime('now'))
+
+Table: recorded_sets
+Description: Stores individual sets performed during a workout session.
+Columns:
+  - id TEXT PRIMARY KEY (UUID)
+  - workout_session_id TEXT NOT NULL (FK to workout_sessions.id)
+  - exercise_id TEXT NOT NULL (FK to exercises.id, or could store exercise_name if exercises can be ad-hoc)
+  - exercise_name_in_session TEXT NOT NULL (Name of exercise as performed in this session)
+  - setNumber INTEGER NOT NULL
+  - weight TEXT (Can be number for kg, or "BW" for bodyweight, "N/A" for time/distance)
+  - reps TEXT (Can be number for reps, or time string like "30s", "5km")
+  - rpe INTEGER
+  - notes TEXT
+  - createdAt TEXT DEFAULT (datetime('now'))
+
+--------------------------------------------------
+-- Training Plans
+--------------------------------------------------
+
+Table: training_plans
+Description: Stores user-created or system-provided training plans.
+Columns:
+  - id TEXT PRIMARY KEY (UUID)
+  - user_id TEXT (FK to users.id, author of the plan, NULL for system plans)
+  - name TEXT NOT NULL
+  - description TEXT
+  - goal TEXT
+  - duration TEXT (e.g., "8 tygodni")
+  - isPublic INTEGER DEFAULT 0
+  - startDate TEXT (ISO 8601 string, optional)
+  - endDate TEXT (ISO 8601 string, optional)
+  - createdAt TEXT DEFAULT (datetime('now'))
+  - updatedAt TEXT DEFAULT (datetime('now'))
+
+Table: training_plan_days
+Description: Defines the schedule for each day within a training plan.
+Columns:
+  - id TEXT PRIMARY KEY (UUID)
+  - training_plan_id TEXT NOT NULL (FK to training_plans.id)
+  - dayName TEXT NOT NULL (e.g., "Poniedziałek", "Dzień 1")
+  - order_index INTEGER NOT NULL (Defines sequence if not standard days of week)
+  - assigned_workout_definition_id TEXT (FK to workout_definitions.id, if a specific workout is assigned)
+  - assigned_workout_name TEXT (Name of the workout for this day, can be from definition or custom)
+  - isRestDay INTEGER DEFAULT 0 NOT NULL
+  - notes TEXT
+  - templateId TEXT (If this day uses a predefined day template)
+  - templateName TEXT
+  - UNIQUE (training_plan_id, dayName), UNIQUE (training_plan_id, order_index)
+
+Table: day_templates (Optional, if you want reusable day structures)
+Description: Predefined templates for days within a training plan.
+Columns:
+  - id TEXT PRIMARY KEY (UUID)
+  - name TEXT NOT NULL UNIQUE
+  - assigned_workout_definition_id TEXT (FK to workout_definitions.id, optional)
+  - assigned_workout_name TEXT
+  - isRestDay INTEGER DEFAULT 0
+  - description TEXT
+
+--------------------------------------------------
+-- Body Measurements & Progress Photos
+--------------------------------------------------
+
+Table: measurements
+Description: Stores user's body measurements over time.
+Columns:
+  - id TEXT PRIMARY KEY (UUID)
+  - user_id TEXT NOT NULL (FK to users.id)
+  - date TEXT NOT NULL (ISO 8601 string)
+  - weight REAL NOT NULL (in kg)
+  - bodyPartsJson TEXT (JSON string storing an array of {name: string, value: number|null}, e.g., [{"name": "Talia (cm)", "value": 80}])
+  - notes TEXT
+  - createdAt TEXT DEFAULT (datetime('now'))
+
+Table: progress_photos
+Description: Stores user's progress photos.
+Columns:
+  - id TEXT PRIMARY KEY (UUID)
+  - user_id TEXT NOT NULL (FK to users.id)
+  - imageUrl TEXT NOT NULL (Path to stored image or URL)
+  - date TEXT NOT NULL (ISO 8601 string)
+  - description TEXT
+  - privacy TEXT DEFAULT 'private' (e.g., "private", "friends_only")
+  - createdAt TEXT DEFAULT (datetime('now'))
+
+--------------------------------------------------
+-- Wellness & Hydration
+--------------------------------------------------
+
+Table: wellness_entries
+Description: Stores user's daily wellness journal entries.
+Columns:
+  - id TEXT PRIMARY KEY (UUID)
+  - user_id TEXT NOT NULL (FK to users.id)
+  - date TEXT NOT NULL (ISO 8601 string, YYYY-MM-DD format to ensure one entry per day per user)
+  - wellBeing INTEGER NOT NULL (Scale 1-5)
+  - energyLevel INTEGER NOT NULL (Scale 1-5)
+  - sleepQuality INTEGER NOT NULL (Scale 1-5)
+  - stressLevel INTEGER (Scale 1-5, optional)
+  - muscleSoreness INTEGER (Scale 1-5, optional)
+  - context TEXT (e.g., "general", "before_workout", "after_workout")
+  - notes TEXT
+  - createdAt TEXT DEFAULT (datetime('now'))
+  - UNIQUE (user_id, date)
+
+Table: hydration_log_entries
+Description: Stores individual water intake logs.
+Columns:
+  - id TEXT PRIMARY KEY (UUID)
+  - user_id TEXT NOT NULL (FK to users.id)
+  - amount INTEGER NOT NULL (in milliliters)
+  - timestamp TEXT NOT NULL (ISO 8601 string)
+  - createdAt TEXT DEFAULT (datetime('now'))
+
+Table: user_hydration_settings
+Description: Stores user-specific hydration goals and custom portions.
+Columns:
+  - user_id TEXT PRIMARY KEY (FK to users.id)
+  - dailyGoalMl INTEGER DEFAULT 2500
+  - customPortionsJson TEXT (JSON string for array of {id: string, name: string, amount: number})
+  - reminderSettingsJson TEXT (JSON string for reminder settings)
+  - updatedAt TEXT DEFAULT (datetime('now'))
+
+--------------------------------------------------
+-- Goals & Personal Bests
+--------------------------------------------------
+
+Table: user_goals
+Description: Stores user-defined goals.
+Columns:
+  - id TEXT PRIMARY KEY (UUID)
+  - user_id TEXT NOT NULL (FK to users.id)
+  - goalName TEXT NOT NULL
+  - metric TEXT NOT NULL (e.g., "Waga (kg)", "Przysiad - Objętość (kg*powt)")
+  - currentValue REAL
+  - targetValue REAL NOT NULL
+  - deadline TEXT (ISO 8601 string, optional)
+  - notes TEXT
+  - createdAt TEXT DEFAULT (datetime('now'))
+  - updatedAt TEXT DEFAULT (datetime('now'))
+  - status TEXT DEFAULT 'active' (e.g., "active", "achieved", "archived")
+
+Table: personal_bests
+Description: Stores user's personal bests for exercises.
+Columns:
+  - id TEXT PRIMARY KEY (UUID)
+  - user_id TEXT NOT NULL (FK to users.id)
+  - exercise_id TEXT NOT NULL (FK to exercises.id)
+  - exercise_name TEXT NOT NULL (Can be denormalized for easier display)
+  - recordType TEXT NOT NULL (e.g., "weight_reps", "max_reps", "time_seconds")
+  - value_weight TEXT (e.g., "100", "BW")
+  - value_reps INTEGER
+  - value_time_seconds INTEGER
+  - value_distance_km REAL
+  - date TEXT NOT NULL (ISO 8601 string, date PB was achieved)
+  - notes TEXT
+  - createdAt TEXT DEFAULT (datetime('now'))
+  - updatedAt TEXT DEFAULT (datetime('now'))
+  - UNIQUE (user_id, exercise_id, recordType) -- Consider if a user can have multiple PBs of the same type for one exercise, or if this replaces.
+
+--------------------------------------------------
+-- Community Features
+--------------------------------------------------
+
+Table: community_posts
+Description: Stores posts made by users in the community feed.
+Columns:
+  - id TEXT PRIMARY KEY (UUID)
+  - user_id TEXT NOT NULL (FK to users.id)
+  - content TEXT NOT NULL
+  - imageUrl TEXT
+  - postType TEXT (e.g., "text_only", "image_post", "workout_summary")
+  - workoutSummaryDetailsJson TEXT (JSON string for workout details if postType is "workout_summary")
+  - timestamp TEXT NOT NULL (ISO 8601 string)
+  - createdAt TEXT DEFAULT (datetime('now'))
+
+Table: post_comments
+Description: Stores comments on community posts.
+Columns:
+  - id TEXT PRIMARY KEY (UUID)
+  - post_id TEXT NOT NULL (FK to community_posts.id)
+  - user_id TEXT NOT NULL (FK to users.id)
+  - text TEXT NOT NULL
+  - timestamp TEXT NOT NULL (ISO 8601 string)
+  - createdAt TEXT DEFAULT (datetime('now'))
+
+Table: post_likes
+Description: Tracks likes on community posts.
+Columns:
+  - post_id TEXT NOT NULL (FK to community_posts.id)
+  - user_id TEXT NOT NULL (FK to users.id)
+  - createdAt TEXT DEFAULT (datetime('now'))
+  - PRIMARY KEY (post_id, user_id)
+
+Table: user_follows
+Description: Tracks user follow relationships.
+Columns:
+  - follower_user_id TEXT NOT NULL (FK to users.id - who is following)
+  - following_user_id TEXT NOT NULL (FK to users.id - who is being followed)
+  - createdAt TEXT DEFAULT (datetime('now'))
+  - PRIMARY KEY (follower_user_id, following_user_id)
+
+Table: notifications
+Description: Stores notifications for users.
+Columns:
+  - id TEXT PRIMARY KEY (UUID)
+  - recipient_user_id TEXT NOT NULL (FK to users.id)
+  - actor_user_id TEXT (FK to users.id - who performed the action, optional)
+  - type TEXT NOT NULL (e.g., "like", "comment", "new_post", "follow", "system_message")
+  - related_post_id TEXT (FK to community_posts.id, if applicable)
+  - related_comment_id TEXT (FK to post_comments.id, if applicable)
+  - contentPreview TEXT (Short preview of the content for the notification)
+  - link TEXT (Link to the relevant content)
+  - isRead INTEGER DEFAULT 0
+  - timestamp TEXT NOT NULL (ISO 8601 string)
+  - createdAt TEXT DEFAULT (datetime('now'))
+
+--------------------------------------------------
+-- Application Settings (User-specific, if not part of users table)
+--------------------------------------------------
+
+Table: user_app_settings
+Description: Stores various application settings for each user.
+Columns:
+  - user_id TEXT PRIMARY KEY (FK to users.id)
+  - reminderSettingsJson TEXT (JSON for workout reminders)
+  - progressionModelSettingsJson TEXT (JSON for progression model preferences)
+  - quickActionsVisibilityJson TEXT (JSON for dashboard quick action visibility)
+  - theme TEXT DEFAULT 'dark'
+  - language TEXT DEFAULT 'pl'
+  - updatedAt TEXT DEFAULT (datetime('now'))
+
+--------------------------------------------------
+-- Notes on SQLite Schema:
+--------------------------------------------------
+- Data Types:
+  - TEXT: For strings, ISO dates, JSON strings.
+  - INTEGER: For whole numbers, booleans (0 or 1).
+  - REAL: For numbers with decimal points (e.g., weight, distance).
+  - BLOB: For binary data (not used in this schema, images assumed stored as URLs).
+- Primary Keys (PK): Typically 'id'. Using TEXT for UUIDs is common and flexible.
+- Foreign Keys (FK): Indicated with (FK to table.column). SQLite supports foreign key constraints, but they need to be enabled (`PRAGMA foreign_keys = ON;`).
+- JSON Columns: For complex, nested, or variable data structures (like `bodyPartsJson`, `customPortionsJson`), storing as JSON strings is a practical approach in SQLite. You'd parse/stringify this in your application code.
+- Timestamps: `createdAt` and `updatedAt` are good practice. `DEFAULT (datetime('now'))` handles `createdAt` automatically. `updatedAt` would typically be managed by application logic or triggers.
+- Uniqueness: `UNIQUE` constraints should be added where appropriate (e.g., user email, exercise name).
+- Indexing: For a production database, you'd add indexes on frequently queried columns, especially foreign keys and columns used in WHERE clauses or ORDER BY.
+
+This schema provides a solid foundation. You'd adapt and expand it b
