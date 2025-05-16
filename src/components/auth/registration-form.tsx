@@ -20,7 +20,7 @@ import {
   TrendingUp,
   Loader2,
   AlertCircle,
-  Image as ImageIcon, // Added for profile picture placeholder
+  Image as ImageIcon,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -56,7 +56,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"; // For placeholder
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const registrationSchema = z
   .object({
@@ -77,7 +77,7 @@ const registrationSchema = z
       required_error: "Date of birth is required.",
       invalid_type_error: "Invalid date format.",
     }),
-    gender: z.enum(["male", "female", "other", "prefer_not_to_say"], {
+    gender: z.enum(["male", "female"], { // Updated gender enum
       required_error: "Gender is required.",
     }),
     weight: z.coerce
@@ -137,23 +137,48 @@ export function RegistrationForm() {
     setServerError(null);
     console.log("Form submitted:", values);
 
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    if (values.email === "test@example.com") {
-      setServerError("This email address is already registered.");
-      form.setError("email", { type: "manual", message: "This email address is already registered." });
+    const userData = {
+      fullName: values.fullName,
+      email: values.email,
+      password: values.password,
+      dateOfBirth: values.dateOfBirth ? values.dateOfBirth.toISOString() : undefined,
+      gender: values.gender,
+      weight: values.weight === "" ? undefined : Number(values.weight),
+      height: values.height === "" ? undefined : Number(values.height),
+      fitnessLevel: values.fitnessLevel,
+    };
+
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        toast({
+          title: "Rejestracja Zakończona Sukcesem!",
+          description: data.message || "Twoje konto zostało utworzone. Sprawdź email w celu weryfikacji.",
+          variant: "default",
+          duration: 7000,
+        });
+        router.push("/login?registered=true");
+      } else {
+        setServerError(data.message || "Wystąpił błąd podczas rejestracji.");
+        if (data.errors) {
+          for (const [field, message] of Object.entries(data.errors)) {
+            form.setError(field as keyof RegistrationFormValues, { type: 'manual', message: message as string });
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Registration API call error:", error);
+      setServerError("Nie udało się połączyć z serwerem. Spróbuj ponownie później.");
+    } finally {
       setIsLoading(false);
-      return;
     }
-
-    toast({
-      title: "Registration Successful!",
-      description: "Your account has been created. Please log in.",
-      variant: "default", 
-    });
-    router.push("/login?registered=true"); 
-
-    setIsLoading(false);
   }
 
   return (
@@ -354,25 +379,13 @@ export function RegistrationForm() {
                           <FormControl>
                             <RadioGroupItem value="male" />
                           </FormControl>
-                          <FormLabel className="font-normal">Male</FormLabel>
+                          <FormLabel className="font-normal">Mężczyzna</FormLabel>
                         </FormItem>
                         <FormItem className="flex items-center space-x-2 space-y-0">
                           <FormControl>
                             <RadioGroupItem value="female" />
                           </FormControl>
-                          <FormLabel className="font-normal">Female</FormLabel>
-                        </FormItem>
-                        <FormItem className="flex items-center space-x-2 space-y-0">
-                          <FormControl>
-                            <RadioGroupItem value="other" />
-                          </FormControl>
-                          <FormLabel className="font-normal">Other</FormLabel>
-                        </FormItem>
-                         <FormItem className="flex items-center space-x-2 space-y-0">
-                          <FormControl>
-                            <RadioGroupItem value="prefer_not_to_say" />
-                          </FormControl>
-                          <FormLabel className="font-normal">Prefer not to say</FormLabel>
+                          <FormLabel className="font-normal">Kobieta</FormLabel>
                         </FormItem>
                       </RadioGroup>
                     </FormControl>
