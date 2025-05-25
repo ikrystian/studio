@@ -817,3 +817,7 @@ export function getDB() {
   }
   return dbInstance;
 }
+
+export function getCurrentUserId(): string {
+  return MOCK_CURRENT_USER_PROFILE.id;
+}
