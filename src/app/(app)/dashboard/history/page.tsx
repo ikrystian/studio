@@ -1,9 +1,22 @@
-
 "use client";
 
 import * as React from "react";
 import Link from "next/link";
-import { format, parseISO, isValid, startOfDay, endOfDay, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterval, getDay, isSameDay, isSameMonth } from "date-fns";
+import {
+  format,
+  parseISO,
+  isValid,
+  startOfDay,
+  endOfDay,
+  startOfMonth,
+  endOfMonth,
+  addMonths,
+  subMonths,
+  eachDayOfInterval,
+  getDay,
+  isSameDay,
+  isSameMonth,
+} from "date-fns";
 import { pl } from "date-fns/locale";
 import {
   ArrowLeft,
@@ -17,9 +30,9 @@ import {
   Clock,
   Dumbbell,
   Activity,
-  BarChart, 
-  RotateCcw, 
-  FileDown, 
+  BarChart,
+  RotateCcw,
+  FileDown,
   Loader2,
 } from "lucide-react";
 
@@ -40,80 +53,182 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-// MOCK BACKEND LOGIC: All historical workout sessions (MOCK_HISTORY_SESSIONS) are sourced from an in-memory array
-// in `src/lib/mockData.ts`. Filtering and pagination are performed client-side on this array.
-// Exporting to CSV is also a client-side operation based on the currently filtered data.
-// There are no actual backend calls for fetching or manipulating history data on this page.
-import { MOCK_HISTORY_SESSIONS, type HistoricalWorkoutSession, type RecordedSet, type ExerciseInWorkout } from "@/lib/mockData";
+// DATABASE INTEGRATION: Historical workout sessions are now fetched from the SQLite database via API endpoint.
+// Filtering and pagination are performed server-side in the API endpoint.
+// Real backend calls are made to fetch workout session data.
+import { type RecordedSet, type ExerciseInWorkout } from "@/lib/mockData";
 
+// DATABASE INTEGRATION: Interface for workout sessions from API
+interface HistoricalWorkoutSession {
+  id: string;
+  workoutId?: string;
+  workoutName: string;
+  workoutType?: string;
+  startTime: string;
+  endTime: string;
+  totalTimeSeconds: number;
+  difficulty?: string;
+  generalNotes?: string;
+  calculatedTotalVolume?: number;
+  exercises: Array<{
+    exerciseId: string;
+    exerciseName: string;
+    sets: Array<{
+      setNumber: number;
+      weight?: string;
+      reps?: string;
+      rpe?: number;
+      notes?: string;
+    }>;
+  }>;
+}
 
-const WORKOUT_TYPES = ["Wszystkie", "Siłowy", "Cardio", "Mieszany", "Rozciąganie", "Inny"];
-const ITEMS_PER_PAGE = 5; 
+const WORKOUT_TYPES = [
+  "Wszystkie",
+  "Siłowy",
+  "Cardio",
+  "Mieszany",
+  "Rozciąganie",
+  "Inny",
+];
+const ITEMS_PER_PAGE = 5;
 
 const WORKOUT_TYPE_COLORS: Record<string, string> = {
-  "Siłowy": "bg-blue-500",
-  "Cardio": "bg-green-500",
-  "Rozciąganie": "bg-yellow-500",
-  "Mieszany": "bg-purple-500",
-  "Inny": "bg-gray-500",
-  "default": "bg-slate-400", 
+  Siłowy: "bg-blue-500",
+  Cardio: "bg-green-500",
+  Rozciąganie: "bg-yellow-500",
+  Mieszany: "bg-purple-500",
+  Inny: "bg-gray-500",
+  default: "bg-slate-400",
 };
 
 const formatTime = (totalSeconds: number) => {
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
-  if (hours > 0) return `${String(hours).padStart(2, "0")}h ${String(minutes).padStart(2, "0")}m`;
-  return `${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
+  if (hours > 0)
+    return `${String(hours).padStart(2, "0")}h ${String(minutes).padStart(
+      2,
+      "0"
+    )}m`;
+  return `${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(
+    2,
+    "0"
+  )}s`;
 };
 
 export default function WorkoutHistoryPage() {
   const { toast } = useToast();
-  const [allSessions, setAllSessions] = React.useState<HistoricalWorkoutSession[]>([]);
+  const [allSessions, setAllSessions] = React.useState<
+    HistoricalWorkoutSession[]
+  >([]);
   const [isLoading, setIsLoading] = React.useState(true);
 
   const [searchTerm, setSearchTerm] = React.useState("");
   const [selectedType, setSelectedType] = React.useState("Wszystkie");
-  const [filterStartDate, setFilterStartDate] = React.useState<Date | undefined>(undefined);
-  const [filterEndDate, setFilterEndDate] = React.useState<Date | undefined>(undefined);
+  const [filterStartDate, setFilterStartDate] = React.useState<
+    Date | undefined
+  >(undefined);
+  const [filterEndDate, setFilterEndDate] = React.useState<Date | undefined>(
+    undefined
+  );
   const [currentPage, setCurrentPage] = React.useState(1);
 
   const [calendarViewMonth, setCalendarViewMonth] = React.useState(new Date());
 
+  // DATABASE INTEGRATION: Fetch workout sessions from database
   React.useEffect(() => {
-    setIsLoading(true);
-    // MOCK BACKEND LOGIC: Simulates fetching data from MOCK_HISTORY_SESSIONS.
-    setTimeout(() => {
-      setAllSessions(MOCK_HISTORY_SESSIONS);
-      setIsLoading(false);
-    }, 750); 
-  }, []);
+    const fetchWorkoutSessions = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
 
+        const response = await fetch("/api/workout-sessions?limit=100");
+        const data = await response.json();
+
+        if (data.success && data.data) {
+          // Transform API data to match component interface
+          const transformedSessions: HistoricalWorkoutSession[] = data.data.map(
+            (session: any) => ({
+              id: session.id,
+              workoutId: session.workoutType ? session.id : undefined, // Use session ID as fallback
+              workoutName: session.workoutName,
+              workoutType: session.workoutType || "Mieszany",
+              startTime: session.startTime,
+              endTime: session.endTime,
+              totalTimeSeconds: session.totalTimeSeconds,
+              difficulty: session.difficulty,
+              generalNotes: session.generalNotes,
+              calculatedTotalVolume: session.calculatedTotalVolume || 0,
+              exercises: session.exercises || [],
+            })
+          );
+
+          setAllSessions(transformedSessions);
+        } else {
+          setError(
+            data.message || "Błąd podczas pobierania historii treningów"
+          );
+          toast({
+            title: "Błąd",
+            description:
+              data.message || "Nie udało się pobrać historii treningów.",
+            variant: "destructive",
+          });
+        }
+      } catch (err) {
+        const errorMessage = "Błąd połączenia z serwerem";
+        setError(errorMessage);
+        toast({
+          title: "Błąd połączenia",
+          description: errorMessage,
+          variant: "destructive",
+        });
+        console.error("Error fetching workout sessions:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchWorkoutSessions();
+  }, [toast]);
 
   const filteredSessions = React.useMemo(() => {
-    // MOCK BACKEND LOGIC: Client-side filtering of the `allSessions` array.
-    return allSessions.filter((session) => {
-      const sessionDate = parseISO(session.startTime);
-      if (!isValid(sessionDate)) return false; 
+    // DATABASE INTEGRATION: Client-side filtering of the database-fetched sessions.
+    return allSessions
+      .filter((session) => {
+        const sessionDate = parseISO(session.startTime);
+        if (!isValid(sessionDate)) return false;
 
-      const matchesSearch = session.workoutName.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesType = selectedType === "Wszystkie" || session.workoutType === selectedType;
-      
-      let matchesDate = true;
-      if (filterStartDate && sessionDate < startOfDay(filterStartDate)) {
-        matchesDate = false;
-      }
-      if (filterEndDate && sessionDate > endOfDay(filterEndDate)) {
-        matchesDate = false;
-      }
-      return matchesSearch && matchesType && matchesDate;
-    }).sort((a,b) => parseISO(b.startTime).getTime() - parseISO(a.startTime).getTime()); 
+        const matchesSearch = session.workoutName
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase());
+        const matchesType =
+          selectedType === "Wszystkie" || session.workoutType === selectedType;
+
+        let matchesDate = true;
+        if (filterStartDate && sessionDate < startOfDay(filterStartDate)) {
+          matchesDate = false;
+        }
+        if (filterEndDate && sessionDate > endOfDay(filterEndDate)) {
+          matchesDate = false;
+        }
+        return matchesSearch && matchesType && matchesDate;
+      })
+      .sort(
+        (a, b) =>
+          parseISO(b.startTime).getTime() - parseISO(a.startTime).getTime()
+      );
   }, [allSessions, searchTerm, selectedType, filterStartDate, filterEndDate]);
 
   const totalPages = Math.ceil(filteredSessions.length / ITEMS_PER_PAGE);
@@ -126,7 +241,7 @@ export default function WorkoutHistoryPage() {
     setSelectedType(value);
     setCurrentPage(1);
   };
-  
+
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(event.target.value);
     setCurrentPage(1);
@@ -136,7 +251,7 @@ export default function WorkoutHistoryPage() {
     setFilterStartDate(date);
     setCurrentPage(1);
   };
-  
+
   const handleEndDateChange = (date: Date | undefined) => {
     setFilterEndDate(date);
     setCurrentPage(1);
@@ -148,71 +263,124 @@ export default function WorkoutHistoryPage() {
     setFilterStartDate(undefined);
     setFilterEndDate(undefined);
     setCurrentPage(1);
-    toast({ title: "Filtry wyczyszczone", description: "Wyświetlono wszystkie historyczne sesje." });
+    toast({
+      title: "Filtry wyczyszczone",
+      description: "Wyświetlono wszystkie historyczne sesje.",
+    });
   };
 
   const getWorkoutTypeIcon = (type: string) => {
     switch (type) {
-      case "Siłowy": return <Dumbbell className="h-4 w-4 text-muted-foreground" />;
-      case "Cardio": return <Activity className="h-4 w-4 text-muted-foreground" />;
-      case "Rozciąganie": return <BarChart className="h-4 w-4 text-muted-foreground transform rotate-90" />; 
-      default: return <FileText className="h-4 w-4 text-muted-foreground" />; 
+      case "Siłowy":
+        return <Dumbbell className="h-4 w-4 text-muted-foreground" />;
+      case "Cardio":
+        return <Activity className="h-4 w-4 text-muted-foreground" />;
+      case "Rozciąganie":
+        return (
+          <BarChart className="h-4 w-4 text-muted-foreground transform rotate-90" />
+        );
+      default:
+        return <FileText className="h-4 w-4 text-muted-foreground" />;
     }
   };
-  
+
   // MOCK BACKEND LOGIC: CSV export is entirely client-side based on currently filtered sessions.
   const handleExportToCSV = () => {
     if (filteredSessions.length === 0) {
-        toast({ title: "Brak danych do eksportu", variant: "destructive" });
-        return;
+      toast({ title: "Brak danych do eksportu", variant: "destructive" });
+      return;
     }
     let csvContent = "data:text/csv;charset=utf-8,";
     const headers = [
-        "ID Sesji", "Nazwa Treningu", "Typ Treningu", "Data Rozpoczęcia", "Data Zakończenia", 
-        "Całkowity Czas (s)", "Całkowita Objętość (kg)", "Trudność", "Notatki Ogólne",
-        "Nazwa Ćwiczenia", "Numer Serii", "Ciężar", "Powtórzenia/Czas", "RPE", "Notatki do Serii"
+      "ID Sesji",
+      "Nazwa Treningu",
+      "Typ Treningu",
+      "Data Rozpoczęcia",
+      "Data Zakończenia",
+      "Całkowity Czas (s)",
+      "Całkowita Objętość (kg)",
+      "Trudność",
+      "Notatki Ogólne",
+      "Nazwa Ćwiczenia",
+      "Numer Serii",
+      "Ciężar",
+      "Powtórzenia/Czas",
+      "RPE",
+      "Notatki do Serii",
     ];
     csvContent += headers.join(";") + "\r\n";
 
-    filteredSessions.forEach(session => {
-        session.exercises.forEach(exercise => {
-            const sets = session.recordedSets[exercise.id] || [];
-            if (sets.length === 0) { 
-                 const row = [
-                    session.id, session.workoutName, session.workoutType, 
-                    format(parseISO(session.startTime), "yyyy-MM-dd HH:mm:ss"), 
-                    format(parseISO(session.endTime), "yyyy-MM-dd HH:mm:ss"),
-                    session.totalTimeSeconds.toString(), session.calculatedTotalVolume.toString(),
-                    session.difficulty || "", session.generalNotes || "",
-                    exercise.name, "", "", "", "", "" 
-                ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(";");
-                csvContent += row + "\r\n";
-            } else {
-                sets.forEach(set => {
-                    const row = [
-                        session.id, session.workoutName, session.workoutType, 
-                        format(parseISO(session.startTime), "yyyy-MM-dd HH:mm:ss"), 
-                        format(parseISO(session.endTime), "yyyy-MM-dd HH:mm:ss"),
-                        session.totalTimeSeconds.toString(), session.calculatedTotalVolume.toString(),
-                        session.difficulty || "", session.generalNotes || "",
-                        exercise.name, set.setNumber.toString(), String(set.weight), String(set.reps), 
-                        set.rpe?.toString() || "", set.notes || ""
-                    ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(";"); 
-                    csvContent += row + "\r\n";
-                });
-            }
-        });
-         if (session.exercises.length === 0) { 
-             const row = [
-                session.id, session.workoutName, session.workoutType, 
-                format(parseISO(session.startTime), "yyyy-MM-dd HH:mm:ss"), 
-                format(parseISO(session.endTime), "yyyy-MM-dd HH:mm:ss"),
-                session.totalTimeSeconds.toString(), session.calculatedTotalVolume.toString(),
-                session.difficulty || "", session.generalNotes || "",
-                "", "", "", "", "", "" 
-            ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(";");
+    filteredSessions.forEach((session) => {
+      session.exercises.forEach((exercise) => {
+        const sets = session.recordedSets[exercise.id] || [];
+        if (sets.length === 0) {
+          const row = [
+            session.id,
+            session.workoutName,
+            session.workoutType,
+            format(parseISO(session.startTime), "yyyy-MM-dd HH:mm:ss"),
+            format(parseISO(session.endTime), "yyyy-MM-dd HH:mm:ss"),
+            session.totalTimeSeconds.toString(),
+            session.calculatedTotalVolume.toString(),
+            session.difficulty || "",
+            session.generalNotes || "",
+            exercise.name,
+            "",
+            "",
+            "",
+            "",
+            "",
+          ]
+            .map((field) => `"${String(field).replace(/"/g, '""')}"`)
+            .join(";");
+          csvContent += row + "\r\n";
+        } else {
+          sets.forEach((set) => {
+            const row = [
+              session.id,
+              session.workoutName,
+              session.workoutType,
+              format(parseISO(session.startTime), "yyyy-MM-dd HH:mm:ss"),
+              format(parseISO(session.endTime), "yyyy-MM-dd HH:mm:ss"),
+              session.totalTimeSeconds.toString(),
+              session.calculatedTotalVolume.toString(),
+              session.difficulty || "",
+              session.generalNotes || "",
+              exercise.name,
+              set.setNumber.toString(),
+              String(set.weight),
+              String(set.reps),
+              set.rpe?.toString() || "",
+              set.notes || "",
+            ]
+              .map((field) => `"${String(field).replace(/"/g, '""')}"`)
+              .join(";");
             csvContent += row + "\r\n";
+          });
         }
+      });
+      if (session.exercises.length === 0) {
+        const row = [
+          session.id,
+          session.workoutName,
+          session.workoutType,
+          format(parseISO(session.startTime), "yyyy-MM-dd HH:mm:ss"),
+          format(parseISO(session.endTime), "yyyy-MM-dd HH:mm:ss"),
+          session.totalTimeSeconds.toString(),
+          session.calculatedTotalVolume.toString(),
+          session.difficulty || "",
+          session.generalNotes || "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+        ]
+          .map((field) => `"${String(field).replace(/"/g, '""')}"`)
+          .join(";");
+        csvContent += row + "\r\n";
+      }
     });
 
     const encodedUri = encodeURI(csvContent);
@@ -222,25 +390,39 @@ export default function WorkoutHistoryPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast({ title: "Eksport zakończony", description: "Dane historii zostały pobrane jako CSV." });
+    toast({
+      title: "Eksport zakończony",
+      description: "Dane historii zostały pobrane jako CSV.",
+    });
   };
 
   const firstDayCurrentMonth = startOfMonth(calendarViewMonth);
   const lastDayCurrentMonth = endOfMonth(calendarViewMonth);
-  const daysInMonth = React.useMemo(() => eachDayOfInterval({ start: firstDayCurrentMonth, end: lastDayCurrentMonth }), [firstDayCurrentMonth, lastDayCurrentMonth]);
-  
-  let startingDayOfWeek = getDay(firstDayCurrentMonth); 
-  if (startingDayOfWeek === 0) startingDayOfWeek = 7; 
+  const daysInMonth = React.useMemo(
+    () =>
+      eachDayOfInterval({
+        start: firstDayCurrentMonth,
+        end: lastDayCurrentMonth,
+      }),
+    [firstDayCurrentMonth, lastDayCurrentMonth]
+  );
+
+  let startingDayOfWeek = getDay(firstDayCurrentMonth);
+  if (startingDayOfWeek === 0) startingDayOfWeek = 7;
   const daysBeforeMonth = Array.from({ length: startingDayOfWeek - 1 });
 
   const workoutsByDate = React.useMemo(() => {
-    // MOCK BACKEND LOGIC: Groups workout types by date for calendar display, using client-side `allSessions` data.
-    const map = new Map<string, string[]>(); 
-    allSessions.forEach(session => {
+    // DATABASE INTEGRATION: Groups workout types by date for calendar display, using database-fetched sessions.
+    const map = new Map<string, string[]>();
+    allSessions.forEach((session) => {
       try {
         if (!session.startTime || !isValid(parseISO(session.startTime))) {
-            console.warn("Invalid startTime for session for calendar:", session.id, session.startTime);
-            return; 
+          console.warn(
+            "Invalid startTime for session for calendar:",
+            session.id,
+            session.startTime
+          );
+          return;
         }
         const dateStr = format(parseISO(session.startTime), "yyyy-MM-dd");
         const types = map.get(dateStr) || [];
@@ -249,20 +431,26 @@ export default function WorkoutHistoryPage() {
         }
         map.set(dateStr, types);
       } catch (e) {
-        console.error("Error processing session for calendar:", session.id, session.startTime, e);
+        console.error(
+          "Error processing session for calendar:",
+          session.id,
+          session.startTime,
+          e
+        );
       }
     });
     return map;
   }, [allSessions]);
 
-
   if (isLoading) {
     return (
-        <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
-            <Loader2 className="h-12 w-12 animate-spin text-primary"/>
-            <p className="mt-4 text-muted-foreground">Ładowanie historii treningów...</p>
-        </div>
-      );
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="mt-4 text-muted-foreground">
+          Ładowanie historii treningów...
+        </p>
+      </div>
+    );
   }
 
   return (
@@ -279,7 +467,12 @@ export default function WorkoutHistoryPage() {
             <HistoryIcon className="h-8 w-8 text-primary" />
             <h1 className="text-2xl font-bold">Historia Treningów</h1>
           </div>
-           <Button onClick={handleExportToCSV} variant="outline" size="sm" disabled={filteredSessions.length === 0}>
+          <Button
+            onClick={handleExportToCSV}
+            variant="outline"
+            size="sm"
+            disabled={filteredSessions.length === 0}
+          >
             <FileDown className="mr-2 h-4 w-4" /> Eksportuj do CSV
           </Button>
         </div>
@@ -287,63 +480,108 @@ export default function WorkoutHistoryPage() {
 
       <main className="flex-1 p-4 sm:p-6 lg:p-8">
         <div className="container mx-auto">
-        <Card className="mb-6">
+          <Card className="mb-6">
             <CardHeader>
-                <CardTitle>Kalendarz Aktywności</CardTitle>
+              <CardTitle>Kalendarz Aktywności</CardTitle>
             </CardHeader>
             <CardContent>
-                <div className="flex items-center justify-between mb-4">
-                    <Button variant="outline" size="icon" onClick={() => setCalendarViewMonth(subMonths(calendarViewMonth, 1))}>
-                        <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <h3 className="text-lg font-semibold">
-                        {format(calendarViewMonth, "LLLL yyyy", { locale: pl })}
-                    </h3>
-                    <Button variant="outline" size="icon" onClick={() => setCalendarViewMonth(addMonths(calendarViewMonth, 1))}>
-                        <ChevronRight className="h-4 w-4" />
-                    </Button>
-                </div>
-                <div className="grid grid-cols-7 gap-px border-l border-t bg-border">
-                    {["Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd"].map(dayLabel => (
-                        <div key={dayLabel} className="py-2 text-center text-xs font-medium text-muted-foreground bg-card border-b border-r">{dayLabel}</div>
-                    ))}
-                    {daysBeforeMonth.map((_, i) => (
-                         <div key={`empty-start-${i}`} className="bg-muted/30 border-b border-r min-h-[60px] sm:min-h-[80px]"></div>
-                    ))}
-                    {daysInMonth.map(day => {
-                        const dayStr = format(day, "yyyy-MM-dd");
-                        const workoutTypesOnDay = workoutsByDate.get(dayStr) || [];
-                        return (
-                            <div 
-                                key={day.toString()} 
-                                className={cn(
-                                    "p-1.5 sm:p-2 border-b border-r min-h-[60px] sm:min-h-[80px] text-xs relative transition-colors",
-                                    isSameMonth(day, calendarViewMonth) ? "bg-card hover:bg-muted/50" : "bg-muted/30", 
-                                    !isSameMonth(day, calendarViewMonth) && "text-muted-foreground/50"
-                                )}
-                            >
-                                <span className={cn("font-medium", isSameDay(day, new Date()) && "text-primary font-bold underline")}>
-                                    {format(day, "d")}
-                                </span>
-                                <div className="absolute bottom-1 left-1 right-1 flex justify-center space-x-1">
-                                    {workoutTypesOnDay.slice(0,3).map((type, index) => ( 
-                                        <div key={index} title={type} className={`h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full ${WORKOUT_TYPE_COLORS[type] || WORKOUT_TYPE_COLORS.default}`}></div>
-                                    ))}
-                                </div>
-                            </div>
-                        );
-                    })}
-                    {Array.from({ length: (7 - (daysBeforeMonth.length + daysInMonth.length) % 7) % 7 }).map((_, i) => (
-                       <div key={`empty-end-${i}`} className="bg-muted/30 border-b border-r min-h-[60px] sm:min-h-[80px]"></div>
-                    ))}
-                </div>
+              <div className="flex items-center justify-between mb-4">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() =>
+                    setCalendarViewMonth(subMonths(calendarViewMonth, 1))
+                  }
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <h3 className="text-lg font-semibold">
+                  {format(calendarViewMonth, "LLLL yyyy", { locale: pl })}
+                </h3>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() =>
+                    setCalendarViewMonth(addMonths(calendarViewMonth, 1))
+                  }
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="grid grid-cols-7 gap-px border-l border-t bg-border">
+                {["Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd"].map((dayLabel) => (
+                  <div
+                    key={dayLabel}
+                    className="py-2 text-center text-xs font-medium text-muted-foreground bg-card border-b border-r"
+                  >
+                    {dayLabel}
+                  </div>
+                ))}
+                {daysBeforeMonth.map((_, i) => (
+                  <div
+                    key={`empty-start-${i}`}
+                    className="bg-muted/30 border-b border-r min-h-[60px] sm:min-h-[80px]"
+                  ></div>
+                ))}
+                {daysInMonth.map((day) => {
+                  const dayStr = format(day, "yyyy-MM-dd");
+                  const workoutTypesOnDay = workoutsByDate.get(dayStr) || [];
+                  return (
+                    <div
+                      key={day.toString()}
+                      className={cn(
+                        "p-1.5 sm:p-2 border-b border-r min-h-[60px] sm:min-h-[80px] text-xs relative transition-colors",
+                        isSameMonth(day, calendarViewMonth)
+                          ? "bg-card hover:bg-muted/50"
+                          : "bg-muted/30",
+                        !isSameMonth(day, calendarViewMonth) &&
+                          "text-muted-foreground/50"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "font-medium",
+                          isSameDay(day, new Date()) &&
+                            "text-primary font-bold underline"
+                        )}
+                      >
+                        {format(day, "d")}
+                      </span>
+                      <div className="absolute bottom-1 left-1 right-1 flex justify-center space-x-1">
+                        {workoutTypesOnDay.slice(0, 3).map((type, index) => (
+                          <div
+                            key={index}
+                            title={type}
+                            className={`h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full ${
+                              WORKOUT_TYPE_COLORS[type] ||
+                              WORKOUT_TYPE_COLORS.default
+                            }`}
+                          ></div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+                {Array.from({
+                  length:
+                    (7 - ((daysBeforeMonth.length + daysInMonth.length) % 7)) %
+                    7,
+                }).map((_, i) => (
+                  <div
+                    key={`empty-end-${i}`}
+                    className="bg-muted/30 border-b border-r min-h-[60px] sm:min-h-[80px]"
+                  ></div>
+                ))}
+              </div>
             </CardContent>
           </Card>
 
           <Card className="mb-6">
             <CardHeader>
               <CardTitle>Filtruj Historię</CardTitle>
-              <CardDescription>Zawęź listę wyświetlanych treningów.</CardDescription>
+              <CardDescription>
+                Zawęź listę wyświetlanych treningów.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -370,9 +608,9 @@ export default function WorkoutHistoryPage() {
                     ))}
                   </SelectContent>
                 </Select>
-                 <Button onClick={clearFilters} variant="outline">
-                    <RotateCcw className="mr-2 h-4 w-4" /> Wyczyść filtry
-                 </Button>
+                <Button onClick={clearFilters} variant="outline">
+                  <RotateCcw className="mr-2 h-4 w-4" /> Wyczyść filtry
+                </Button>
               </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <Popover>
@@ -385,7 +623,11 @@ export default function WorkoutHistoryPage() {
                       )}
                     >
                       <CalendarDays className="mr-2 h-4 w-4" />
-                      {filterStartDate ? format(filterStartDate, "PPP", { locale: pl }) : <span>Data od</span>}
+                      {filterStartDate ? (
+                        format(filterStartDate, "PPP", { locale: pl })
+                      ) : (
+                        <span>Data od</span>
+                      )}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0">
@@ -393,7 +635,10 @@ export default function WorkoutHistoryPage() {
                       mode="single"
                       selected={filterStartDate}
                       onSelect={handleStartDateChange}
-                      disabled={(date) => (filterEndDate ? date > filterEndDate : false) || date > new Date()}
+                      disabled={(date) =>
+                        (filterEndDate ? date > filterEndDate : false) ||
+                        date > new Date()
+                      }
                       initialFocus
                       locale={pl}
                     />
@@ -409,7 +654,11 @@ export default function WorkoutHistoryPage() {
                       )}
                     >
                       <CalendarDays className="mr-2 h-4 w-4" />
-                      {filterEndDate ? format(filterEndDate, "PPP", { locale: pl }) : <span>Data do</span>}
+                      {filterEndDate ? (
+                        format(filterEndDate, "PPP", { locale: pl })
+                      ) : (
+                        <span>Data do</span>
+                      )}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0">
@@ -417,7 +666,10 @@ export default function WorkoutHistoryPage() {
                       mode="single"
                       selected={filterEndDate}
                       onSelect={handleEndDateChange}
-                      disabled={(date) => (filterStartDate ? date < filterStartDate : false) || date > new Date()}
+                      disabled={(date) =>
+                        (filterStartDate ? date < filterStartDate : false) ||
+                        date > new Date()
+                      }
                       initialFocus
                       locale={pl}
                     />
@@ -428,49 +680,81 @@ export default function WorkoutHistoryPage() {
           </Card>
 
           <Separator className="my-6" />
-          
+
           {paginatedSessions.length > 0 ? (
             <>
-              <ScrollArea className="h-[calc(100vh-40rem)] "> 
+              <ScrollArea className="h-[calc(100vh-40rem)] ">
                 <div className="space-y-4 pr-4">
-                {paginatedSessions.map((session) => (
-                  <Card key={session.id} className="hover:shadow-md transition-shadow">
-                    <CardHeader>
-                      <CardTitle className="text-xl">{session.workoutName}</CardTitle>
-                      <CardDescription>
-                         Data: {isValid(parseISO(session.startTime)) ? format(parseISO(session.startTime), "PPPp", { locale: pl }) : "Nieprawidłowa data"}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-2 text-sm">
-                      <div className="flex items-center text-muted-foreground">
-                        {getWorkoutTypeIcon(session.workoutType)}
-                        <span className="ml-2">Typ: {session.workoutType}</span>
-                      </div>
-                      <div className="flex items-center text-muted-foreground">
-                        <Clock className="h-4 w-4" />
-                        <span className="ml-2">Czas trwania: {formatTime(session.totalTimeSeconds)}</span>
-                      </div>
-                      {session.difficulty && (
+                  {paginatedSessions.map((session) => (
+                    <Card
+                      key={session.id}
+                      className="hover:shadow-md transition-shadow"
+                    >
+                      <CardHeader>
+                        <CardTitle className="text-xl">
+                          {session.workoutName}
+                        </CardTitle>
+                        <CardDescription>
+                          Data:{" "}
+                          {isValid(parseISO(session.startTime))
+                            ? format(parseISO(session.startTime), "PPPp", {
+                                locale: pl,
+                              })
+                            : "Nieprawidłowa data"}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-2 text-sm">
                         <div className="flex items-center text-muted-foreground">
-                            <BarChart className="h-4 w-4" /> 
-                            <span className="ml-2">Trudność: {session.difficulty}</span>
+                          {getWorkoutTypeIcon(session.workoutType)}
+                          <span className="ml-2">
+                            Typ: {session.workoutType}
+                          </span>
                         </div>
-                      )}
-                    </CardContent>
-                    <CardFooter className="gap-2">
-                       <Button asChild variant="ghost" size="sm" className="flex-1 justify-start text-primary hover:text-primary/90 disabled:text-muted-foreground">
-                        {/* MOCK BACKEND LOGIC: "Powtórz" functionality passes the workout ID and session ID
-                            to the active workout page, which then simulates loading this past session. */}
-                        <Link href={`/dashboard/workout/active/${session.workoutId}?repeatSessionId=${session.id}`}>
-                            <RotateCcw className="mr-2 h-4 w-4"/> Powtórz
-                        </Link>
-                      </Button>
-                      <Button asChild variant="outline" size="sm" className="flex-1">
-                        <Link href={`/dashboard/history/${session.id}`}>Zobacz szczegóły</Link>
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                ))}
+                        <div className="flex items-center text-muted-foreground">
+                          <Clock className="h-4 w-4" />
+                          <span className="ml-2">
+                            Czas trwania: {formatTime(session.totalTimeSeconds)}
+                          </span>
+                        </div>
+                        {session.difficulty && (
+                          <div className="flex items-center text-muted-foreground">
+                            <BarChart className="h-4 w-4" />
+                            <span className="ml-2">
+                              Trudność: {session.difficulty}
+                            </span>
+                          </div>
+                        )}
+                      </CardContent>
+                      <CardFooter className="gap-2">
+                        <Button
+                          asChild
+                          variant="ghost"
+                          size="sm"
+                          className="flex-1 justify-start text-primary hover:text-primary/90 disabled:text-muted-foreground"
+                        >
+                          {/* DATABASE INTEGRATION: "Powtórz" functionality passes the workout ID and session ID
+                            to the active workout page, which loads this past session from database. */}
+                          <Link
+                            href={`/dashboard/workout/active/${
+                              session.workoutId || session.id
+                            }?repeatSessionId=${session.id}`}
+                          >
+                            <RotateCcw className="mr-2 h-4 w-4" /> Powtórz
+                          </Link>
+                        </Button>
+                        <Button
+                          asChild
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                        >
+                          <Link href={`/dashboard/history/${session.id}`}>
+                            Zobacz szczegóły
+                          </Link>
+                        </Button>
+                      </CardFooter>
+                    </Card>
+                  ))}
                 </div>
               </ScrollArea>
               {totalPages > 1 && (
@@ -478,7 +762,9 @@ export default function WorkoutHistoryPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.max(1, prev - 1))
+                    }
                     disabled={currentPage === 1}
                   >
                     <ChevronLeft className="mr-2 h-4 w-4" /> Poprzednia
@@ -489,7 +775,9 @@ export default function WorkoutHistoryPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+                    }
                     disabled={currentPage === totalPages}
                   >
                     Następna <ChevronRight className="ml-2 h-4 w-4" />
@@ -500,9 +788,14 @@ export default function WorkoutHistoryPage() {
           ) : (
             <div className="mt-10 flex flex-col items-center justify-center text-center">
               <HistoryIcon className="mb-4 h-16 w-16 text-muted-foreground" />
-              <h3 className="text-xl font-semibold">Brak Zapisanych Treningów</h3>
+              <h3 className="text-xl font-semibold">
+                Brak Zapisanych Treningów
+              </h3>
               <p className="text-muted-foreground">
-                {searchTerm || selectedType !== "Wszystkie" || filterStartDate || filterEndDate
+                {searchTerm ||
+                selectedType !== "Wszystkie" ||
+                filterStartDate ||
+                filterEndDate
                   ? "Nie znaleziono treningów pasujących do Twoich kryteriów."
                   : "Nie masz jeszcze żadnych zapisanych sesji treningowych. Zacznij trenować, aby zobaczyć je tutaj!"}
               </p>

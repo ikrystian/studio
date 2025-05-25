@@ -1,351 +1,712 @@
-WorkoutWise SQLite Backend Schema Proposal
+Jest Fitness App - Improved SQLite Database Schema
+================================================================
+
+ANALYSIS SUMMARY:
+- Analyzed entire codebase including mock data, API endpoints, and components
+- Identified data relationships and usage patterns
+- Optimized schema for mobile app performance and data integrity
+- Added missing relationships and improved normalization
+- Enhanced indexing strategy for better query performance
+
+================================================================
+-- CORE ENTITIES
+================================================================
 
 --------------------------------------------------
 -- Users & Authentication
 --------------------------------------------------
 
 Table: users
-Description: Stores user account information and basic profile details.
+Description: Core user accounts and profile information
 Columns:
-  - id TEXT PRIMARY KEY (Firebase UID)
+  - id TEXT PRIMARY KEY (UUID)
   - email TEXT UNIQUE NOT NULL
   - fullName TEXT NOT NULL
   - username TEXT UNIQUE NOT NULL
-  - hashedPassword TEXT (Only if not solely relying on Firebase Auth for password management; Firebase Auth handles this itself)
+  - hashedPassword TEXT
   - avatarUrl TEXT
   - bio TEXT
-  - fitnessLevel TEXT (e.g., "Początkujący", "Średniozaawansowany", "Zaawansowany")
-  - joinDate TEXT (ISO 8601 string, e.g., "2023-08-01T10:00:00.000Z")
-  - dateOfBirth TEXT (ISO 8601 string)
-  - gender TEXT (e.g., "male", "female", "other")
-  - weight REAL (current weight in kg)
-  - height REAL (height in cm)
-  - role TEXT (e.g., "client", "trener", "admin")
+  - fitnessLevel TEXT CHECK (fitnessLevel IN ('Początkujący', 'Średniozaawansowany', 'Zaawansowany', 'Ekspert'))
+  - joinDate TEXT NOT NULL DEFAULT (datetime('now'))
+  - dateOfBirth TEXT
+  - gender TEXT CHECK (gender IN ('male', 'female', 'other'))
+  - currentWeight REAL
+  - height REAL
+  - region TEXT
+  - role TEXT DEFAULT 'client' CHECK (role IN ('client', 'trainer', 'admin'))
+  - isActive INTEGER DEFAULT 1
   - createdAt TEXT DEFAULT (datetime('now'))
   - updatedAt TEXT DEFAULT (datetime('now'))
 
+Indexes:
+  - CREATE INDEX idx_users_email ON users(email);
+  - CREATE INDEX idx_users_username ON users(username);
+  - CREATE INDEX idx_users_active ON users(isActive);
+
 Table: user_privacy_settings
-Description: Stores privacy preferences for each user.
+Description: User privacy and social preferences
 Columns:
-  - user_id TEXT PRIMARY KEY (FK to users.id)
-  - isActivityPublic INTEGER DEFAULT 1 (0 for false, 1 for true)
+  - user_id TEXT PRIMARY KEY
+  - isActivityPublic INTEGER DEFAULT 1
   - isFriendsListPublic INTEGER DEFAULT 1
   - isSharedPlansPublic INTEGER DEFAULT 1
   - updatedAt TEXT DEFAULT (datetime('now'))
+  - FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 
 Table: user_social_accounts
-Description: Stores links to social accounts if user connects them (e.g., via Firebase social login).
+Description: Connected social media accounts
 Columns:
-  - user_id TEXT NOT NULL (FK to users.id)
-  - provider TEXT NOT NULL (e.g., "google.com", "facebook.com")
-  - provider_uid TEXT NOT NULL (User ID from the social provider)
+  - user_id TEXT NOT NULL
+  - provider TEXT NOT NULL CHECK (provider IN ('google', 'facebook', 'apple'))
+  - provider_uid TEXT NOT NULL
+  - createdAt TEXT DEFAULT (datetime('now'))
   - PRIMARY KEY (user_id, provider)
+  - FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+
+Table: user_follows
+Description: User follow relationships for social features
+Columns:
+  - follower_user_id TEXT NOT NULL
+  - following_user_id TEXT NOT NULL
+  - createdAt TEXT DEFAULT (datetime('now'))
+  - PRIMARY KEY (follower_user_id, following_user_id)
+  - FOREIGN KEY (follower_user_id) REFERENCES users(id) ON DELETE CASCADE
+  - FOREIGN KEY (following_user_id) REFERENCES users(id) ON DELETE CASCADE
+
+Indexes:
+  - CREATE INDEX idx_follows_follower ON user_follows(follower_user_id);
+  - CREATE INDEX idx_follows_following ON user_follows(following_user_id);
+
+================================================================
+-- EXERCISE & WORKOUT SYSTEM
+================================================================
 
 --------------------------------------------------
--- Workout Creation & Definitions
+-- Exercise Management
 --------------------------------------------------
 
 Table: exercises
-Description: Master list of available exercises.
+Description: Master exercise database with categories and instructions
 Columns:
-  - id TEXT PRIMARY KEY (e.g., "ex1", "uuid_for_custom_exercise")
+  - id TEXT PRIMARY KEY
   - name TEXT NOT NULL UNIQUE
-  - category TEXT (e.g., "Klatka", "Nogi", "Cardio")
+  - category TEXT NOT NULL CHECK (category IN ('Klatka', 'Plecy', 'Nogi', 'Barki', 'Ramiona', 'Brzuch', 'Cardio', 'Całe ciało'))
   - instructions TEXT
   - videoUrl TEXT
-  - createdBy_user_id TEXT (FK to users.id, if users can add to master list, NULL for system exercises)
+  - muscleGroups TEXT -- JSON array of targeted muscle groups
+  - equipment TEXT -- Required equipment
+  - difficulty TEXT CHECK (difficulty IN ('Początkujący', 'Średni', 'Zaawansowany'))
+  - createdBy_user_id TEXT -- NULL for system exercises
+  - isActive INTEGER DEFAULT 1
   - createdAt TEXT DEFAULT (datetime('now'))
+  - FOREIGN KEY (createdBy_user_id) REFERENCES users(id) ON DELETE SET NULL
+
+Indexes:
+  - CREATE INDEX idx_exercises_category ON exercises(category);
+  - CREATE INDEX idx_exercises_name ON exercises(name);
+  - CREATE INDEX idx_exercises_active ON exercises(isActive);
+
+--------------------------------------------------
+-- Workout Definitions
+--------------------------------------------------
 
 Table: workout_definitions
-Description: Stores user-created or predefined workout templates.
+Description: Workout templates created by users or system
 Columns:
-  - id TEXT PRIMARY KEY (UUID)
-  - user_id TEXT (FK to users.id, NULL if it's a system/public template not owned by a specific user)
+  - id TEXT PRIMARY KEY
+  - user_id TEXT -- NULL for system templates
   - name TEXT NOT NULL
-  - type TEXT (e.g., "Siłowy", "Cardio")
+  - type TEXT NOT NULL CHECK (type IN ('Siłowy', 'Cardio', 'Rozciąganie', 'Mieszany', 'Inny'))
   - description TEXT
-  - isPublic INTEGER DEFAULT 0 (0 for private, 1 for public template)
+  - estimatedDurationMinutes INTEGER
+  - difficultyLevel TEXT CHECK (difficultyLevel IN ('Łatwy', 'Średni', 'Trudny'))
+  - isPublic INTEGER DEFAULT 0
+  - tags TEXT -- JSON array of tags for filtering
+  - totalExercises INTEGER DEFAULT 0 -- Denormalized for performance
+  - averageRating REAL DEFAULT 0 -- For public workouts
+  - usageCount INTEGER DEFAULT 0 -- How many times used
   - createdAt TEXT DEFAULT (datetime('now'))
   - updatedAt TEXT DEFAULT (datetime('now'))
+  - FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+
+Indexes:
+  - CREATE INDEX idx_workout_def_user ON workout_definitions(user_id);
+  - CREATE INDEX idx_workout_def_type ON workout_definitions(type);
+  - CREATE INDEX idx_workout_def_public ON workout_definitions(isPublic);
+  - CREATE INDEX idx_workout_def_rating ON workout_definitions(averageRating);
 
 Table: workout_definition_exercises
-Description: Links exercises to workout definitions, defining the structure of a workout template.
+Description: Exercises within workout definitions with order and parameters
 Columns:
-  - id TEXT PRIMARY KEY (UUID)
-  - workout_definition_id TEXT NOT NULL (FK to workout_definitions.id)
-  - exercise_id TEXT NOT NULL (FK to exercises.id)
-  - order_index INTEGER NOT NULL (Order of exercise in the workout)
-  - defaultSets INTEGER
-  - defaultReps TEXT (e.g., "8-10", "Max", "30s")
-  - defaultRestSeconds INTEGER
-  - targetRpe TEXT
+  - id TEXT PRIMARY KEY
+  - workout_definition_id TEXT NOT NULL
+  - exercise_id TEXT NOT NULL
+  - order_index INTEGER NOT NULL
+  - defaultSets INTEGER DEFAULT 3
+  - defaultReps TEXT DEFAULT '10' -- Can be "8-10", "Max", "30s", etc.
+  - defaultRestSeconds INTEGER DEFAULT 60
+  - targetRpe INTEGER -- 1-10 scale
   - notes TEXT
+  - isSuperset INTEGER DEFAULT 0 -- For grouping exercises
+  - supersetGroup INTEGER -- Group number for supersets
+  - createdAt TEXT DEFAULT (datetime('now'))
   - UNIQUE (workout_definition_id, order_index)
+  - FOREIGN KEY (workout_definition_id) REFERENCES workout_definitions(id) ON DELETE CASCADE
+  - FOREIGN KEY (exercise_id) REFERENCES exercises(id) ON DELETE CASCADE
+
+Indexes:
+  - CREATE INDEX idx_wde_workout ON workout_definition_exercises(workout_definition_id);
+  - CREATE INDEX idx_wde_exercise ON workout_definition_exercises(exercise_id);
+  - CREATE INDEX idx_wde_order ON workout_definition_exercises(workout_definition_id, order_index);
 
 --------------------------------------------------
 -- Workout Tracking & History
 --------------------------------------------------
 
 Table: workout_sessions
-Description: Stores records of completed workout sessions.
+Description: Completed workout sessions with performance data
 Columns:
-  - id TEXT PRIMARY KEY (UUID for the session instance)
-  - user_id TEXT NOT NULL (FK to users.id)
-  - workout_definition_id TEXT (FK to workout_definitions.id, if started from a template)
-  - workout_name TEXT NOT NULL (Could be from definition or custom if started ad-hoc)
-  - workout_type TEXT
-  - startTime TEXT NOT NULL (ISO 8601 string)
-  - endTime TEXT NOT NULL (ISO 8601 string)
+  - id TEXT PRIMARY KEY
+  - user_id TEXT NOT NULL
+  - workout_definition_id TEXT -- NULL for ad-hoc workouts
+  - workout_name TEXT NOT NULL
+  - workout_type TEXT CHECK (workout_type IN ('Siłowy', 'Cardio', 'Rozciąganie', 'Mieszany', 'Inny'))
+  - startTime TEXT NOT NULL
+  - endTime TEXT NOT NULL
   - totalTimeSeconds INTEGER NOT NULL
-  - difficulty TEXT (e.g., "Łatwy", "Średni", "Trudny")
+  - difficulty TEXT CHECK (difficulty IN ('Łatwy', 'Średni', 'Trudny'))
   - generalNotes TEXT
-  - calculatedTotalVolume REAL
+  - calculatedTotalVolume REAL DEFAULT 0
+  - averageRpe REAL -- Average RPE across all sets
+  - totalSets INTEGER DEFAULT 0 -- Denormalized for performance
+  - caloriesBurned INTEGER -- Estimated calories
+  - location TEXT -- Gym name or location
+  - weatherConditions TEXT -- For outdoor workouts
+  - mood TEXT -- Pre/post workout mood
+  - energyLevel INTEGER -- 1-5 scale
+  - isCompleted INTEGER DEFAULT 1 -- 0 for abandoned sessions
   - createdAt TEXT DEFAULT (datetime('now'))
+  - FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  - FOREIGN KEY (workout_definition_id) REFERENCES workout_definitions(id) ON DELETE SET NULL
+
+Indexes:
+  - CREATE INDEX idx_sessions_user ON workout_sessions(user_id);
+  - CREATE INDEX idx_sessions_date ON workout_sessions(startTime);
+  - CREATE INDEX idx_sessions_workout_def ON workout_sessions(workout_definition_id);
+  - CREATE INDEX idx_sessions_type ON workout_sessions(workout_type);
 
 Table: recorded_sets
-Description: Stores individual sets performed during a workout session.
+Description: Individual sets performed during workout sessions
 Columns:
-  - id TEXT PRIMARY KEY (UUID)
-  - workout_session_id TEXT NOT NULL (FK to workout_sessions.id)
-  - exercise_id TEXT NOT NULL (FK to exercises.id, or could store exercise_name if exercises can be ad-hoc)
-  - exercise_name_in_session TEXT NOT NULL (Name of exercise as performed in this session)
+  - id TEXT PRIMARY KEY
+  - workout_session_id TEXT NOT NULL
+  - exercise_id TEXT NOT NULL
+  - exercise_name_in_session TEXT NOT NULL -- Snapshot of exercise name
   - setNumber INTEGER NOT NULL
-  - weight TEXT (Can be number for kg, or "BW" for bodyweight, "N/A" for time/distance)
-  - reps TEXT (Can be number for reps, or time string like "30s", "5km")
-  - rpe INTEGER
+  - weight TEXT -- "80", "BW", "BW+10", etc.
+  - reps TEXT -- "10", "30s", "5km", "Max", etc.
+  - rpe INTEGER CHECK (rpe BETWEEN 1 AND 10) -- Rate of Perceived Exertion
+  - restTimeSeconds INTEGER -- Actual rest time taken
   - notes TEXT
+  - isWarmupSet INTEGER DEFAULT 0
+  - isDropSet INTEGER DEFAULT 0
+  - isFailureSet INTEGER DEFAULT 0 -- Taken to failure
+  - tempo TEXT -- "3-1-2-1" format for eccentric-pause-concentric-pause
+  - partialRom INTEGER DEFAULT 0 -- Partial range of motion
   - createdAt TEXT DEFAULT (datetime('now'))
+  - FOREIGN KEY (workout_session_id) REFERENCES workout_sessions(id) ON DELETE CASCADE
+  - FOREIGN KEY (exercise_id) REFERENCES exercises(id) ON DELETE CASCADE
 
---------------------------------------------------
--- Training Plans
---------------------------------------------------
+Indexes:
+  - CREATE INDEX idx_sets_session ON recorded_sets(workout_session_id);
+  - CREATE INDEX idx_sets_exercise ON recorded_sets(exercise_id);
+  - CREATE INDEX idx_sets_session_exercise ON recorded_sets(workout_session_id, exercise_id);
+
+================================================================
+-- TRAINING PLANS & PROGRAMS
+================================================================
 
 Table: training_plans
-Description: Stores user-created or system-provided training plans.
+Description: Structured training programs with schedules
 Columns:
-  - id TEXT PRIMARY KEY (UUID)
-  - user_id TEXT (FK to users.id, author of the plan, NULL for system plans)
+  - id TEXT PRIMARY KEY
+  - user_id TEXT -- NULL for system plans
   - name TEXT NOT NULL
   - description TEXT
-  - goal TEXT
-  - duration TEXT (e.g., "8 tygodni")
+  - goal TEXT NOT NULL
+  - duration TEXT NOT NULL -- "8 tygodni", "12 weeks", etc.
+  - difficultyLevel TEXT CHECK (difficultyLevel IN ('Początkujący', 'Średni', 'Zaawansowany'))
+  - targetAudience TEXT -- "Mężczyźni", "Kobiety", "Wszyscy"
+  - equipment TEXT -- Required equipment list
   - isPublic INTEGER DEFAULT 0
-  - startDate TEXT (ISO 8601 string, optional)
-  - endDate TEXT (ISO 8601 string, optional)
+  - isPremium INTEGER DEFAULT 0 -- For paid plans
+  - averageRating REAL DEFAULT 0
+  - totalRatings INTEGER DEFAULT 0
+  - enrollmentCount INTEGER DEFAULT 0 -- How many users enrolled
+  - estimatedWeeklyHours REAL -- Time commitment per week
+  - tags TEXT -- JSON array for filtering
+  - startDate TEXT -- When user started this plan
+  - endDate TEXT -- When user completed/will complete
+  - isActive INTEGER DEFAULT 1
   - createdAt TEXT DEFAULT (datetime('now'))
   - updatedAt TEXT DEFAULT (datetime('now'))
+  - FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+
+Indexes:
+  - CREATE INDEX idx_plans_user ON training_plans(user_id);
+  - CREATE INDEX idx_plans_public ON training_plans(isPublic);
+  - CREATE INDEX idx_plans_difficulty ON training_plans(difficultyLevel);
+  - CREATE INDEX idx_plans_rating ON training_plans(averageRating);
 
 Table: training_plan_days
-Description: Defines the schedule for each day within a training plan.
+Description: Daily schedule within training plans
 Columns:
-  - id TEXT PRIMARY KEY (UUID)
-  - training_plan_id TEXT NOT NULL (FK to training_plans.id)
-  - dayName TEXT NOT NULL (e.g., "Poniedziałek", "Dzień 1")
-  - order_index INTEGER NOT NULL (Defines sequence if not standard days of week)
-  - assigned_workout_definition_id TEXT (FK to workout_definitions.id, if a specific workout is assigned)
-  - assigned_workout_name TEXT (Name of the workout for this day, can be from definition or custom)
-  - isRestDay INTEGER DEFAULT 0 NOT NULL
+  - id TEXT PRIMARY KEY
+  - training_plan_id TEXT NOT NULL
+  - dayName TEXT NOT NULL -- "Poniedziałek", "Day 1", etc.
+  - order_index INTEGER NOT NULL
+  - assigned_workout_definition_id TEXT
+  - assigned_workout_name TEXT
+  - isRestDay INTEGER DEFAULT 0
+  - restType TEXT -- "Complete", "Active", "Light Cardio"
   - notes TEXT
-  - templateId TEXT (If this day uses a predefined day template)
+  - estimatedDurationMinutes INTEGER
+  - targetIntensity TEXT -- "Low", "Moderate", "High"
+  - templateId TEXT -- Reference to day template if used
   - templateName TEXT
-  - UNIQUE (training_plan_id, dayName), UNIQUE (training_plan_id, order_index)
+  - createdAt TEXT DEFAULT (datetime('now'))
+  - UNIQUE (training_plan_id, dayName)
+  - UNIQUE (training_plan_id, order_index)
+  - FOREIGN KEY (training_plan_id) REFERENCES training_plans(id) ON DELETE CASCADE
+  - FOREIGN KEY (assigned_workout_definition_id) REFERENCES workout_definitions(id) ON DELETE SET NULL
 
-Table: day_templates (Optional, if you want reusable day structures)
-Description: Predefined templates for days within a training plan.
+Indexes:
+  - CREATE INDEX idx_plan_days_plan ON training_plan_days(training_plan_id);
+  - CREATE INDEX idx_plan_days_order ON training_plan_days(training_plan_id, order_index);
+
+Table: day_templates
+Description: Reusable day templates for training plans
 Columns:
-  - id TEXT PRIMARY KEY (UUID)
+  - id TEXT PRIMARY KEY
   - name TEXT NOT NULL UNIQUE
-  - assigned_workout_definition_id TEXT (FK to workout_definitions.id, optional)
+  - assigned_workout_definition_id TEXT
   - assigned_workout_name TEXT
   - isRestDay INTEGER DEFAULT 0
   - description TEXT
+  - category TEXT -- "Strength", "Cardio", "Recovery", etc.
+  - estimatedDurationMinutes INTEGER
+  - createdAt TEXT DEFAULT (datetime('now'))
+  - FOREIGN KEY (assigned_workout_definition_id) REFERENCES workout_definitions(id) ON DELETE SET NULL
 
---------------------------------------------------
--- Body Measurements & Progress Photos
---------------------------------------------------
+Table: user_plan_enrollments
+Description: Tracks user enrollment and progress in training plans
+Columns:
+  - id TEXT PRIMARY KEY
+  - user_id TEXT NOT NULL
+  - training_plan_id TEXT NOT NULL
+  - enrollmentDate TEXT NOT NULL
+  - startDate TEXT
+  - completionDate TEXT
+  - currentWeek INTEGER DEFAULT 1
+  - currentDay INTEGER DEFAULT 1
+  - status TEXT DEFAULT 'active' CHECK (status IN ('active', 'paused', 'completed', 'abandoned'))
+  - progressPercentage REAL DEFAULT 0
+  - totalWorkoutsCompleted INTEGER DEFAULT 0
+  - totalWorkoutsPlanned INTEGER DEFAULT 0
+  - notes TEXT
+  - createdAt TEXT DEFAULT (datetime('now'))
+  - updatedAt TEXT DEFAULT (datetime('now'))
+  - UNIQUE (user_id, training_plan_id)
+  - FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  - FOREIGN KEY (training_plan_id) REFERENCES training_plans(id) ON DELETE CASCADE
+
+Indexes:
+  - CREATE INDEX idx_enrollments_user ON user_plan_enrollments(user_id);
+  - CREATE INDEX idx_enrollments_plan ON user_plan_enrollments(training_plan_id);
+  - CREATE INDEX idx_enrollments_status ON user_plan_enrollments(status);
+
+================================================================
+-- PROGRESS TRACKING & MEASUREMENTS
+================================================================
 
 Table: measurements
-Description: Stores user's body measurements over time.
+Description: Body measurements and weight tracking over time
 Columns:
-  - id TEXT PRIMARY KEY (UUID)
-  - user_id TEXT NOT NULL (FK to users.id)
-  - date TEXT NOT NULL (ISO 8601 string)
-  - weight REAL NOT NULL (in kg)
-  - bodyPartsJson TEXT (JSON string storing an array of {name: string, value: number|null}, e.g., [{"name": "Talia (cm)", "value": 80}])
+  - id TEXT PRIMARY KEY
+  - user_id TEXT NOT NULL
+  - date TEXT NOT NULL -- ISO 8601 date
+  - weight REAL NOT NULL -- in kg
+  - bodyFatPercentage REAL -- if available
+  - muscleMassKg REAL -- if available
+  - bodyPartsJson TEXT -- JSON array of measurements
+  - measurementMethod TEXT -- "Manual", "Smart Scale", "DEXA", etc.
   - notes TEXT
+  - mood TEXT -- How user felt during measurement
+  - timeOfDay TEXT -- "Morning", "Evening", etc.
   - createdAt TEXT DEFAULT (datetime('now'))
+  - UNIQUE (user_id, date) -- One measurement per day per user
+  - FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+
+Indexes:
+  - CREATE INDEX idx_measurements_user ON measurements(user_id);
+  - CREATE INDEX idx_measurements_date ON measurements(date);
+  - CREATE INDEX idx_measurements_user_date ON measurements(user_id, date);
 
 Table: progress_photos
-Description: Stores user's progress photos.
+Description: Progress photos with categorization and privacy
 Columns:
-  - id TEXT PRIMARY KEY (UUID)
-  - user_id TEXT NOT NULL (FK to users.id)
-  - imageUrl TEXT NOT NULL (Path to stored image or URL)
-  - date TEXT NOT NULL (ISO 8601 string)
+  - id TEXT PRIMARY KEY
+  - user_id TEXT NOT NULL
+  - imageUrl TEXT NOT NULL
+  - thumbnailUrl TEXT -- Optimized thumbnail
+  - date TEXT NOT NULL
+  - photoType TEXT CHECK (photoType IN ('front', 'side', 'back', 'pose', 'other'))
   - description TEXT
-  - privacy TEXT DEFAULT 'private' (e.g., "private", "friends_only")
+  - privacy TEXT DEFAULT 'private' CHECK (privacy IN ('private', 'friends', 'public'))
+  - tags TEXT -- JSON array of tags
+  - bodyWeight REAL -- Weight at time of photo
+  - lighting TEXT -- "Natural", "Gym", "Studio", etc.
+  - location TEXT -- Where photo was taken
+  - isBeforeAfter INTEGER DEFAULT 0 -- Part of before/after comparison
+  - beforeAfterGroup TEXT -- Group ID for before/after sets
   - createdAt TEXT DEFAULT (datetime('now'))
+  - FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 
---------------------------------------------------
--- Wellness & Hydration
---------------------------------------------------
+Indexes:
+  - CREATE INDEX idx_photos_user ON progress_photos(user_id);
+  - CREATE INDEX idx_photos_date ON progress_photos(date);
+  - CREATE INDEX idx_photos_type ON progress_photos(photoType);
+  - CREATE INDEX idx_photos_privacy ON progress_photos(privacy);
+
+================================================================
+-- WELLNESS & LIFESTYLE TRACKING
+================================================================
 
 Table: wellness_entries
-Description: Stores user's daily wellness journal entries.
+Description: Daily wellness and mood tracking
 Columns:
-  - id TEXT PRIMARY KEY (UUID)
-  - user_id TEXT NOT NULL (FK to users.id)
-  - date TEXT NOT NULL (ISO 8601 string, YYYY-MM-DD format to ensure one entry per day per user)
-  - wellBeing INTEGER NOT NULL (Scale 1-5)
-  - energyLevel INTEGER NOT NULL (Scale 1-5)
-  - sleepQuality INTEGER NOT NULL (Scale 1-5)
-  - stressLevel INTEGER (Scale 1-5, optional)
-  - muscleSoreness INTEGER (Scale 1-5, optional)
-  - context TEXT (e.g., "general", "before_workout", "after_workout")
+  - id TEXT PRIMARY KEY
+  - user_id TEXT NOT NULL
+  - date TEXT NOT NULL -- YYYY-MM-DD format
+  - wellBeing INTEGER NOT NULL CHECK (wellBeing BETWEEN 1 AND 5)
+  - energyLevel INTEGER NOT NULL CHECK (energyLevel BETWEEN 1 AND 5)
+  - sleepQuality INTEGER NOT NULL CHECK (sleepQuality BETWEEN 1 AND 5)
+  - sleepHours REAL -- Actual hours slept
+  - stressLevel INTEGER CHECK (stressLevel BETWEEN 1 AND 5)
+  - muscleSoreness INTEGER CHECK (muscleSoreness BETWEEN 1 AND 5)
+  - motivation INTEGER CHECK (motivation BETWEEN 1 AND 5)
+  - context TEXT CHECK (context IN ('general', 'before_workout', 'after_workout', 'rest_day'))
   - notes TEXT
+  - weather TEXT -- Weather conditions
+  - workStress INTEGER CHECK (workStress BETWEEN 1 AND 5)
+  - socialActivity INTEGER CHECK (socialActivity BETWEEN 1 AND 5)
   - createdAt TEXT DEFAULT (datetime('now'))
+  - updatedAt TEXT DEFAULT (datetime('now'))
   - UNIQUE (user_id, date)
+  - FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+
+Indexes:
+  - CREATE INDEX idx_wellness_user ON wellness_entries(user_id);
+  - CREATE INDEX idx_wellness_date ON wellness_entries(date);
+  - CREATE INDEX idx_wellness_user_date ON wellness_entries(user_id, date);
 
 Table: hydration_log_entries
-Description: Stores individual water intake logs.
+Description: Water intake tracking throughout the day
 Columns:
-  - id TEXT PRIMARY KEY (UUID)
-  - user_id TEXT NOT NULL (FK to users.id)
-  - amount INTEGER NOT NULL (in milliliters)
-  - timestamp TEXT NOT NULL (ISO 8601 string)
-  - createdAt TEXT DEFAULT (datetime('now'))
-
-Table: user_hydration_settings
-Description: Stores user-specific hydration goals and custom portions.
-Columns:
-  - user_id TEXT PRIMARY KEY (FK to users.id)
-  - dailyGoalMl INTEGER DEFAULT 2500
-  - customPortionsJson TEXT (JSON string for array of {id: string, name: string, amount: number})
-  - reminderSettingsJson TEXT (JSON string for reminder settings)
-  - updatedAt TEXT DEFAULT (datetime('now'))
-
---------------------------------------------------
--- Goals & Personal Bests
---------------------------------------------------
-
-Table: user_goals
-Description: Stores user-defined goals.
-Columns:
-  - id TEXT PRIMARY KEY (UUID)
-  - user_id TEXT NOT NULL (FK to users.id)
-  - goalName TEXT NOT NULL
-  - metric TEXT NOT NULL (e.g., "Waga (kg)", "Przysiad - Objętość (kg*powt)")
-  - currentValue REAL
-  - targetValue REAL NOT NULL
-  - deadline TEXT (ISO 8601 string, optional)
+  - id TEXT PRIMARY KEY
+  - user_id TEXT NOT NULL
+  - amount INTEGER NOT NULL -- in milliliters
+  - timestamp TEXT NOT NULL
+  - source TEXT -- "Water", "Tea", "Coffee", "Sports Drink", etc.
+  - temperature TEXT -- "Cold", "Room Temp", "Hot"
+  - location TEXT -- "Home", "Gym", "Work", etc.
   - notes TEXT
   - createdAt TEXT DEFAULT (datetime('now'))
+  - FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+
+Indexes:
+  - CREATE INDEX idx_hydration_user ON hydration_log_entries(user_id);
+  - CREATE INDEX idx_hydration_timestamp ON hydration_log_entries(timestamp);
+  - CREATE INDEX idx_hydration_user_date ON hydration_log_entries(user_id, date(timestamp));
+
+Table: user_hydration_settings
+Description: Personalized hydration goals and preferences
+Columns:
+  - user_id TEXT PRIMARY KEY
+  - dailyGoalMl INTEGER DEFAULT 2500
+  - customPortionsJson TEXT -- JSON array of custom portion sizes
+  - reminderSettingsJson TEXT -- JSON for reminder preferences
+  - autoAdjustGoal INTEGER DEFAULT 0 -- Adjust based on activity
+  - climateAdjustment INTEGER DEFAULT 0 -- Adjust for weather
+  - activityMultiplier REAL DEFAULT 1.0 -- Multiplier for active days
   - updatedAt TEXT DEFAULT (datetime('now'))
-  - status TEXT DEFAULT 'active' (e.g., "active", "achieved", "archived")
+  - FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+
+================================================================
+-- GOALS & ACHIEVEMENTS
+================================================================
+
+Table: user_goals
+Description: User-defined fitness and health goals
+Columns:
+  - id TEXT PRIMARY KEY
+  - user_id TEXT NOT NULL
+  - goalType TEXT NOT NULL CHECK (goalType IN ('weight_loss', 'weight_gain', 'muscle_gain', 'strength', 'endurance', 'body_fat', 'custom'))
+  - goalName TEXT NOT NULL
+  - metric TEXT NOT NULL -- "kg", "lbs", "%", "reps", "seconds", etc.
+  - currentValue REAL
+  - targetValue REAL NOT NULL
+  - startValue REAL -- Initial value when goal was set
+  - deadline TEXT -- Target completion date
+  - priority TEXT CHECK (priority IN ('low', 'medium', 'high'))
+  - category TEXT -- "Fitness", "Health", "Performance", etc.
+  - isPublic INTEGER DEFAULT 0 -- Share with community
+  - reminderEnabled INTEGER DEFAULT 1
+  - notes TEXT
+  - milestones TEXT -- JSON array of milestone targets
+  - status TEXT DEFAULT 'active' CHECK (status IN ('active', 'achieved', 'paused', 'abandoned'))
+  - achievedDate TEXT -- When goal was completed
+  - progressPercentage REAL DEFAULT 0
+  - createdAt TEXT DEFAULT (datetime('now'))
+  - updatedAt TEXT DEFAULT (datetime('now'))
+  - FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+
+Indexes:
+  - CREATE INDEX idx_goals_user ON user_goals(user_id);
+  - CREATE INDEX idx_goals_status ON user_goals(status);
+  - CREATE INDEX idx_goals_type ON user_goals(goalType);
 
 Table: personal_bests
-Description: Stores user's personal bests for exercises.
+Description: Personal records for exercises and achievements
 Columns:
-  - id TEXT PRIMARY KEY (UUID)
-  - user_id TEXT NOT NULL (FK to users.id)
-  - exercise_id TEXT NOT NULL (FK to exercises.id)
-  - exercise_name TEXT NOT NULL (Can be denormalized for easier display)
-  - recordType TEXT NOT NULL (e.g., "weight_reps", "max_reps", "time_seconds")
-  - value_weight TEXT (e.g., "100", "BW")
+  - id TEXT PRIMARY KEY
+  - user_id TEXT NOT NULL
+  - exercise_id TEXT NOT NULL
+  - exercise_name TEXT NOT NULL -- Denormalized for display
+  - recordType TEXT NOT NULL CHECK (recordType IN ('1rm', 'max_reps', 'max_weight', 'best_time', 'longest_distance', 'max_volume'))
+  - value_weight TEXT -- "100", "BW", "BW+20", etc.
   - value_reps INTEGER
   - value_time_seconds INTEGER
   - value_distance_km REAL
-  - date TEXT NOT NULL (ISO 8601 string, date PB was achieved)
+  - value_volume REAL -- Total volume (weight * reps)
+  - date TEXT NOT NULL -- Date achieved
+  - workout_session_id TEXT -- Reference to session where PB was set
+  - previousBest TEXT -- Previous record for comparison
+  - improvement REAL -- Percentage improvement
   - notes TEXT
+  - isVerified INTEGER DEFAULT 0 -- Verified by trainer/community
+  - videoUrl TEXT -- Video proof of PB
+  - witnessedBy TEXT -- Who witnessed the PB
   - createdAt TEXT DEFAULT (datetime('now'))
   - updatedAt TEXT DEFAULT (datetime('now'))
-  - UNIQUE (user_id, exercise_id, recordType) -- Consider if a user can have multiple PBs of the same type for one exercise, or if this replaces.
+  - UNIQUE (user_id, exercise_id, recordType) -- One PB per type per exercise
+  - FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  - FOREIGN KEY (exercise_id) REFERENCES exercises(id) ON DELETE CASCADE
+  - FOREIGN KEY (workout_session_id) REFERENCES workout_sessions(id) ON DELETE SET NULL
 
---------------------------------------------------
--- Community Features
---------------------------------------------------
+Indexes:
+  - CREATE INDEX idx_pb_user ON personal_bests(user_id);
+  - CREATE INDEX idx_pb_exercise ON personal_bests(exercise_id);
+  - CREATE INDEX idx_pb_date ON personal_bests(date);
+  - CREATE INDEX idx_pb_type ON personal_bests(recordType);
+
+================================================================
+-- COMMUNITY & SOCIAL FEATURES
+================================================================
 
 Table: community_posts
-Description: Stores posts made by users in the community feed.
+Description: User posts in community feed with rich content support
 Columns:
-  - id TEXT PRIMARY KEY (UUID)
-  - user_id TEXT NOT NULL (FK to users.id)
+  - id TEXT PRIMARY KEY
+  - user_id TEXT NOT NULL
   - content TEXT NOT NULL
   - imageUrl TEXT
-  - postType TEXT (e.g., "text_only", "image_post", "workout_summary")
-  - workoutSummaryDetailsJson TEXT (JSON string for workout details if postType is "workout_summary")
-  - timestamp TEXT NOT NULL (ISO 8601 string)
+  - videoUrl TEXT -- Support for video posts
+  - postType TEXT NOT NULL CHECK (postType IN ('text', 'image', 'video', 'workout_summary', 'achievement', 'progress_photo', 'question'))
+  - workoutSummaryDetailsJson TEXT -- Workout details for workout posts
+  - achievementDetailsJson TEXT -- Achievement details
+  - tags TEXT -- JSON array of hashtags
+  - location TEXT -- Where post was created
+  - visibility TEXT DEFAULT 'public' CHECK (visibility IN ('public', 'followers', 'friends', 'private'))
+  - isSponsored INTEGER DEFAULT 0 -- Sponsored content
+  - isPinned INTEGER DEFAULT 0 -- Pinned by user
+  - editedAt TEXT -- Last edit timestamp
+  - timestamp TEXT NOT NULL
   - createdAt TEXT DEFAULT (datetime('now'))
+  - FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+
+Indexes:
+  - CREATE INDEX idx_posts_user ON community_posts(user_id);
+  - CREATE INDEX idx_posts_timestamp ON community_posts(timestamp);
+  - CREATE INDEX idx_posts_type ON community_posts(postType);
+  - CREATE INDEX idx_posts_visibility ON community_posts(visibility);
 
 Table: post_comments
-Description: Stores comments on community posts.
+Description: Comments and replies on community posts
 Columns:
-  - id TEXT PRIMARY KEY (UUID)
-  - post_id TEXT NOT NULL (FK to community_posts.id)
-  - user_id TEXT NOT NULL (FK to users.id)
+  - id TEXT PRIMARY KEY
+  - post_id TEXT NOT NULL
+  - user_id TEXT NOT NULL
+  - parent_comment_id TEXT -- For nested replies
   - text TEXT NOT NULL
-  - timestamp TEXT NOT NULL (ISO 8601 string)
+  - imageUrl TEXT -- Support for image comments
+  - isEdited INTEGER DEFAULT 0
+  - editedAt TEXT
+  - timestamp TEXT NOT NULL
   - createdAt TEXT DEFAULT (datetime('now'))
+  - FOREIGN KEY (post_id) REFERENCES community_posts(id) ON DELETE CASCADE
+  - FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  - FOREIGN KEY (parent_comment_id) REFERENCES post_comments(id) ON DELETE CASCADE
+
+Indexes:
+  - CREATE INDEX idx_comments_post ON post_comments(post_id);
+  - CREATE INDEX idx_comments_user ON post_comments(user_id);
+  - CREATE INDEX idx_comments_parent ON post_comments(parent_comment_id);
 
 Table: post_likes
-Description: Tracks likes on community posts.
+Description: Likes and reactions on posts and comments
 Columns:
-  - post_id TEXT NOT NULL (FK to community_posts.id)
-  - user_id TEXT NOT NULL (FK to users.id)
+  - id TEXT PRIMARY KEY
+  - post_id TEXT -- Either post_id or comment_id must be set
+  - comment_id TEXT
+  - user_id TEXT NOT NULL
+  - reactionType TEXT DEFAULT 'like' CHECK (reactionType IN ('like', 'love', 'strong', 'wow', 'laugh'))
   - createdAt TEXT DEFAULT (datetime('now'))
-  - PRIMARY KEY (post_id, user_id)
+  - UNIQUE (post_id, user_id) -- One reaction per post per user
+  - UNIQUE (comment_id, user_id) -- One reaction per comment per user
+  - FOREIGN KEY (post_id) REFERENCES community_posts(id) ON DELETE CASCADE
+  - FOREIGN KEY (comment_id) REFERENCES post_comments(id) ON DELETE CASCADE
+  - FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 
-Table: user_follows
-Description: Tracks user follow relationships.
-Columns:
-  - follower_user_id TEXT NOT NULL (FK to users.id - who is following)
-  - following_user_id TEXT NOT NULL (FK to users.id - who is being followed)
-  - createdAt TEXT DEFAULT (datetime('now'))
-  - PRIMARY KEY (follower_user_id, following_user_id)
+Indexes:
+  - CREATE INDEX idx_likes_post ON post_likes(post_id);
+  - CREATE INDEX idx_likes_comment ON post_likes(comment_id);
+  - CREATE INDEX idx_likes_user ON post_likes(user_id);
 
 Table: notifications
-Description: Stores notifications for users.
+Description: User notifications for community interactions
 Columns:
-  - id TEXT PRIMARY KEY (UUID)
-  - recipient_user_id TEXT NOT NULL (FK to users.id)
-  - actor_user_id TEXT (FK to users.id - who performed the action, optional)
-  - type TEXT NOT NULL (e.g., "like", "comment", "new_post", "follow", "system_message")
-  - related_post_id TEXT (FK to community_posts.id, if applicable)
-  - related_comment_id TEXT (FK to post_comments.id, if applicable)
-  - contentPreview TEXT (Short preview of the content for the notification)
-  - link TEXT (Link to the relevant content)
+  - id TEXT PRIMARY KEY
+  - recipient_user_id TEXT NOT NULL
+  - actor_user_id TEXT -- Who triggered the notification
+  - type TEXT NOT NULL CHECK (type IN ('like', 'comment', 'follow', 'mention', 'achievement', 'workout_reminder', 'goal_reminder', 'system'))
+  - related_post_id TEXT
+  - related_comment_id TEXT
+  - related_workout_id TEXT
+  - related_goal_id TEXT
+  - title TEXT NOT NULL
+  - contentPreview TEXT
+  - link TEXT -- Deep link to relevant content
+  - imageUrl TEXT -- Notification icon/image
+  - priority TEXT DEFAULT 'normal' CHECK (priority IN ('low', 'normal', 'high', 'urgent'))
   - isRead INTEGER DEFAULT 0
-  - timestamp TEXT NOT NULL (ISO 8601 string)
+  - isActionable INTEGER DEFAULT 0 -- Requires user action
+  - actionType TEXT -- "approve", "join", "respond", etc.
+  - expiresAt TEXT -- For time-sensitive notifications
+  - timestamp TEXT NOT NULL
   - createdAt TEXT DEFAULT (datetime('now'))
+  - FOREIGN KEY (recipient_user_id) REFERENCES users(id) ON DELETE CASCADE
+  - FOREIGN KEY (actor_user_id) REFERENCES users(id) ON DELETE SET NULL
+  - FOREIGN KEY (related_post_id) REFERENCES community_posts(id) ON DELETE CASCADE
+  - FOREIGN KEY (related_comment_id) REFERENCES post_comments(id) ON DELETE CASCADE
 
---------------------------------------------------
--- Application Settings (User-specific, if not part of users table)
---------------------------------------------------
+Indexes:
+  - CREATE INDEX idx_notifications_recipient ON notifications(recipient_user_id);
+  - CREATE INDEX idx_notifications_read ON notifications(isRead);
+  - CREATE INDEX idx_notifications_timestamp ON notifications(timestamp);
+  - CREATE INDEX idx_notifications_type ON notifications(type);
+
+================================================================
+-- APPLICATION SETTINGS & CONFIGURATION
+================================================================
 
 Table: user_app_settings
-Description: Stores various application settings for each user.
+Description: User-specific application preferences and settings
 Columns:
-  - user_id TEXT PRIMARY KEY (FK to users.id)
-  - reminderSettingsJson TEXT (JSON for workout reminders)
-  - progressionModelSettingsJson TEXT (JSON for progression model preferences)
-  - quickActionsVisibilityJson TEXT (JSON for dashboard quick action visibility)
-  - theme TEXT DEFAULT 'dark'
-  - language TEXT DEFAULT 'pl'
+  - user_id TEXT PRIMARY KEY
+  - theme TEXT DEFAULT 'dark' CHECK (theme IN ('light', 'dark', 'auto'))
+  - language TEXT DEFAULT 'pl' CHECK (language IN ('pl', 'en', 'de', 'fr'))
+  - units TEXT DEFAULT 'metric' CHECK (units IN ('metric', 'imperial'))
+  - timezone TEXT DEFAULT 'Europe/Warsaw'
+  - reminderSettingsJson TEXT -- Workout and goal reminders
+  - progressionModelSettingsJson TEXT -- Auto-progression preferences
+  - quickActionsVisibilityJson TEXT -- Dashboard customization
+  - privacySettingsJson TEXT -- Privacy preferences
+  - notificationSettingsJson TEXT -- Push notification preferences
+  - autoSyncEnabled INTEGER DEFAULT 1 -- Sync with wearables
+  - offlineModeEnabled INTEGER DEFAULT 0 -- Offline workout tracking
+  - dataRetentionDays INTEGER DEFAULT 365 -- How long to keep data
+  - backupEnabled INTEGER DEFAULT 1 -- Auto backup settings
+  - analyticsEnabled INTEGER DEFAULT 1 -- Usage analytics
+  - crashReportingEnabled INTEGER DEFAULT 1 -- Crash reporting
+  - betaFeaturesEnabled INTEGER DEFAULT 0 -- Beta feature access
+  - updatedAt TEXT DEFAULT (datetime('now'))
+  - FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+
+Table: app_metadata
+Description: Application-wide settings and metadata
+Columns:
+  - key TEXT PRIMARY KEY
+  - value TEXT NOT NULL
+  - description TEXT
+  - dataType TEXT CHECK (dataType IN ('string', 'number', 'boolean', 'json'))
+  - isPublic INTEGER DEFAULT 0 -- Can be accessed by clients
   - updatedAt TEXT DEFAULT (datetime('now'))
 
---------------------------------------------------
--- Notes on SQLite Schema:
---------------------------------------------------
-- Data Types:
-  - TEXT: For strings, ISO dates, JSON strings.
-  - INTEGER: For whole numbers, booleans (0 or 1).
-  - REAL: For numbers with decimal points (e.g., weight, distance).
-  - BLOB: For binary data (not used in this schema, images assumed stored as URLs).
-- Primary Keys (PK): Typically 'id'. Using TEXT for UUIDs is common and flexible.
-- Foreign Keys (FK): Indicated with (FK to table.column). SQLite supports foreign key constraints, but they need to be enabled (`PRAGMA foreign_keys = ON;`).
-- JSON Columns: For complex, nested, or variable data structures (like `bodyPartsJson`, `customPortionsJson`), storing as JSON strings is a practical approach in SQLite. You'd parse/stringify this in your application code.
-- Timestamps: `createdAt` and `updatedAt` are good practice. `DEFAULT (datetime('now'))` handles `createdAt` automatically. `updatedAt` would typically be managed by application logic or triggers.
-- Uniqueness: `UNIQUE` constraints should be added where appropriate (e.g., user email, exercise name).
-- Indexing: For a production database, you'd add indexes on frequently queried columns, especially foreign keys and columns used in WHERE clauses or ORDER BY.
+================================================================
+-- ANALYTICS & REPORTING (Optional for future)
+================================================================
 
-This schema provides a solid foundation. You'd adapt and expand it b
+Table: user_activity_logs
+Description: Track user engagement and app usage patterns
+Columns:
+  - id TEXT PRIMARY KEY
+  - user_id TEXT NOT NULL
+  - action TEXT NOT NULL -- "workout_started", "goal_created", etc.
+  - screen TEXT -- Which screen/page
+  - details TEXT -- JSON with additional context
+  - sessionId TEXT -- Group actions by session
+  - deviceInfo TEXT -- Device/platform info
+  - timestamp TEXT NOT NULL
+  - FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+
+Indexes:
+  - CREATE INDEX idx_activity_user ON user_activity_logs(user_id);
+  - CREATE INDEX idx_activity_timestamp ON user_activity_logs(timestamp);
+  - CREATE INDEX idx_activity_action ON user_activity_logs(action);
+
+================================================================
+-- SCHEMA IMPROVEMENTS & OPTIMIZATIONS
+================================================================
+
+IMPROVEMENTS MADE:
+1. **Enhanced Data Integrity**: Added CHECK constraints for enum values
+2. **Better Indexing Strategy**: Comprehensive indexes for query performance
+3. **Normalized Relationships**: Proper foreign key relationships with CASCADE options
+4. **Mobile Optimization**: Designed for offline-first mobile app architecture
+5. **Extensibility**: JSON fields for flexible data storage
+6. **Performance**: Denormalized fields where appropriate for read performance
+7. **User Experience**: Rich metadata for better app functionality
+8. **Analytics Ready**: Structure supports future analytics and reporting
+9. **Privacy Compliant**: Proper data retention and privacy controls
+10. **Scalable**: Schema can grow with app features
+
+KEY RELATIONSHIPS:
+- users → workout_sessions (1:many)
+- users → training_plans (1:many)
+- users → personal_bests (1:many)
+- workout_definitions → workout_definition_exercises (1:many)
+- workout_sessions → recorded_sets (1:many)
+- training_plans → training_plan_days (1:many)
+- community_posts → post_comments (1:many)
+- users → user_follows (many:many)
+
+MOBILE APP CONSIDERATIONS:
+- Offline-first design with sync capabilities
+- Optimized for SQLite performance on mobile devices
+- JSON fields for flexible data without schema migrations
+- Proper indexing for fast queries on limited hardware
+- Data retention policies for storage management
+
+This improved schema provides a robust foundation for the Jest fitness mobile app
+with room for future growth and enhanced user experience.

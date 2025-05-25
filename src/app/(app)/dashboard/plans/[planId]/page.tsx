@@ -38,10 +38,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 // DATABASE INTEGRATION: Plan details are now fetched from the SQLite database via API endpoint.
 // Starting a workout involves storing its structure in localStorage for the active workout page.
-import {
-  MOCK_EXERCISES_DATABASE,
-  type ExerciseInWorkout,
-} from "@/lib/mockData";
+import { type ExerciseInWorkout } from "@/lib/mockData";
 
 // Define types for database integration
 interface PlanDayDetail {
@@ -105,6 +102,33 @@ export default function TrainingPlanDetailPage() {
   );
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+
+  // DATABASE INTEGRATION: Exercise database state
+  const [exercisesDatabase, setExercisesDatabase] = React.useState<
+    Array<{
+      id: string;
+      name: string;
+      category: string;
+    }>
+  >([]);
+
+  // DATABASE INTEGRATION: Fetch exercises from database
+  React.useEffect(() => {
+    const fetchExercises = async () => {
+      try {
+        const response = await fetch("/api/exercises");
+        const data = await response.json();
+        if (data.success && data.exercises) {
+          setExercisesDatabase(data.exercises);
+        }
+      } catch (error) {
+        console.error("Error fetching exercises from database:", error);
+        // Keep empty array as fallback
+      }
+    };
+
+    fetchExercises();
+  }, []);
 
   React.useEffect(() => {
     const fetchPlanDetails = async () => {
@@ -189,17 +213,20 @@ export default function TrainingPlanDetailPage() {
         },
       ];
     } else if (workoutId.startsWith("custom_wk_")) {
-      exercisesToStart = MOCK_EXERCISES_DATABASE.filter(
-        (ex) =>
-          ex.name
-            .toLowerCase()
-            .includes(
-              workoutName.split(" (")[0].toLowerCase().substring(0, 5)
-            ) ||
-          ex.category
-            .toLowerCase()
-            .includes(workoutName.split(" (")[0].toLowerCase().substring(0, 5))
-      )
+      exercisesToStart = exercisesDatabase
+        .filter(
+          (ex) =>
+            ex.name
+              .toLowerCase()
+              .includes(
+                workoutName.split(" (")[0].toLowerCase().substring(0, 5)
+              ) ||
+            ex.category
+              .toLowerCase()
+              .includes(
+                workoutName.split(" (")[0].toLowerCase().substring(0, 5)
+              )
+        )
         .slice(0, 3)
         .map((ex) => ({
           id: ex.id,
@@ -208,10 +235,10 @@ export default function TrainingPlanDetailPage() {
           defaultReps: "10",
           defaultRest: 60,
         }));
-      if (exercisesToStart.length === 0) {
+      if (exercisesToStart.length === 0 && exercisesDatabase.length > 0) {
         exercisesToStart.push({
-          id: MOCK_EXERCISES_DATABASE[0].id,
-          name: MOCK_EXERCISES_DATABASE[0].name,
+          id: exercisesDatabase[0].id,
+          name: exercisesDatabase[0].name,
           defaultSets: 3,
           defaultReps: "10",
           defaultRest: 60,
@@ -219,15 +246,28 @@ export default function TrainingPlanDetailPage() {
       }
     } else {
       // Fallback for other workout IDs - uses a default exercise.
-      exercisesToStart = [
-        {
-          id: MOCK_EXERCISES_DATABASE[0].id,
-          name: MOCK_EXERCISES_DATABASE[0].name,
-          defaultSets: 3,
-          defaultReps: "10",
-          defaultRest: 60,
-        },
-      ];
+      if (exercisesDatabase.length > 0) {
+        exercisesToStart = [
+          {
+            id: exercisesDatabase[0].id,
+            name: exercisesDatabase[0].name,
+            defaultSets: 3,
+            defaultReps: "10",
+            defaultRest: 60,
+          },
+        ];
+      } else {
+        // Ultimate fallback if no exercises are loaded
+        exercisesToStart = [
+          {
+            id: "ex1",
+            name: "Wyciskanie sztangi na ławce płaskiej",
+            defaultSets: 3,
+            defaultReps: "10",
+            defaultRest: 60,
+          },
+        ];
+      }
     }
 
     const customWorkoutToStart = {
@@ -339,12 +379,12 @@ export default function TrainingPlanDetailPage() {
                   <div className="flex items-center gap-1">
                     <User className="h-4 w-4" /> Autor:
                     <Link
-                      href={`/dashboard/profile/${planData.author
+                      href={`/dashboard/profile/${planData.author.username
                         .toLowerCase()
                         .replace(/\s+/g, "_")}`}
                       className="font-medium text-primary hover:underline"
                     >
-                      {planData.author}
+                      {planData.author.fullName}
                     </Link>
                   </div>
                 )}
@@ -425,7 +465,7 @@ export default function TrainingPlanDetailPage() {
                             <Button
                               size="sm"
                               variant="default"
-                              onClick={(e) => {
+                              onClick={() => {
                                 handleStartWorkout(
                                   day.dayName,
                                   day.assignedWorkoutId,
@@ -448,7 +488,7 @@ export default function TrainingPlanDetailPage() {
                             </h4>
                             <p className="text-muted-foreground mb-1">
                               Cel: Skupienie na{" "}
-                              {MOCK_EXERCISES_DATABASE.find(
+                              {exercisesDatabase.find(
                                 (ex) =>
                                   ex.id === day.assignedWorkoutId?.split("_")[0]
                               )?.category || "ogólnej sile"}
@@ -457,9 +497,11 @@ export default function TrainingPlanDetailPage() {
                             <ul className="list-disc list-inside pl-2 text-muted-foreground">
                               <li>
                                 Przykładowe ćwiczenie 1 (np.{" "}
-                                {MOCK_EXERCISES_DATABASE[
-                                  index % MOCK_EXERCISES_DATABASE.length
-                                ]?.name || "Wyciskanie"}
+                                {exercisesDatabase.length > 0
+                                  ? exercisesDatabase[
+                                      index % exercisesDatabase.length
+                                    ]?.name || "Wyciskanie"
+                                  : "Wyciskanie"}
                                 )
                               </li>
                               <li>Przykładowe ćwiczenie 2</li>

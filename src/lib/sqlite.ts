@@ -7,7 +7,6 @@ import { v4 as uuidv4 } from 'uuid'; // For generating IDs where needed
 import {
   MOCK_USER_PROFILES_DB,
   MOCK_CURRENT_USER_PROFILE,
-  MOCK_HISTORY_SESSIONS,
   MOCK_DETAILED_TRAINING_PLANS,
   INITIAL_MOCK_MEASUREMENTS,
   INITIAL_MOCK_PHOTOS,
@@ -50,6 +49,69 @@ const EXERCISES_FOR_SEEDING = [
     id: "ex6",
     name: "Wyciskanie nad głowę",
     category: "Barki"
+  }
+];
+
+// Local history sessions data for database seeding (replaces MOCK_HISTORY_SESSIONS import)
+const HISTORY_SESSIONS_FOR_SEEDING = [
+  {
+    id: "session1",
+    userId: MOCK_CURRENT_USER_PROFILE.id,
+    workoutId: "wk1",
+    workoutName: "Trening Klatki Piersiowej",
+    workoutType: "Siłowy",
+    startTime: "2024-01-15T10:00:00Z",
+    endTime: "2024-01-15T11:30:00Z",
+    totalTimeSeconds: 5400,
+    difficulty: "Średni",
+    generalNotes: "Dobry trening, czuję się silny",
+    calculatedTotalVolume: 2500,
+    exercises: [
+      { id: "ex1", name: "Wyciskanie sztangi na ławce płaskiej", defaultSets: 3, defaultReps: "10", defaultRest: 60 }
+    ],
+    recordedSets: {
+      "ex1": [
+        { setNumber: 1, weight: "80", reps: "10", rpe: 7, notes: "Dobre tempo" },
+        { setNumber: 2, weight: "85", reps: "8", rpe: 8, notes: "Ciężej" },
+        { setNumber: 3, weight: "90", reps: "6", rpe: 9, notes: "Maksymalny wysiłek" }
+      ]
+    } as Record<string, Array<{
+      setNumber: number;
+      weight: string;
+      reps: string;
+      rpe: number;
+      notes: string;
+    }>>
+  },
+  {
+    id: "session2",
+    userId: MOCK_CURRENT_USER_PROFILE.id,
+    workoutId: "wk2",
+    workoutName: "Trening Nóg",
+    workoutType: "Siłowy",
+    startTime: "2024-01-17T14:00:00Z",
+    endTime: "2024-01-17T15:45:00Z",
+    totalTimeSeconds: 6300,
+    difficulty: "Trudny",
+    generalNotes: "Intensywny trening nóg",
+    calculatedTotalVolume: 3200,
+    exercises: [
+      { id: "ex2", name: "Przysiady ze sztangą", defaultSets: 4, defaultReps: "8", defaultRest: 90 }
+    ],
+    recordedSets: {
+      "ex2": [
+        { setNumber: 1, weight: "100", reps: "8", rpe: 7, notes: "Rozgrzewka" },
+        { setNumber: 2, weight: "120", reps: "8", rpe: 8, notes: "Dobra forma" },
+        { setNumber: 3, weight: "140", reps: "6", rpe: 9, notes: "Ciężko" },
+        { setNumber: 4, weight: "120", reps: "8", rpe: 8, notes: "Drop set" }
+      ]
+    } as Record<string, Array<{
+      setNumber: number;
+      weight: string;
+      reps: string;
+      rpe: number;
+      notes: string;
+    }>>
   }
 ];
 
@@ -564,7 +626,7 @@ function seedDatabase(db: Database.Database) {
         if (day.assignedWorkoutId && day.assignedWorkoutName && !day.isRestDay) {
           if (!allWorkoutDefinitions.find(wd => wd.id === day.assignedWorkoutId)) {
 
-            const exercisesForDef = MOCK_HISTORY_SESSIONS.find(s => s.workoutId === day.assignedWorkoutId)?.exercises ||
+            const exercisesForDef = HISTORY_SESSIONS_FOR_SEEDING.find(s => s.workoutId === day.assignedWorkoutId)?.exercises ||
                                     EXERCISES_FOR_SEEDING.filter(ex => day.assignedWorkoutName?.toLowerCase().includes(ex.name.toLowerCase().substring(0,5)))
                                     .map(e => ({ id: e.id, name: e.name, defaultSets: 3, defaultReps: '10', defaultRest: 60 }));
             allWorkoutDefinitions.push({
@@ -667,7 +729,7 @@ function seedDatabase(db: Database.Database) {
       INSERT OR IGNORE INTO recorded_sets (id, workout_session_id, exercise_id, exercise_name_in_session, setNumber, weight, reps, rpe, notes)
       VALUES (@id, @workout_session_id, @exercise_id, @exercise_name_in_session, @setNumber, @weight, @reps, @rpe, @notes)
     `);
-    for (const session of MOCK_HISTORY_SESSIONS) {
+    for (const session of HISTORY_SESSIONS_FOR_SEEDING) {
       insertSession.run({
         id: session.id,
         user_id: session.userId || MOCK_CURRENT_USER_PROFILE.id,
