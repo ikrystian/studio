@@ -7,7 +7,6 @@ import { v4 as uuidv4 } from 'uuid'; // For generating IDs where needed
 import {
   MOCK_USER_PROFILES_DB,
   MOCK_CURRENT_USER_PROFILE,
-  MOCK_EXERCISES_DATABASE,
   MOCK_HISTORY_SESSIONS,
   MOCK_DETAILED_TRAINING_PLANS,
   INITIAL_MOCK_MEASUREMENTS,
@@ -17,13 +16,42 @@ import {
   INITIAL_USER_GOALS_STATS,
   INITIAL_MOCK_PBS,
   ALL_MOCK_POSTS_FEED,
-  MOCK_USERS_FEED, 
+  MOCK_USERS_FEED,
   INITIAL_MOCK_NOTIFICATIONS_FEED,
-  MOCK_USER_DATA_EDIT_PROFILE, 
-  MOCK_DAY_TEMPLATES_FOR_PLAN_EDITOR, 
-  MOCK_WORKOUTS_ACTIVE, 
+  MOCK_USER_DATA_EDIT_PROFILE,
+  MOCK_DAY_TEMPLATES_FOR_PLAN_EDITOR,
+  MOCK_WORKOUTS_ACTIVE,
 } from '@/lib/mockData';
-import type { UserProfile, HistoricalWorkoutSession, DetailedTrainingPlan, Measurement, ProgressPhoto, WellnessEntry, Portion, UserGoal, PersonalBest, FeedMockPost, FeedMockNotification, RichDayTemplate, Workout as ActiveWorkoutType } from '@/lib/mockData';
+import type { UserProfile, Workout as ActiveWorkoutType } from '@/lib/mockData';
+
+// Local exercises data for database seeding (replaces MOCK_EXERCISES_DATABASE import)
+const EXERCISES_FOR_SEEDING = [
+  {
+    id: "ex1",
+    name: "Wyciskanie sztangi na ławce płaskiej",
+    category: "Klatka"
+  },
+  {
+    id: "ex2",
+    name: "Przysiady ze sztangą",
+    category: "Nogi"
+  },
+  {
+    id: "ex4",
+    name: "Podciąganie na drążku",
+    category: "Plecy"
+  },
+  {
+    id: "ex5",
+    name: "Martwy ciąg",
+    category: "Plecy"
+  },
+  {
+    id: "ex6",
+    name: "Wyciskanie nad głowę",
+    category: "Barki"
+  }
+];
 
 const SALT_ROUNDS = 10;
 const dbPath = path.join(process.cwd(), 'workoutwise.db');
@@ -161,7 +189,7 @@ function initializeDB() {
       notes TEXT,
       createdAt TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (workout_session_id) REFERENCES workout_sessions(id) ON DELETE CASCADE,
-      FOREIGN KEY (exercise_id) REFERENCES exercises(id) 
+      FOREIGN KEY (exercise_id) REFERENCES exercises(id)
     );
   `);
 
@@ -201,7 +229,7 @@ function initializeDB() {
       FOREIGN KEY (assigned_workout_definition_id) REFERENCES workout_definitions(id) ON DELETE SET NULL
     );
   `);
-  
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS day_templates (
       id TEXT PRIMARY KEY,
@@ -390,7 +418,7 @@ function initializeDB() {
       FOREIGN KEY (related_comment_id) REFERENCES post_comments(id) ON DELETE SET NULL
     );
   `);
-  
+
   // Application Settings
   db.exec(`
     CREATE TABLE IF NOT EXISTS user_app_settings (
@@ -406,9 +434,9 @@ function initializeDB() {
   `);
 
   db.exec(`CREATE TABLE IF NOT EXISTS db_meta (key TEXT PRIMARY KEY, value TEXT);`);
-  
+
   console.log("Database schema initialized.");
-  
+
   seedDatabase(db);
 
   return db;
@@ -416,7 +444,7 @@ function initializeDB() {
 
 function seedDatabase(db: Database.Database) {
   const stmtCheckSeed = db.prepare(`SELECT value FROM db_meta WHERE key = ?`);
-  const seedStatus = stmtCheckSeed.get('seeds_applied_v2'); 
+  const seedStatus = stmtCheckSeed.get('seeds_applied_v2');
 
   if (seedStatus === 'true') {
     console.log("Database already seeded (v2). Skipping seeding process.");
@@ -431,7 +459,7 @@ function seedDatabase(db: Database.Database) {
       INSERT OR IGNORE INTO users (id, email, fullName, username, hashedPassword, avatarUrl, bio, fitnessLevel, joinDate, dateOfBirth, gender, weight, height, role)
       VALUES (@id, @email, @fullName, @username, @hashedPassword, @avatarUrl, @bio, @fitnessLevel, @joinDate, @dateOfBirth, @gender, @weight, @height, @role)
     `);
-    const mockPassword = "password"; 
+    const mockPassword = "password";
     const hashedMockPassword = bcrypt.hashSync(mockPassword, SALT_ROUNDS);
 
     let allMockUsers = [...MOCK_USER_PROFILES_DB];
@@ -440,7 +468,7 @@ function seedDatabase(db: Database.Database) {
     }
      if (!allMockUsers.find(u => u.id === MOCK_USER_DATA_EDIT_PROFILE.id)) {
         const editProfileUser = allMockUsers.find(p => p.email === MOCK_USER_DATA_EDIT_PROFILE.email);
-        if (!editProfileUser) { 
+        if (!editProfileUser) {
             allMockUsers.push({
                 ...MOCK_USER_DATA_EDIT_PROFILE,
                 email: MOCK_USER_DATA_EDIT_PROFILE.email || 'edit.profile@example.com',
@@ -458,7 +486,7 @@ function seedDatabase(db: Database.Database) {
     const testUserEmail = "test@example.com";
     if (!allMockUsers.some(u => u.email === testUserEmail)) {
         allMockUsers.push({
-            id: 'test-user-id-sqlite', 
+            id: 'test-user-id-sqlite',
             email: testUserEmail,
             fullName: "Test User SQLite",
             username: "testsqlite",
@@ -508,17 +536,17 @@ function seedDatabase(db: Database.Database) {
       INSERT OR IGNORE INTO exercises (id, name, category, instructions, videoUrl, createdBy_user_id)
       VALUES (@id, @name, @category, @instructions, @videoUrl, @createdBy_user_id)
     `);
-    for (const ex of MOCK_EXERCISES_DATABASE) {
+    for (const ex of EXERCISES_FOR_SEEDING) {
       insertExercise.run({
         id: ex.id,
         name: ex.name,
         category: ex.category,
-        instructions: ex.instructions || null,
-        videoUrl: ex.videoUrl || null,
+        instructions: null,
+        videoUrl: null,
         createdBy_user_id: null
       });
     }
-    
+
     // Seed Workout Definitions
     const insertWorkoutDef = db.prepare(`
         INSERT OR IGNORE INTO workout_definitions (id, user_id, name, type, description, isPublic)
@@ -529,21 +557,21 @@ function seedDatabase(db: Database.Database) {
         VALUES (@id, @workout_definition_id, @exercise_id, @order_index, @defaultSets, @defaultReps, @defaultRestSeconds)
     `);
 
-    
+
     const allWorkoutDefinitions: ActiveWorkoutType[] = [...MOCK_WORKOUTS_ACTIVE];
     MOCK_DETAILED_TRAINING_PLANS.forEach(plan => {
       plan.schedule.forEach(day => {
         if (day.assignedWorkoutId && day.assignedWorkoutName && !day.isRestDay) {
           if (!allWorkoutDefinitions.find(wd => wd.id === day.assignedWorkoutId)) {
-            
+
             const exercisesForDef = MOCK_HISTORY_SESSIONS.find(s => s.workoutId === day.assignedWorkoutId)?.exercises ||
-                                    MOCK_EXERCISES_DATABASE.filter(ex => day.assignedWorkoutName?.toLowerCase().includes(ex.name.toLowerCase().substring(0,5)))
+                                    EXERCISES_FOR_SEEDING.filter(ex => day.assignedWorkoutName?.toLowerCase().includes(ex.name.toLowerCase().substring(0,5)))
                                     .map(e => ({ id: e.id, name: e.name, defaultSets: 3, defaultReps: '10', defaultRest: 60 }));
             allWorkoutDefinitions.push({
               id: day.assignedWorkoutId,
               name: day.assignedWorkoutName,
-              exercises: exercisesForDef.slice(0,5), 
-              type: MOCK_EXERCISES_DATABASE.find(ex => ex.id === exercisesForDef[0]?.id)?.category === 'Cardio' ? 'Cardio' : 'Siłowy',
+              exercises: exercisesForDef.slice(0,5),
+              type: EXERCISES_FOR_SEEDING.find(ex => ex.id === exercisesForDef[0]?.id)?.category === 'Cardio' ? 'Cardio' : 'Siłowy',
             });
           }
         }
@@ -554,7 +582,7 @@ function seedDatabase(db: Database.Database) {
     for (const wd of allWorkoutDefinitions) {
         insertWorkoutDef.run({
             id: wd.id,
-            user_id: MOCK_CURRENT_USER_PROFILE.id, 
+            user_id: MOCK_CURRENT_USER_PROFILE.id,
             name: wd.name,
             type: wd.type || "Mieszany",
             description: `Mock definition for ${wd.name}`,
@@ -588,7 +616,7 @@ function seedDatabase(db: Database.Database) {
         assigned_workout_definition_id: dt.assignedWorkoutId || null,
         assigned_workout_name: dt.assignedWorkoutName || null,
         isRestDay: dt.isRestDay ? 1 : 0,
-        description: dt.name 
+        description: dt.name
       });
     }
 
@@ -629,7 +657,7 @@ function seedDatabase(db: Database.Database) {
         });
       });
     }
-    
+
     // Seed Workout Sessions and Recorded Sets
     const insertSession = db.prepare(`
       INSERT OR IGNORE INTO workout_sessions (id, user_id, workout_definition_id, workout_name, workout_type, startTime, endTime, totalTimeSeconds, difficulty, generalNotes, calculatedTotalVolume)
@@ -658,7 +686,7 @@ function seedDatabase(db: Database.Database) {
         if (setsForExercise) {
           for (const set of setsForExercise) {
             insertSet.run({
-              id: `set-${session.id}-${exercise.id}-${set.setNumber}-${uuidv4().substring(0,8)}`, 
+              id: `set-${session.id}-${exercise.id}-${set.setNumber}-${uuidv4().substring(0,8)}`,
               workout_session_id: session.id,
               exercise_id: exercise.id,
               exercise_name_in_session: exercise.name,
@@ -672,7 +700,7 @@ function seedDatabase(db: Database.Database) {
         }
       }
     }
-    
+
     const insertMeasurement = db.prepare(`
       INSERT OR IGNORE INTO measurements (id, user_id, date, weight, bodyPartsJson, notes)
       VALUES (@id, @user_id, @date, @weight, @bodyPartsJson, @notes)
@@ -764,7 +792,7 @@ function seedDatabase(db: Database.Database) {
            insertLike.run(post.id, MOCK_CURRENT_USER_PROFILE.id);
        }
     }
-    
+
     // Add some user follows for testing
     const user1 = allMockUsers.find(u => u.username === "alex_fit_girl");
     const user2 = allMockUsers.find(u => u.username === "kris_trener");

@@ -25,30 +25,36 @@ import type { UserGoal as ImportedUserGoal } from "@/app/(app)/dashboard/statist
 export type UserGoal = ImportedUserGoal;
 
 // --- Original MOCK_EXERCISES_DATABASE (from workout/create & active workout) ---
-export const INITIAL_MOCK_EXERCISES_DATABASE_DATA: SelectableExerciseType[] = [
-  { id: "ex1", name: "Wyciskanie sztangi na ławce płaskiej", category: "Klatka", videoUrl: "https://www.youtube.com/watch?v=example"},
-  { id: "ex2", name: "Przysiady ze sztangą", category: "Nogi", videoUrl: "https://www.youtube.com/watch?v=example"},
-  { id: "ex3", name: "Martwy ciąg", category: "Plecy", videoUrl: "https://www.youtube.com/watch?v=example"},
-  { id: "ex4", name: "Podciąganie na drążku", category: "Plecy", videoUrl: "https://www.youtube.com/watch?v=example"},
-  { id: "ex5", name: "Pompki", category: "Klatka", videoUrl: "https://www.youtube.com/watch?v=example"},
-  { id: "ex6", name: "Bieg na bieżni", category: "Cardio", videoUrl: "https://www.youtube.com/watch?v=example"},
-  { id: "ex7", name: "Skakanka", category: "Cardio", videoUrl: "https://www.youtube.com/watch?v=example"},
-  { id: "ex8", name: "Rozciąganie dynamiczne", category: "Całe ciało", videoUrl: "https://www.youtube.com/watch?v=example"},
-  { id: "ex9", name: "Wyciskanie żołnierskie (OHP)", category: "Barki", videoUrl: "https://www.youtube.com/watch?v=example"},
-  { id: "ex10", name: "Uginanie ramion ze sztangą", category: "Ramiona", videoUrl: "https://www.youtube.com/watch?v=example"},
-  { id: "ex11", name: "Plank", category: "Brzuch", videoUrl: "https://www.youtube.com/watch?v=example"},
-  { id: "ex12", name: "Wiosłowanie sztangą", category: "Plecy", videoUrl: "https://www.youtube.com/watch?v=example"},
-  { id: "ex13", name: "Wykroki", category: "Nogi", videoUrl: "https://www.youtube.com/watch?v=example"},
-  { id: "ex14", name: "Unoszenie hantli bokiem", category: "Barki", videoUrl: "https://www.youtube.com/watch?v=example"},
-  { id: "ex15", name: "Francuskie wyciskanie sztangielki", category: "Ramiona", videoUrl: "https://www.youtube.com/watch?v=example"},
-  { id: "ex16", name: "Allah Pompki (Modlitewniki)", category: "Brzuch", videoUrl: "https://www.youtube.com/watch?v=example"},
-  { id: "ex17", name: "Przysiad bułgarski", category: "Nogi", videoUrl: "https://www.youtube.com/watch?v=example"},
-  { id: "ex18", name: "Wyciskanie hantli na ławce skośnej", category: "Klatka", videoUrl: "https://www.youtube.com/watch?v=example"},
-  { id: "ex19", name: "Orbitrek (30 min)", category: "Cardio", videoUrl: "https://www.youtube.com/watch?v=example"},
-  { id: "ex20", name: "Wall sit (60s)", category: "Nogi", videoUrl: "https://www.youtube.com/watch?v=example"},
-];
-export { INITIAL_MOCK_EXERCISES_DATABASE_DATA as MOCK_EXERCISES_DATABASE };
+
 export type { SelectableExerciseType };
+
+export const MOCK_EXERCISES_DATABASE: SelectableExerciseType[] = [
+  {
+    id: "ex1",
+    name: "Wyciskanie sztangi na ławce płaskiej",
+    category: "Klatka"
+  },
+  {
+    id: "ex2",
+    name: "Przysiady ze sztangą",
+    category: "Nogi"
+  },
+  {
+    id: "ex4",
+    name: "Podciąganie na drążku",
+    category: "Plecy"
+  },
+  {
+    id: "ex5",
+    name: "Martwy ciąg",
+    category: "Plecy"
+  },
+  {
+    id: "ex6",
+    name: "Wyciskanie nad głowę",
+    category: "Barki"
+  }
+];
 
 // --- Exercise Categories for Admin Form ---
 export const EXERCISE_CATEGORIES_DIALOG: string[] = [
@@ -254,6 +260,54 @@ export const MOCK_DETAILED_TRAINING_PLANS: DetailedTrainingPlan[] = [
       { dayName: "Niedziela", isRestDay: true, notes: "Pełna regeneracja" },
     ],
   },
+];
+
+// --- Training Plans List (for plans page) ---
+export interface TrainingPlanListItem {
+  id: string;
+  name: string;
+  description: string;
+  goal: string;
+  duration: string;
+  icon?: any;
+}
+
+export const MOCK_TRAINING_PLANS_LIST: TrainingPlanListItem[] = [
+  {
+    id: 'plan1',
+    name: 'Siła Początkującego Hsaserkulesa',
+    description: 'Kompleksowy plan dla osób rozpoczynających przygodę z treningiem siłowym, skupiony na podstawowych ćwiczeniach wielostawowych. Ten plan zakłada 3 dni treningowe w tygodniu i 4 dni odpoczynku.',
+    goal: 'Budowa podstawowej siły i masy mięśniowej',
+    duration: '8 tygodni'
+  },
+  {
+    id: 'plan2',
+    name: 'Cardio Spalacz Tłuszczu',
+    description: 'Intensywny plan cardio skupiony na spalaniu tkanki tłuszczowej i poprawie kondycji sercowo-naczyniowej. Kombinacja HIIT, cardio aerobowego i treningów interwałowych.',
+    goal: 'Redukcja tkanki tłuszczowej i poprawa kondycji',
+    duration: '6 tygodni'
+  },
+  {
+    id: 'plan3',
+    name: 'Joga & Mobilność',
+    description: 'Plan skupiony na poprawie elastyczności, mobilności i równowagi. Idealne dla osób pracujących przy biurku lub chcących uzupełnić swój trening siłowy.',
+    goal: 'Poprawa elastyczności i mobilności',
+    duration: '4 tygodnie'
+  },
+  {
+    id: 'plan4',
+    name: 'Wszechstronny Wojownik',
+    description: 'Zbalansowany plan łączący trening siłowy, cardio i elementy funkcjonalne. Idealny dla osób chcących utrzymać dobrą formę fizyczną we wszystkich aspektach.',
+    goal: 'Utrzymanie formy i wszechstronny rozwój',
+    duration: '12 tygodni'
+  },
+  {
+    id: 'plan5',
+    name: 'Masa Mięśniowa Pro',
+    description: 'Zaawansowany plan dla doświadczonych osób chcących maksymalizować przyrost masy mięśniowej. Wysokie obciążenia, progresywne przeciążenie i precyzyjne tempo.',
+    goal: 'Budowa podstawowej siły i masy mięśniowej',
+    duration: '16 tygodni'
+  }
 ];
 
 // --- Measurements Data ---
@@ -544,6 +598,82 @@ export const MOCK_WORKOUTS_ACTIVE: Workout[] = [
       { id: "ex1", name: "Wyciskanie sztangi na ławce płaskiej", defaultSets: 3, defaultReps: "8-10", defaultRest: 90 },
       { id: "ex2", name: "Przysiady ze sztangą", defaultSets: 4, defaultReps: "6-8", defaultRest: 120 },
       { id: "ex4", name: "Podciąganie na drążku", defaultSets: 3, defaultReps: "Max", defaultRest: 90 },
+    ]
+  }
+];
+
+// --- Workout Summary Page Data ---
+export const MOCK_EXISTING_PBS_SUMMARY = [
+  { exerciseName: "Wyciskanie sztangi na ławce płaskiej", currentPB: "80kg x 8", date: "2024-01-10" },
+  { exerciseName: "Przysiady ze sztangą", currentPB: "100kg x 10", date: "2024-01-08" },
+  { exerciseName: "Podciąganie na drążku", currentPB: "BW x 12", date: "2024-01-05" }
+];
+
+export const MOCK_MOTIVATIONAL_MESSAGES_SUMMARY = [
+  "Świetna robota! Każdy trening to krok do przodu! 💪",
+  "Konsystencja to klucz do sukcesu. Tak trzymaj! 🔥",
+  "Twoja determinacja jest inspirująca! 🌟",
+  "Każda seria przybliża Cię do celu! 🎯",
+  "Pamiętaj - postęp to nie tylko liczby, ale też jak się czujesz! ✨"
+];
+
+// --- Workout History for Progression Suggestions ---
+export interface MockPastSession {
+  sessionId: string;
+  exerciseId: string;
+  date: string;
+  setsPerformed: { weight: string | number; reps: string | number }[];
+}
+
+export const MOCK_WORKOUT_HISTORY_FOR_SUGGESTIONS: MockPastSession[] = [
+  {
+    sessionId: "session1",
+    exerciseId: "ex1",
+    date: "2024-01-10T10:00:00Z",
+    setsPerformed: [
+      { weight: 80, reps: 8 },
+      { weight: 80, reps: 7 },
+      { weight: 80, reps: 6 }
+    ]
+  },
+  {
+    sessionId: "session2",
+    exerciseId: "ex2",
+    date: "2024-01-08T14:30:00Z",
+    setsPerformed: [
+      { weight: 100, reps: 10 },
+      { weight: 100, reps: 9 },
+      { weight: 100, reps: 8 }
+    ]
+  },
+  {
+    sessionId: "session3",
+    exerciseId: "ex4",
+    date: "2024-01-05T16:00:00Z",
+    setsPerformed: [
+      { weight: "bodyweight", reps: 12 },
+      { weight: "bodyweight", reps: 10 },
+      { weight: "bodyweight", reps: 8 }
+    ]
+  },
+  {
+    sessionId: "session4",
+    exerciseId: "ex1",
+    date: "2024-01-03T11:00:00Z",
+    setsPerformed: [
+      { weight: 77.5, reps: 8 },
+      { weight: 77.5, reps: 8 },
+      { weight: 77.5, reps: 7 }
+    ]
+  },
+  {
+    sessionId: "session5",
+    exerciseId: "ex2",
+    date: "2024-01-01T15:00:00Z",
+    setsPerformed: [
+      { weight: 95, reps: 10 },
+      { weight: 95, reps: 10 },
+      { weight: 95, reps: 9 }
     ]
   }
 ];

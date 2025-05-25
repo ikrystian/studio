@@ -1,8 +1,7 @@
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getDB } from '@/lib/sqlite';
+import { getDB, getCurrentUserId } from '@/lib/sqlite';
 import type { Workout, ExerciseInWorkout } from '@/app/(app)/dashboard/workout/active/[workoutId]/page'; // Re-use types
-import { MOCK_CURRENT_USER_PROFILE } from '@/lib/mockData'; // For user-specific fetching
 
 type ApiResponse = {
   success: boolean;
@@ -16,15 +15,14 @@ export default async function handler(
 ) {
   if (req.method === 'GET') {
     const db = getDB();
-    // In a real app, userId would come from an authenticated session.
-    // For now, using the mock current user's ID.
-    const userId = MOCK_CURRENT_USER_PROFILE.id;
+    const currentUserId = getCurrentUserId();
+    const { includePublic, search, type } = req.query;
 
     try {
       const workoutDefinitionsQuery = `
-        SELECT 
-          wd.id, 
-          wd.name, 
+        SELECT
+          wd.id,
+          wd.name,
           wd.type,
           wd.user_id,
           wd.isPublic
@@ -32,7 +30,7 @@ export default async function handler(
         WHERE wd.user_id = ? OR wd.isPublic = 1
         ORDER BY wd.createdAt DESC
       `;
-      const definitionsFromDb = db.prepare(workoutDefinitionsQuery).all(userId) as {
+      const definitionsFromDb = db.prepare(workoutDefinitionsQuery).all(currentUserId) as {
         id: string;
         name: string;
         type: string | null;
@@ -44,11 +42,11 @@ export default async function handler(
 
       for (const def of definitionsFromDb) {
         const exercisesQuery = `
-          SELECT 
-            wde.exercise_id as id, 
-            e.name, 
-            wde.defaultSets, 
-            wde.defaultReps, 
+          SELECT
+            wde.exercise_id as id,
+            e.name,
+            wde.defaultSets,
+            wde.defaultReps,
             wde.defaultRestSeconds as defaultRest
           FROM workout_definition_exercises wde
           JOIN exercises e ON e.id = wde.exercise_id
@@ -56,7 +54,7 @@ export default async function handler(
           ORDER BY wde.order_index ASC
         `;
         const exercisesForDef = db.prepare(exercisesQuery).all(def.id) as ExerciseInWorkout[];
-        
+
         workouts.push({
           id: def.id,
           name: def.name,
